@@ -64,3 +64,4 @@ test: $(OUT_DIR)/sexpr-dump $(OUT_DIR)/sexpr-wasm
 .PHONY: clean
 clean:
 	rm -rf $(OUT_DIR)
+	rm -rf test/Output
