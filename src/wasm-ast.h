@@ -31,11 +31,14 @@ class Callable {
   std::vector<Variable> args;
   std::string local_name; // Empty if none bound
   void dump_params_result() {
-    for (auto &arg : args) {
+    if (args.size()) {
       printf(" (param");
-      if (arg.local_name.size())
-        printf(" %s", arg.local_name.c_str());
-      printf(" %s)", TypeName(arg.type));
+      for (auto &arg : args) {
+        if (arg.local_name.size())
+          printf(" %s", arg.local_name.c_str());
+        printf(" %s", TypeName(arg.type));
+      }
+      printf(")");
     }
 
     if (result_type != WASM_TYPE_VOID)

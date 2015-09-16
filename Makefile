@@ -26,6 +26,7 @@ SEXPR_DUMP_SRCS = wasm-cpp.cc sexpr-dump.cc
 SEXPR_DUMP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(SEXPR_DUMP_SRCS))
 
 LLVM_PATH ?= /s/llvm-upstream/release_37/install
+LLVM_BUILD_PATH ?= /s/llvm-upstream/release_37/build
 LLVM_CONFIG = $(LLVM_PATH)/bin/llvm-config
 
 LLVM_CPPFLAGS := $(shell $(LLVM_CONFIG) --cppflags)
@@ -56,9 +57,9 @@ $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
 
 #### TESTS ####
-TEST_EXES=$(shell python test/run-tests.py --list-exes)
-
-
+.PHONY: test
+test: $(OUT_DIR)/sexpr-dump $(OUT_DIR)/sexpr-wasm
+	PATH=$(PATH):$(LLVM_PATH)/bin:`pwd`/$(OUT_DIR) $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
 clean:
