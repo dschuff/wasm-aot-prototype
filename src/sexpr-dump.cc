@@ -12,9 +12,11 @@ InputFilename(llvm::cl::Positional, llvm::cl::desc("<input sexpr file>"),
               llvm::cl::init("-"));
 
 
+static llvm::cl::opt<bool>
+DumpInput("i", llvm::cl::desc("Dump input as well as output"),
+          llvm::cl::init(false));
 
 int main(int argc, char** argv) {
-
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
   if (InputFilename == "-") {
@@ -33,9 +35,11 @@ int main(int argc, char** argv) {
 
   auto& Buffer = ErrorOrBuffer.get();
 
-  llvm::errs() << "INPUT:\n";
-  llvm::errs() << Buffer->getBuffer();
-  llvm::errs() << "OUTPUT:\n";
+  if(DumpInput) {
+    llvm::errs() << "INPUT:\n";
+    llvm::errs() << Buffer->getBuffer();
+    llvm::errs() << "OUTPUT:\n";
+  }
   wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd());
   DumbParser.Parse();
   DumbParser.module.dump();
