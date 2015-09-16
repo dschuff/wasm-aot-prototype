@@ -37,14 +37,14 @@ LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath=$(LLVM_LIBDIR)
 
 
 .PHONY: all
-all: $(addprefix $(OUT_DIR)/,$(ALL))
+all: $(OUT_DIR) $(addprefix $(OUT_DIR)/,$(ALL))
 
 $(OUT_DIR)/:
 	mkdir $@
 
-$(OUT_DIR)/%.o: %.c $(PARSER_HEADERS) $(OUT_DIR)
+$(OUT_DIR)/%.o: %.c $(PARSER_HEADERS)
 	$(CC) $(CFLAGS) -I$(PARSER_SRC) -c -o $@ $<
-$(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(OUT_DIR)
+$(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS)
 	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(PARSER_SRC) -Wno-format $(CFLAGS) -c -o $@ $<
 
 $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS) $(HEADERS)
