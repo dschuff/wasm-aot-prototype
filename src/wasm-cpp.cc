@@ -19,9 +19,7 @@ void Parser::BeforeModule(WasmModule* m) {
     WasmAst::Function &func = module.functions.back();
 
     func.index_in_module = i;
-    assert(parser_func->result_types.size < 2);
-    func.result_type = parser_func->result_types.size ?
-        parser_func->result_types.data[0] : WASM_TYPE_VOID;
+    func.result_type = parser_func->result_type;
 
     func.args.reserve(parser_func->num_args);
     for (int j = 0; j < parser_func->num_args; ++j) {

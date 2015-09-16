@@ -32,7 +32,7 @@ public:
     parser.after_break = unimplemented<int>;
     parser.before_call = unimplemented<int>;
     parser.before_compare = unimplemented<enum WasmOpcode>;
-    parser.before_const = unimplemented<enum WasmOpcode>;
+    parser.after_const = unimplemented<enum WasmOpcode, WasmType, WasmNumber>;
     parser.before_convert = unimplemented<enum WasmOpcode>;
     parser.before_label = unimplementedT<WasmParserCookie>;
     parser.after_label = unimplemented<int, WasmParserCookie>;
@@ -49,10 +49,6 @@ public:
     parser.before_store = unimplemented<enum WasmOpcode, uint8_t>;
     parser.before_store_global = unimplemented<int>;
     parser.before_unary = unimplemented<enum WasmOpcode>;
-    parser.u32_literal = unimplemented<uint32_t>;
-    parser.u64_literal = unimplemented<uint64_t>;
-    parser.f32_literal = unimplemented<float>;
-    parser.f64_literal = unimplemented<double>;
   }
   void Parse() {
     wasm_parse_file(&parser, &tokenizer_);
