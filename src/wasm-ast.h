@@ -24,12 +24,11 @@ class Expression {
   void dump();
 };
 
-
 class Callable {
  public:
   WasmType result_type = WASM_TYPE_VOID;
   std::vector<Variable> args;
-  std::string local_name; // Empty if none bound
+  std::string local_name;  // Empty if none bound
 
   // Functions can be declared with a single parameter list like
   // (func (param i32 i64)) or with a split parameter list like
@@ -44,14 +43,13 @@ class Callable {
 class Function : public Callable {
  public:
   std::vector<Variable> locals;
-  std::string export_name; // Empty if not exported.
+  std::string export_name;  // Empty if not exported.
   std::vector<std::unique_ptr<Expression>> body;
   int index_in_module = 0;
   bool is_external = false;
   int depth = 0;
 
-  void dump_var_list(const std::vector<Variable>& lst,
-                     const char* name);
+  void dump_var_list(const std::vector<Variable>& lst, const char* name);
   void dump();
 };
 
@@ -68,8 +66,7 @@ class Segment {
   size_t address = 0;
   std::vector<char> initial_data;
   std::string as_string() const {
-    return std::string(initial_data.begin(),
-                       initial_data.end());
+    return std::string(initial_data.begin(), initial_data.end());
   }
   void dump() {
     printf("(segment %zu \"%s\")\n", address, as_string().c_str());
@@ -88,5 +85,5 @@ class Module {
   void dump();
 };
 
-} // namespace wasm
-#endif // WASM_AST
+}  // namespace wasm
+#endif  // WASM_AST
