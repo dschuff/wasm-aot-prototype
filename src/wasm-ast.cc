@@ -3,7 +3,7 @@
 #include <memory>
 #include <cassert>
 
-namespace WasmAst {
+namespace wasm {
 
 static const char* TypeName(WasmType t) {
   switch(t) {
@@ -108,4 +108,4 @@ void Module::dump() {
   printf(")\n");
 }
 
-} // namespace WasmAst
+} // namespace wasm

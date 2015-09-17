@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace WasmAst {
+namespace wasm {
 
 class Variable {
  public:
@@ -88,5 +88,5 @@ class Module {
   void dump();
 };
 
-}
+} // namespace wasm
 #endif // WASM_AST

@@ -15,11 +15,11 @@ void Parser::AfterFunction(WasmModule* m, WasmFunction* f) {
 }
 
 void Parser::AfterNop() {
-  insert(new WasmAst::Expression(WASM_OP_NOP));
+  insert(new Expression(WASM_OP_NOP));
 }
 
 WasmParserCookie Parser::BeforeBlock() {
-  auto* expr = new WasmAst::Expression(WASM_OP_BLOCK);
+  auto* expr = new Expression(WASM_OP_BLOCK);
   insert(expr);
   insertion_point_ = &expr->exprs;
   return 0;
@@ -42,7 +42,7 @@ void Parser::BeforeModule(WasmModule* m) {
   for (size_t i = 0; i < m->functions.size; ++i) {
     WasmFunction *parser_func = &m->functions.data[i];
     module.functions.emplace_back();
-    WasmAst::Function &func = module.functions.back();
+    Function &func = module.functions.back();
     functions_[parser_func] = &func;
 
     func.index_in_module = i;
@@ -77,7 +77,7 @@ void Parser::BeforeModule(WasmModule* m) {
   for (size_t i = 0; i < m->imports.size; ++i) {
     WasmImport &parser_import = m->imports.data[i];
     module.imports.emplace_back();
-    WasmAst::Import &imp = module.imports.back();
+    Import &imp = module.imports.back();
     imp.module_name.assign(parser_import.module_name);
     imp.func_name.assign(parser_import.func_name);
     imp.result_type = parser_import.result_type;
@@ -88,7 +88,7 @@ void Parser::BeforeModule(WasmModule* m) {
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
     WasmBinding &binding = m->import_bindings.data[i];
-    WasmAst::Import &imp = module.imports[binding.index];
+    Import &imp = module.imports[binding.index];
     imp.local_name.assign(binding.name);
   }
 
@@ -99,7 +99,7 @@ void Parser::BeforeModule(WasmModule* m) {
   for (size_t i = 0; i < m->segments.size; ++i) {
     WasmSegment &parser_seg = m->segments.data[i];
     module.segments.emplace_back();
-    WasmAst::Segment& seg = module.segments.back();
+    Segment& seg = module.segments.back();
     seg.size = parser_seg.size;
     seg.address = parser_seg.address;
     seg.initial_data.resize(seg.size);
@@ -110,7 +110,7 @@ void Parser::BeforeModule(WasmModule* m) {
 }
 
 void Parser::AfterExport(WasmModule* m, WasmExport *e) {
-  WasmAst::Function *f = &module.functions[e->index];
+  Function *f = &module.functions[e->index];
   f->export_name.assign(e->name);
   module.exports.push_back(f);
 }

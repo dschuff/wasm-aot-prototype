@@ -56,7 +56,7 @@ public:
     wasm_parse_file(&parser, &tokenizer_);
   }
 
-  WasmAst::Module module;
+  Module module;
 
  protected:
   virtual void Unimplemented(const char* name);
@@ -72,10 +72,10 @@ public:
   WasmSource source_;
   WasmTokenizer tokenizer_;
 
-  std::unordered_map<WasmFunction*, WasmAst::Function*> functions_;
+  std::unordered_map<WasmFunction*, Function*> functions_;
 
-  std::vector<std::unique_ptr<WasmAst::Expression>>* insertion_point_;
-  void insert(WasmAst::Expression* ex) {
+  std::vector<std::unique_ptr<Expression>>* insertion_point_;
+  void insert(Expression* ex) {
     assert(insertion_point_);
     insertion_point_->emplace_back(ex);
   }
