@@ -30,20 +30,18 @@ class Callable {
   WasmType result_type = WASM_TYPE_VOID;
   std::vector<Variable> args;
   std::string local_name; // Empty if none bound
-  void dump_params_result() {
-    if (args.size()) {
-      printf(" (param");
-      for (auto &arg : args) {
-        if (arg.local_name.size())
-          printf(" %s", arg.local_name.c_str());
-        printf(" %s", TypeName(arg.type));
-      }
-      printf(")");
-    }
 
+  // Functions can be declared with a single parameter list like
+  // (func (param i32 i64)) or with a split parameter list like
+  // (func (param i32) (param i32)
+  // If any of the params have name bindings e.g. (param $n i32) then the
+  // style must be used. However imports are required to use the single
+  // style. If this is fixed, arg dumping can be shared here.
+  void dump_result() {
     if (result_type != WASM_TYPE_VOID)
       printf(" (result %s)", TypeName(result_type));
   }
+  void dump();
 };
 
 class Function : public Callable {
@@ -57,7 +55,14 @@ class Function : public Callable {
     printf("  (func ");
     if (local_name.size())
       printf("%s", local_name.c_str());
-    dump_params_result();
+
+    for (auto &arg : args) {
+      printf(" (param");
+      if (arg.local_name.size())
+        printf(" %s", arg.local_name.c_str());
+      printf(" %s)", TypeName(arg.type));
+    }
+    dump_result();
     printf(")\n");
   }
 };
@@ -71,7 +76,14 @@ class Import : public Callable {
            local_name.c_str(),
            module_name.c_str(),
            func_name.c_str());
-    dump_params_result();
+
+    if (args.size()) {
+      printf(" (param");
+      for (auto &arg : args)
+        printf(" %s", TypeName(arg.type));
+      printf(")");
+    }
+    dump_result();
     printf(")\n");
   }
 };
