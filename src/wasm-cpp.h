@@ -6,6 +6,8 @@
 #include "wasm-parse.h"
 
 #include <string>
+#include <unordered_map>
+#include <cassert>
 
 namespace wasm {
 
@@ -22,13 +24,13 @@ public:
     parser.user_data = this;
     parser.before_module = before_module;
     parser.after_module = unimplemented<WasmModule*>;
-    parser.before_function = unimplemented<WasmModule*, WasmFunction*>;
+    parser.before_function = before_function;
     parser.after_function = unimplemented<WasmModule*, WasmFunction*, int>;
     parser.before_export = unimplemented<WasmModule*>;
     parser.after_export = after_export;
     parser.before_binary = unimplemented<enum WasmOpcode>;
-    parser.before_block = unimplementedT<WasmParserCookie>;
-    parser.after_block = unimplemented<int, WasmParserCookie>;
+    parser.before_block = before_block;
+    parser.after_block = after_block;
     parser.after_break = unimplemented<int>;
     parser.before_call = unimplemented<int>;
     parser.before_compare = unimplemented<enum WasmOpcode>;
@@ -43,7 +45,7 @@ public:
     parser.after_if = unimplemented<int, WasmParserCookie>;
     parser.before_load = unimplemented<enum WasmOpcode, uint8_t>;
     parser.after_load_global = unimplemented<int>;
-    parser.after_nop = unimplemented<>;
+    parser.after_nop = after_nop;
     parser.before_return = unimplemented<>;
     parser.before_set_local = unimplemented<int>;
     parser.before_store = unimplemented<enum WasmOpcode, uint8_t>;
@@ -58,12 +60,47 @@ public:
 
  protected:
   virtual void Unimplemented(const char* name);
+  virtual void AfterNop();
+  virtual WasmParserCookie BeforeBlock();
+  virtual void AfterBlock(WasmParserCookie);
+  virtual void BeforeFunction(WasmModule* m, WasmFunction* f);
+  virtual void AfterFunction(WasmModule* m, WasmFunction* f);
   virtual void BeforeModule(WasmModule* m);
   virtual void AfterExport(WasmModule* m, WasmExport* e);
  private:
   WasmParser parser = {};
   WasmSource source_;
   WasmTokenizer tokenizer_;
+
+  std::unordered_map<WasmFunction*, WasmAst::Function*> functions_;
+
+  std::vector<std::unique_ptr<WasmAst::Expression>>* insertion_point_;
+  void insert(WasmAst::Expression* ex) {
+    assert(insertion_point_);
+    insertion_point_->emplace_back(ex);
+  }
+
+
+  static void after_nop(void* user) {
+    static_cast<Parser*>(user)->AfterNop();
+  }
+
+  static WasmParserCookie before_block(void* user) {
+    return static_cast<Parser*>(user)->BeforeBlock();
+  }
+
+  static void after_block(int, WasmParserCookie cookie, void* user) {
+    static_cast<Parser*>(user)->AfterBlock(cookie);
+  }
+
+  static void before_function(WasmModule* m, WasmFunction* f,
+                              void* user) {
+    static_cast<Parser*>(user)->BeforeFunction(m, f);
+  }
+  static void after_function(WasmModule* m, WasmFunction* f,
+                             void* user) {
+    static_cast<Parser*>(user)->AfterFunction(m, f);
+  }
 
   static void before_module(WasmModule* m, void* user) {
     static_cast<Parser*>(user)->BeforeModule(m);

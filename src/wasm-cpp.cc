@@ -11,6 +11,30 @@ void WasmAst::Callable::dump() {
 
 namespace wasm {
 
+void Parser::BeforeFunction(WasmModule* m, WasmFunction* f) {
+  insertion_point_ = &functions_[f]->body;
+}
+
+void Parser::AfterFunction(WasmModule* m, WasmFunction* f) {
+  assert(functions_[f]->body.size() == 1);
+  insertion_point_ = nullptr;
+}
+
+void Parser::AfterNop() {
+  insert(new WasmAst::Expression(WASM_OP_NOP));
+}
+
+WasmParserCookie Parser::BeforeBlock() {
+  auto* expr = new WasmAst::Expression(WASM_OP_BLOCK);
+  insert(expr);
+  insertion_point_ = &expr->exprs;
+  return 0;
+}
+
+void Parser::AfterBlock(WasmParserCookie cookie) {
+  insertion_point_ = nullptr;
+}
+
 void Parser::Unimplemented(const char* name) {
   printf("%s\n", name);
 }
@@ -25,6 +49,7 @@ void Parser::BeforeModule(WasmModule* m) {
     WasmFunction *parser_func = &m->functions.data[i];
     module.functions.emplace_back();
     WasmAst::Function &func = module.functions.back();
+    functions_[parser_func] = &func;
 
     func.index_in_module = i;
     func.result_type = parser_func->result_type;

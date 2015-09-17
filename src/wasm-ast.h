@@ -3,8 +3,10 @@
 
 #include "wasm.h"
 
+#include <memory>
 #include <string>
 #include <vector>
+#include <cassert>
 
 namespace WasmAst {
 
@@ -24,6 +26,32 @@ class Variable {
   WasmType type = WASM_TYPE_VOID;
   std::string local_name;  // Empty if none bound
 };
+
+class Expression {
+ public:
+  WasmOpType opcode = WASM_OP_NOP;
+  WasmType expr_type = WASM_TYPE_VOID;
+  std::vector<std::unique_ptr<Expression>> exprs;
+  Expression(WasmOpType op) : opcode(op) {}
+  void dump() {
+    printf("(");
+    switch(opcode) {
+      case WASM_OP_NOP:
+        printf("nop");
+        break;
+      case WASM_OP_BLOCK:
+        printf("block ");
+        for (auto& expr : exprs) {
+          expr->dump();
+        }
+        break;
+      default:
+        assert(false);
+    }
+    printf(")");
+  }
+};
+
 
 class Callable {
  public:
@@ -48,9 +76,11 @@ class Function : public Callable {
  public:
   std::vector<Variable> locals;
   std::string export_name; // Empty if not exported.
+  std::vector<std::unique_ptr<Expression>> body;
   int index_in_module = 0;
   bool is_external = false;
   int depth = 0;
+
   void dump_var_list(const std::vector<Variable>& lst,
                      const char* name) {
     for (auto &var : lst) {
@@ -68,6 +98,9 @@ class Function : public Callable {
     dump_var_list(args, "param");
     dump_result();
     dump_var_list(locals, "local");
+    for (auto &expr : body) {
+      expr->dump();
+    }
     printf(")\n");
   }
 };
