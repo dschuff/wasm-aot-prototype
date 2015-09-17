@@ -51,18 +51,23 @@ class Function : public Callable {
   int index_in_module = 0;
   bool is_external = false;
   int depth = 0;
+  void dump_var_list(const std::vector<Variable>& lst,
+                     const char* name) {
+    for (auto &var : lst) {
+      printf(" (%s", name);
+      if (var.local_name.size())
+        printf(" %s", var.local_name.c_str());
+      printf(" %s)", TypeName(var.type));
+    }
+  }
   void dump() {
     printf("  (func ");
     if (local_name.size())
       printf("%s", local_name.c_str());
 
-    for (auto &arg : args) {
-      printf(" (param");
-      if (arg.local_name.size())
-        printf(" %s", arg.local_name.c_str());
-      printf(" %s)", TypeName(arg.type));
-    }
+    dump_var_list(args, "param");
     dump_result();
+    dump_var_list(locals, "local");
     printf(")\n");
   }
 };
