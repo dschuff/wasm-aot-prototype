@@ -44,13 +44,13 @@ $(OUT_DIR)/:
 
 $(OUT_DIR)/%.o: %.c $(PARSER_HEADERS)
 	$(CC) $(CFLAGS) -I$(PARSER_SRC) -c -o $@ $<
-$(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS)
+$(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(WASM_CPP_HEADERS)
 	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(PARSER_SRC) -Wno-format $(CFLAGS) -c -o $@ $<
 
-$(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS) $(HEADERS)
+$(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS)
 
-$(OUT_DIR)/sexpr-dump: $(PARSER_OBJS) $(SEXPR_DUMP_OBJS) $(HEADERS)
+$(OUT_DIR)/sexpr-dump: $(PARSER_OBJS) $(SEXPR_DUMP_OBJS)
 	$(CXX) -o $@ $(PARSER_OBJS) $(SEXPR_DUMP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
 $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
