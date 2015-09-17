@@ -4,15 +4,6 @@
 
 namespace wasm {
 
-void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  insertion_point_ = &functions_[f]->body;
-}
-
-void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
-  assert(functions_[f]->body.size() <= 1);
-  insertion_point_ = nullptr;
-}
-
 void Parser::after_nop() {
   insert(new Expression(WASM_OP_NOP));
 }
@@ -28,9 +19,15 @@ void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
   insertion_point_ = nullptr;
 }
 
-void Parser::Unimplemented(const char* name) {
-  printf("%s\n", name);
+void Parser::before_function(WasmModule* m, WasmFunction* f) {
+  insertion_point_ = &functions_[f]->body;
 }
+
+void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
+  assert(functions_[f]->body.size() <= 1);
+  insertion_point_ = nullptr;
+}
+
 void Parser::before_module(WasmModule* m) {
   module.initial_memory_size = m->initial_memory_size;
   module.max_memory_size = m->max_memory_size;
