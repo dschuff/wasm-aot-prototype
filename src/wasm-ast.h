@@ -72,7 +72,7 @@ class Segment {
                        initial_data.end());
   }
   void dump() {
-    printf("(segment %u \"%s\")\n", address, as_string().c_str());
+    printf("(segment %zu \"%s\")\n", address, as_string().c_str());
   }
 };
 

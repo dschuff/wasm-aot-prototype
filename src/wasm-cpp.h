@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <cassert>
+#include <cstring>
 
 namespace wasm {
 
@@ -36,6 +37,7 @@ public:
     tokenizer_.loc.line = 1;
     tokenizer_.loc.col = 1;
 
+    memset(&parser, 0x0, sizeof(parser));
     parser.user_data = this;
 
 #define CALLBACK(name, retty, ...)                  \
@@ -47,29 +49,6 @@ public:
     EACH_CALLBACK3
 #undef CALLBACK
 
-
-    parser.after_module = unimplemented<WasmModule*>;
-    parser.before_export = unimplemented<WasmModule*>;
-    parser.before_binary = unimplemented<enum WasmOpcode>;
-    parser.after_break = unimplemented<int>;
-    parser.before_call = unimplemented<int>;
-    parser.before_compare = unimplemented<enum WasmOpcode>;
-    parser.after_const = unimplemented<enum WasmOpcode, WasmType, WasmNumber>;
-    parser.before_convert = unimplemented<enum WasmOpcode>;
-    parser.before_label = unimplementedT<WasmParserCookie>;
-    parser.after_label = unimplemented<int, WasmParserCookie>;
-    parser.after_get_local = unimplemented<int>;
-    parser.before_loop = unimplementedT<WasmParserCookie>;
-    parser.after_loop = unimplemented<int, WasmParserCookie>;
-    parser.before_if = unimplementedT<WasmParserCookie>;
-    parser.after_if = unimplemented<int, WasmParserCookie>;
-    parser.before_load = unimplemented<enum WasmOpcode, uint8_t>;
-    parser.after_load_global = unimplemented<int>;
-    parser.before_return = unimplemented<>;
-    parser.before_set_local = unimplemented<int>;
-    parser.before_store = unimplemented<enum WasmOpcode, uint8_t>;
-    parser.before_store_global = unimplemented<int>;
-    parser.before_unary = unimplemented<enum WasmOpcode>;
   }
   void Parse() {
     wasm_parse_file(&parser, &tokenizer_);
@@ -133,18 +112,6 @@ public:
   EACH_CALLBACK3
 #undef CALLBACK
 
-
-
-  template <typename T, typename... Args> static T
-  unimplementedT(Args... args, void *user) {
-    unimplemented<Args...>(args..., user);
-    return T();
-  }
-
-  template <typename... Args> static void
-  unimplemented(Args... args, void *user) {
-
-  }
 };
 
 } // namespace wasm
