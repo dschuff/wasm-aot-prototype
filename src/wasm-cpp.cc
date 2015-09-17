@@ -2,12 +2,6 @@
 #include <cstdio>
 #include <cassert>
 
-void WasmAst::Callable::dump() {
-  // For now, try to avoid having virtual tables in the IR classes (even though
-  // it's maybe inevitable). Both Function and Import have dump() so disallow
-  // calling dump() on the base class.
-  assert(false);
-}
 
 namespace wasm {
 
