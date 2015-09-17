@@ -11,6 +11,21 @@
 
 namespace wasm {
 
+#define EACH_CALLBACK0 \
+  CALLBACK(after_nop, void) \
+  CALLBACK(before_block, WasmParserCookie)
+
+#define EACH_CALLBACK1 \
+  CALLBACK(before_module, void, WasmModule*)
+
+#define EACH_CALLBACK2 \
+  CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
+  CALLBACK(after_block, void, int, WasmParserCookie) \
+  CALLBACK(after_export, void, WasmModule*, WasmExport*)
+
+#define EACH_CALLBACK3 \
+  CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)   \
+
 class Parser {
 public:
   Parser(const char* start, const char* end) {
@@ -22,15 +37,20 @@ public:
     tokenizer_.loc.col = 1;
 
     parser.user_data = this;
-    parser.before_module = before_module;
+
+#define CALLBACK(name, retty, ...)                  \
+    parser.name = wrapper_##name;
+
+    EACH_CALLBACK0
+    EACH_CALLBACK1
+    EACH_CALLBACK2
+    EACH_CALLBACK3
+#undef CALLBACK
+
+
     parser.after_module = unimplemented<WasmModule*>;
-    parser.before_function = before_function;
-    parser.after_function = unimplemented<WasmModule*, WasmFunction*, int>;
     parser.before_export = unimplemented<WasmModule*>;
-    parser.after_export = after_export;
     parser.before_binary = unimplemented<enum WasmOpcode>;
-    parser.before_block = before_block;
-    parser.after_block = after_block;
     parser.after_break = unimplemented<int>;
     parser.before_call = unimplemented<int>;
     parser.before_compare = unimplemented<enum WasmOpcode>;
@@ -45,7 +65,6 @@ public:
     parser.after_if = unimplemented<int, WasmParserCookie>;
     parser.before_load = unimplemented<enum WasmOpcode, uint8_t>;
     parser.after_load_global = unimplemented<int>;
-    parser.after_nop = after_nop;
     parser.before_return = unimplemented<>;
     parser.before_set_local = unimplemented<int>;
     parser.before_store = unimplemented<enum WasmOpcode, uint8_t>;
@@ -58,16 +77,18 @@ public:
 
   Module module;
 
- protected:
-  virtual void Unimplemented(const char* name);
-  virtual void AfterNop();
-  virtual WasmParserCookie BeforeBlock();
-  virtual void AfterBlock(WasmParserCookie);
-  virtual void BeforeFunction(WasmModule* m, WasmFunction* f);
-  virtual void AfterFunction(WasmModule* m, WasmFunction* f);
-  virtual void BeforeModule(WasmModule* m);
-  virtual void AfterExport(WasmModule* m, WasmExport* e);
  private:
+  virtual void Unimplemented(const char* name);
+
+#define CALLBACK(name, retty, ...) \
+  retty name(__VA_ARGS__);
+
+  EACH_CALLBACK0
+  EACH_CALLBACK1
+  EACH_CALLBACK2
+  EACH_CALLBACK3
+#undef CALLBACK
+
   WasmParser parser = {};
   WasmSource source_;
   WasmTokenizer tokenizer_;
@@ -81,34 +102,39 @@ public:
   }
 
 
-  static void after_nop(void* user) {
-    static_cast<Parser*>(user)->AfterNop();
+  // The callbacks unfortunately are split by arity because we need to
+  // interleave the va-args (which are the arg types) with arg names, and
+  // variadic macros don't have a way to do that.
+#define CALLBACK(name, retty) \
+  static retty wrapper_##name(void* user) {\
+    return static_cast<Parser*>(user)->name();\
   }
+  EACH_CALLBACK0
+#undef CALLBACK
 
-  static WasmParserCookie before_block(void* user) {
-    return static_cast<Parser*>(user)->BeforeBlock();
+#define CALLBACK(name, retty, arg1ty) \
+  static retty wrapper_##name(arg1ty arg1, void* user) {           \
+    return static_cast<Parser*>(user)->name(arg1);\
   }
+  EACH_CALLBACK1
+#undef CALLBACK
 
-  static void after_block(int, WasmParserCookie cookie, void* user) {
-    static_cast<Parser*>(user)->AfterBlock(cookie);
+#define CALLBACK(name, retty, arg1ty, arg2ty)                             \
+  static retty wrapper_##name(arg1ty arg1, arg2ty arg2, void* user) {    \
+    return static_cast<Parser*>(user)->name(arg1, arg2);                     \
   }
+  EACH_CALLBACK2
+#undef CALLBACK
 
-  static void before_function(WasmModule* m, WasmFunction* f,
-                              void* user) {
-    static_cast<Parser*>(user)->BeforeFunction(m, f);
+#define CALLBACK(name, retty, arg1ty, arg2ty, arg3ty)                          \
+  static retty wrapper_##name(arg1ty arg1, arg2ty arg2, arg3ty arg3, void* user) { \
+    return static_cast<Parser*>(user)->name(arg1, arg2, arg3);                 \
   }
-  static void after_function(WasmModule* m, WasmFunction* f,
-                             void* user) {
-    static_cast<Parser*>(user)->AfterFunction(m, f);
-  }
+  EACH_CALLBACK3
+#undef CALLBACK
 
-  static void before_module(WasmModule* m, void* user) {
-    static_cast<Parser*>(user)->BeforeModule(m);
-  }
 
-  static void after_export(WasmModule* m, WasmExport* e, void* user) {
-    static_cast<Parser*>(user)->AfterExport(m, e);
-  }
+
   template <typename T, typename... Args> static T
   unimplementedT(Args... args, void *user) {
     unimplemented<Args...>(args..., user);

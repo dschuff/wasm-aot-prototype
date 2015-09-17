@@ -5,34 +5,34 @@
 
 namespace wasm {
 
-void Parser::BeforeFunction(WasmModule* m, WasmFunction* f) {
+void Parser::before_function(WasmModule* m, WasmFunction* f) {
   insertion_point_ = &functions_[f]->body;
 }
 
-void Parser::AfterFunction(WasmModule* m, WasmFunction* f) {
-  assert(functions_[f]->body.size() == 1);
+void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
+  assert(functions_[f]->body.size() <= 1);
   insertion_point_ = nullptr;
 }
 
-void Parser::AfterNop() {
+void Parser::after_nop() {
   insert(new Expression(WASM_OP_NOP));
 }
 
-WasmParserCookie Parser::BeforeBlock() {
+WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OP_BLOCK);
   insert(expr);
   insertion_point_ = &expr->exprs;
   return 0;
 }
 
-void Parser::AfterBlock(WasmParserCookie cookie) {
+void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
   insertion_point_ = nullptr;
 }
 
 void Parser::Unimplemented(const char* name) {
   printf("%s\n", name);
 }
-void Parser::BeforeModule(WasmModule* m) {
+void Parser::before_module(WasmModule* m) {
   module.initial_memory_size = m->initial_memory_size;
   module.max_memory_size = m->max_memory_size;
   assert(module.max_memory_size >= module.initial_memory_size);
@@ -109,7 +109,7 @@ void Parser::BeforeModule(WasmModule* m) {
   }
 }
 
-void Parser::AfterExport(WasmModule* m, WasmExport *e) {
+void Parser::after_export(WasmModule* m, WasmExport *e) {
   Function *f = &module.functions[e->index];
   f->export_name.assign(e->name);
   module.exports.push_back(f);
