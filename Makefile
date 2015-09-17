@@ -33,7 +33,7 @@ LLVM_CPPFLAGS := $(shell $(LLVM_CONFIG) --cppflags)
 LLVM_LIBS := $(shell $(LLVM_CONFIG) --libs)
 LLVM_LIBDIR := $(shell $(LLVM_CONFIG) --libdir)
 LLVM_SYSTEMLIBS := $(shell  $(LLVM_CONFIG) --system-libs)
-LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath=$(LLVM_LIBDIR)
+LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath=$(LLVM_LIBDIR) -Wl,--as-needed
 
 
 .PHONY: all
