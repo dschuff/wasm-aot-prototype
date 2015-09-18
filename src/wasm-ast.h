@@ -9,6 +9,9 @@
 
 namespace wasm {
 
+class Callable;
+class Module;
+
 class Literal {
  public:
   WasmType type = WASM_TYPE_VOID;
@@ -29,11 +32,17 @@ class Variable {
 
 class Expression {
  public:
+  // Common
   WasmOpType opcode = WASM_OP_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
-
+  // Const
   Literal literal = {};
+  // Call, CallImport
+  int callee_index = 0;
+  Callable* callee;
+  // Common (block, call args)
   std::vector<std::unique_ptr<Expression>> exprs;
+
   Expression(WasmOpType op) : opcode(op) {}
   void dump();
 };

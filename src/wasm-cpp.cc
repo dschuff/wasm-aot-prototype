@@ -19,6 +19,15 @@ void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
   insertion_point_ = nullptr;
 }
 
+void Parser::before_call(int func_index) {
+  auto* expr = new Expression(WASM_OP_CALL);
+  expr->callee_index = func_index;
+  assert(module.functions.size() > (unsigned)func_index);
+  expr->callee = &module.functions[func_index];
+  insert(expr);
+  insertion_point_ = &expr->exprs;
+}
+
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
   auto* expr = new Expression(WASM_OP_CONST);
   expr->expr_type = ty;

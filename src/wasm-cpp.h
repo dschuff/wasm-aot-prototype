@@ -16,7 +16,9 @@ namespace wasm {
   CALLBACK(after_nop, void) \
   CALLBACK(before_block, WasmParserCookie)
 
-#define EACH_CALLBACK1 CALLBACK(before_module, void, WasmModule*)
+#define EACH_CALLBACK1             \
+  CALLBACK(before_call, void, int) \
+  CALLBACK(before_module, void, WasmModule*)
 
 #define EACH_CALLBACK2                                        \
   CALLBACK(after_block, void, int, WasmParserCookie)          \

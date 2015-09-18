@@ -54,6 +54,17 @@ void Expression::dump() {
         expr->dump();
       }
       break;
+    case WASM_OP_CALL:
+      printf("call ");
+      if (callee->local_name.size()) {
+        printf("%s ", callee->local_name.c_str());
+      } else {
+        printf("%d ", callee_index);
+      }
+      for (auto& expr : exprs) {
+        expr->dump();
+      }
+      break;
     case WASM_OP_CONST:
       literal.dump();
       break;
