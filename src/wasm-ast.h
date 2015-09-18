@@ -9,7 +9,6 @@
 
 namespace wasm {
 
-
 class Literal {
  public:
   WasmType type = WASM_TYPE_VOID;

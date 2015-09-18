@@ -54,7 +54,7 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
   /* TODO: move this to a separate pass/prepass?*/
   // Desugar from a top-level list of exprs to an implicit block expr
   if (desugar_) {
-    Function *func = functions_[f];
+    Function* func = functions_[f];
     if (func->body.size() > 1) {
       auto* expr = new Expression(WASM_OP_BLOCK);
       std::swap(expr->exprs, func->body);

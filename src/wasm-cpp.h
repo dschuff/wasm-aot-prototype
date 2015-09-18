@@ -23,14 +23,13 @@ namespace wasm {
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_export, void, WasmModule*, WasmExport*)
 
-#define EACH_CALLBACK3 \
-  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber)  \
+#define EACH_CALLBACK3                                          \
+  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber) \
   CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)
 
 class Parser {
  public:
-  Parser(const char* start, const char* end, bool desugar) :
-      desugar_(desugar) {
+  Parser(const char* start, const char* end, bool desugar) : desugar_(desugar) {
     source_.start = start;
     source_.end = end;
     tokenizer_.source = source_;
@@ -53,7 +52,6 @@ class Parser {
   Module module;
 
  private:
-
 #define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);
   EACH_CALLBACK0
   EACH_CALLBACK1
