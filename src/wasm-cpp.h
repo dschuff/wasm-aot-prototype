@@ -48,7 +48,7 @@ class Parser {
     EACH_CALLBACK3
 #undef CALLBACK
   }
-  void Parse() { wasm_parse_file(&parser, &tokenizer_); }
+  void Parse() { wasm_parse_module(&parser, &tokenizer_); }
 
   Module module;
 
