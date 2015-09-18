@@ -4,6 +4,10 @@
 
 namespace wasm {
 
+void Parser::error(WasmSourceLocation loc, const char* msg) {
+  fprintf(stderr, "%s:%d:%d: %s", loc.source->filename, loc.line, loc.col, msg);
+}
+
 void Parser::after_nop() {
   insert(new Expression(WASM_OP_NOP));
 }

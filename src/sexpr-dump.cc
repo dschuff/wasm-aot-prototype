@@ -34,8 +34,10 @@ int main(int argc, char **argv) {
     llvm::errs() << "OUTPUT:\n";
   }
   wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
-                          false);
-  DumbParser.Parse();
+                          InputFilename.c_str(), false);
+  if (DumbParser.Parse()) {
+    return 1;
+  }
   DumbParser.module.dump();
 
   return 0;
