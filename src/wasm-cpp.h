@@ -19,16 +19,18 @@ namespace wasm {
 #define EACH_CALLBACK1 CALLBACK(before_module, void, WasmModule*)
 
 #define EACH_CALLBACK2                                        \
-  CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_block, void, int, WasmParserCookie)          \
+  CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_export, void, WasmModule*, WasmExport*)
 
 #define EACH_CALLBACK3 \
+  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber)  \
   CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)
 
 class Parser {
  public:
-  Parser(const char* start, const char* end) {
+  Parser(const char* start, const char* end, bool desugar) :
+      desugar_(desugar) {
     source_.start = start;
     source_.end = end;
     tokenizer_.source = source_;
@@ -40,7 +42,6 @@ class Parser {
     parser.user_data = this;
 
 #define CALLBACK(name, retty, ...) parser.name = wrapper_##name;
-
     EACH_CALLBACK0
     EACH_CALLBACK1
     EACH_CALLBACK2
@@ -52,10 +53,8 @@ class Parser {
   Module module;
 
  private:
-  virtual void Unimplemented(const char* name);
 
 #define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);
-
   EACH_CALLBACK0
   EACH_CALLBACK1
   EACH_CALLBACK2
@@ -65,6 +64,7 @@ class Parser {
   WasmParser parser = {};
   WasmSource source_;
   WasmTokenizer tokenizer_;
+  bool desugar_;
 
   std::unordered_map<WasmFunction*, Function*> functions_;
 

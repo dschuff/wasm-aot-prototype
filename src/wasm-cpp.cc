@@ -19,12 +19,52 @@ void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
   insertion_point_ = nullptr;
 }
 
+void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
+  auto* expr = new Expression(WASM_OP_CONST);
+  expr->expr_type = ty;
+  expr->literal.type = ty;
+  switch (ty) {
+    case WASM_TYPE_I32:
+      assert(opcode == WASM_OPCODE_I32_CONST || opcode == WASM_OPCODE_I8_CONST);
+      expr->literal.value.i32 = value.i32;
+      break;
+    case WASM_TYPE_I64:
+      assert(opcode == WASM_OPCODE_I64_CONST);
+      expr->literal.value.i64 = value.i64;
+      break;
+    case WASM_TYPE_F32:
+      assert(opcode == WASM_OPCODE_F32_CONST);
+      expr->literal.value.f32 = value.f32;
+      break;
+    case WASM_TYPE_F64:
+      assert(opcode == WASM_OPCODE_F64_CONST);
+      expr->literal.value.f64 = value.f64;
+      break;
+    default:
+      assert(false);
+  }
+  insert(expr);
+}
+
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
   insertion_point_ = &functions_[f]->body;
 }
 
 void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
-  assert(functions_[f]->body.size() <= 1);
+  /* TODO: move this to a separate pass/prepass?*/
+  // Desugar from a top-level list of exprs to an implicit block expr
+  if (desugar_) {
+    Function *func = functions_[f];
+    if (func->body.size() > 1) {
+      auto* expr = new Expression(WASM_OP_BLOCK);
+      std::swap(expr->exprs, func->body);
+      insertion_point_ = &func->body;
+      insert(expr);
+    } else if (func->body.empty()) {
+      insert(new Expression(WASM_OP_NOP));
+    }
+  }
+
   insertion_point_ = nullptr;
 }
 

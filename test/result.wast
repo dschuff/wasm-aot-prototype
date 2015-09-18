@@ -4,4 +4,4 @@
 ;; RUN: %sexpr-wasm -d %s | diff - %t2
 ;; Test that round-tripping is stable
 ;; RUN: sexpr-dump %t1 | diff %t1 -
-(module (func (param i32 f32)))
+(module (func (result i32) (i32.const 0)))

@@ -9,6 +9,19 @@
 
 namespace wasm {
 
+
+class Literal {
+ public:
+  WasmType type = WASM_TYPE_VOID;
+  union {
+    uint32_t i32;
+    uint64_t i64;
+    float f32;
+    double f64;
+  } value;
+  void dump();
+};
+
 class Variable {
  public:
   WasmType type = WASM_TYPE_VOID;
@@ -19,6 +32,8 @@ class Expression {
  public:
   WasmOpType opcode = WASM_OP_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
+
+  Literal literal = {};
   std::vector<std::unique_ptr<Expression>> exprs;
   Expression(WasmOpType op) : opcode(op) {}
   void dump();

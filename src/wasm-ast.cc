@@ -22,6 +22,26 @@ static const char* TypeName(WasmType t) {
   }
 }
 
+void Literal::dump() {
+  switch (type) {
+    case WASM_TYPE_I32:
+      printf("%s.const 0x%x", TypeName(type), value.i32);
+      break;
+    case WASM_TYPE_I64:
+      printf("%s.const 0x%lx", TypeName(type), value.i64);
+      break;
+    case WASM_TYPE_F32:
+      printf("%s.const %a", TypeName(type), value.f32);
+      break;
+    case WASM_TYPE_F64:
+      printf("%s.const %a", TypeName(type), value.f64);
+      break;
+    default:
+      printf("unexpected type %d\n", type);
+      assert(false);
+  }
+}
+
 void Expression::dump() {
   printf("(");
   switch (opcode) {
@@ -34,10 +54,13 @@ void Expression::dump() {
         expr->dump();
       }
       break;
+    case WASM_OP_CONST:
+      literal.dump();
+      break;
     default:
       assert(false);
   }
-  printf(")");
+  printf(") ");
 }
 
 void Callable::dump_result() {

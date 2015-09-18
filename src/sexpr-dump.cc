@@ -18,13 +18,8 @@ static llvm::cl::opt<bool>
 int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
-  if (InputFilename == "-") {
-    llvm::errs() << "Usage: " << argv[0] << ": <input filename>\n";
-    return 1;
-  }
-
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ErrorOrBuffer =
-      llvm::MemoryBuffer::getFile(InputFilename);
+      llvm::MemoryBuffer::getFileOrSTDIN(InputFilename);
 
   if (ErrorOrBuffer.getError()) {
     llvm::errs() << "unable to read " << InputFilename << "\n";
@@ -38,7 +33,8 @@ int main(int argc, char **argv) {
     llvm::errs() << Buffer->getBuffer();
     llvm::errs() << "OUTPUT:\n";
   }
-  wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd());
+  wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
+                          false);
   DumbParser.Parse();
   DumbParser.module.dump();
 
