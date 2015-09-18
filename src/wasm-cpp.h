@@ -16,8 +16,9 @@ namespace wasm {
   CALLBACK(after_nop, void) \
   CALLBACK(before_block, WasmParserCookie)
 
-#define EACH_CALLBACK1             \
-  CALLBACK(before_call, void, int) \
+#define EACH_CALLBACK1                    \
+  CALLBACK(before_call, void, int)        \
+  CALLBACK(before_call_import, void, int) \
   CALLBACK(before_module, void, WasmModule*)
 
 #define EACH_CALLBACK2                                        \
@@ -72,6 +73,10 @@ class Parser {
   void insert(Expression* ex) {
     assert(insertion_point_);
     insertion_point_->emplace_back(ex);
+  }
+  void insert_update(Expression* ex) {
+    insert(ex);
+    insertion_point_ = &ex->exprs;
   }
 
 // The callbacks unfortunately are split by arity because we need to

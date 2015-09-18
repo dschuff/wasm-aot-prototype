@@ -55,7 +55,8 @@ void Expression::dump() {
       }
       break;
     case WASM_OP_CALL:
-      printf("call ");
+    case WASM_OP_CALL_IMPORT:
+      printf(opcode == WASM_OP_CALL ? "call " : "call_import ");
       if (callee->local_name.size()) {
         printf("%s ", callee->local_name.c_str());
       } else {

@@ -10,8 +10,7 @@ void Parser::after_nop() {
 
 WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OP_BLOCK);
-  insert(expr);
-  insertion_point_ = &expr->exprs;
+  insert_update(expr);
   return 0;
 }
 
@@ -24,8 +23,15 @@ void Parser::before_call(int func_index) {
   expr->callee_index = func_index;
   assert(module.functions.size() > (unsigned)func_index);
   expr->callee = &module.functions[func_index];
-  insert(expr);
-  insertion_point_ = &expr->exprs;
+  insert_update(expr);
+}
+
+void Parser::before_call_import(int import_index) {
+  auto* expr = new Expression(WASM_OP_CALL_IMPORT);
+  expr->callee_index = import_index;
+  assert(module.imports.size() > (unsigned)import_index);
+  expr->callee = &module.imports[import_index];
+  insert_update(expr);
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
