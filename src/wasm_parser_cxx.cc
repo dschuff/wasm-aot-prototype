@@ -1,4 +1,4 @@
-#include "wasm-cpp.h"
+#include "wasm_parser_cxx.h"
 #include <cstdio>
 #include <cassert>
 

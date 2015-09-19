@@ -2,8 +2,8 @@
 #define WASM_CPP
 
 #include "wasm.h"
-#include "wasm-ast.h"
 #include "wasm-parse.h"
+#include "wasm_ast.h"
 
 #include <string>
 #include <unordered_map>

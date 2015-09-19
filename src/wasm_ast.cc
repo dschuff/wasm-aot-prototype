@@ -1,4 +1,4 @@
-#include "wasm-ast.h"
+#include "wasm_ast.h"
 
 #include <memory>
 #include <cassert>

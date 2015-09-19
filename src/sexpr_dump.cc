@@ -1,7 +1,5 @@
 #include "wasm.h"
-#include "wasm-parse.h"
-
-#include "wasm-cpp.h"
+#include "wasm_parser_cxx.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
