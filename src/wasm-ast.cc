@@ -66,6 +66,11 @@ void Expression::dump() {
         expr->dump();
       }
       break;
+    case WASM_OP_RETURN:
+      printf("return ");
+      assert(exprs.size() <= 1);
+      if (exprs.size()) exprs.front()->dump();
+      break;
     case WASM_OP_CONST:
       literal.dump();
       break;

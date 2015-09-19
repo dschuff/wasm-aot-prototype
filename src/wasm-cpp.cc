@@ -38,6 +38,11 @@ void Parser::before_call_import(int import_index) {
   insert_update(expr);
 }
 
+void Parser::before_return() {
+  auto* expr = new Expression(WASM_OP_RETURN);
+  insert_update(expr);
+}
+
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
   auto* expr = new Expression(WASM_OP_CONST);
   expr->expr_type = ty;
