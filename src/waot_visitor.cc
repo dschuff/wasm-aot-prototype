@@ -8,7 +8,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 
-
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
 using llvm::Function;
@@ -18,7 +17,7 @@ using llvm::Module;
 using llvm::SmallVector;
 using llvm::Type;
 
-static Type *getLLVMType(WasmType T, llvm::LLVMContext &C) {
+static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
   switch (T) {
     case WASM_TYPE_VOID:
       return Type::getVoidTy(C);
@@ -35,12 +34,11 @@ static Type *getLLVMType(WasmType T, llvm::LLVMContext &C) {
   }
 }
 
-//WAOTVisitor::WAOTVisitor() {
+// WAOTVisitor::WAOTVisitor() {
 //
 //}
 
-std::unique_ptr<Module>
-WAOTVisitor::VisitModule(const wasm::Module& mod) {
+std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
   module_ = llvm::make_unique<Module>("wasm_module", ctx_);
   assert(module_ && "Could not create Module");
 
@@ -60,31 +58,34 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
     arg_types.push_back(getLLVMType(arg.type, ctx_));
   }
 
-  auto *f = Function::Create(
-  FunctionType::get(ret_type, arg_types, false),
-    Function::InternalLinkage,
-    func.local_name.c_str(), module_.get());
+  auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
+                             Function::InternalLinkage, func.local_name.c_str(),
+                             module_.get());
   assert(f && "Could not create Function");
 
   BasicBlock::Create(ctx_, "entry", f);
-  auto &bb = f->getEntryBlock();
+  auto& bb = f->getEntryBlock();
 
   IRBuilder<> irb(&bb);
   for (auto& local : func.locals) {
-    irb.CreateAlloca(getLLVMType(local.type, ctx_),
-                       nullptr,
-                       local.local_name.c_str());
+    irb.CreateAlloca(getLLVMType(local.type, ctx_), nullptr,
+                     local.local_name.c_str());
   }
 }
 
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {}
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 
-AstValue WAOTVisitor::VisitNop() { return {};}
-AstValue WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) { return {}; }
-AstValue WAOTVisitor::VisitCall(WasmOpType opcode,
-                                const wasm::Callable& callee,
+AstValue WAOTVisitor::VisitNop() { return {}; }
+AstValue WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
+  return {};
+}
+AstValue WAOTVisitor::VisitCall(WasmOpType opcode, const wasm::Callable& callee,
                                 int callee_index,
-                                  const wasm::Expression::ExprVector& args) {return {}; }
-AstValue WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) { return {}; }
+                                const wasm::Expression::ExprVector& args) {
+  return {};
+}
+AstValue WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) {
+  return {};
+}
 AstValue WAOTVisitor::VisitConst(const wasm::Literal& l) { return {}; }

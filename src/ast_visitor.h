@@ -26,7 +26,8 @@ namespace wasm {
 template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
 public:
-  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
+ ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
+
  protected:
   virtual ModuleVal VisitModule(const Module& mod) = 0;
   virtual void VisitImport(const Import& imp) = 0;

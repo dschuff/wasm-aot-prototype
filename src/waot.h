@@ -11,13 +11,14 @@ namespace llvm {
 class Module;
 }
 
-class AstValue {
-};
+class AstValue {};
 
-class WAOTVisitor : public wasm::AstVisitor<std::unique_ptr<llvm::Module>, AstValue> {
+class WAOTVisitor
+    : public wasm::AstVisitor<std::unique_ptr<llvm::Module>, AstValue> {
  public:
   WAOTVisitor() : ctx_(llvm::getGlobalContext()) {}
-protected:
+
+ protected:
   std::unique_ptr<llvm::Module> VisitModule(const wasm::Module& mod) override;
   void VisitImport(const wasm::Import& imp) override;
   void VisitFunction(const wasm::Function& func) override;
@@ -25,13 +26,13 @@ protected:
 
   AstValue VisitNop() override;
   AstValue VisitBlock(const wasm::Expression::ExprVector& exprs) override;
-  AstValue VisitCall(WasmOpType opcode,
-                     const wasm::Callable& callee,
+  AstValue VisitCall(WasmOpType opcode, const wasm::Callable& callee,
                      int callee_index,
                      const wasm::Expression::ExprVector& args) override;
   AstValue VisitReturn(const wasm::Expression::ExprVector& value) override;
   AstValue VisitConst(const wasm::Literal& l) override;
+
  private:
-  llvm::LLVMContext &ctx_;
+  llvm::LLVMContext& ctx_;
   std::unique_ptr<llvm::Module> module_;
 };
