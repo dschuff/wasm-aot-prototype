@@ -35,7 +35,7 @@ static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
 }
 
 std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
-  module_ = llvm::make_unique<Module>("wasm_module", ctx_);
+  module_ = llvm::make_unique<Module>(mod.name, ctx_);
   assert(module_ && "Could not create Module");
 
   for (auto& func : mod.functions) {

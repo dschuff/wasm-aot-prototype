@@ -85,6 +85,7 @@ class Module {
   std::vector<Import> imports;
   uint32_t initial_memory_size = 0;
   uint32_t max_memory_size = 0;
+  std::string name;
 };
 
 }  // namespace wasm
