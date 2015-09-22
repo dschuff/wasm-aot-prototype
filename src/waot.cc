@@ -10,38 +10,51 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Signals.h"
 
-static llvm::cl::opt<std::string> InputFilename(
-    llvm::cl::Positional, llvm::cl::desc("<input sexpr file>"),
+static llvm::cl::opt<std::string> g_input_filename(
+    llvm::cl::Positional,
+    llvm::cl::desc("<input sexpr file>"),
     llvm::cl::init("-"));
 
-static llvm::cl::opt<bool> DumpInput(
-    "i", llvm::cl::desc("Dump input as well as output"), llvm::cl::init(false));
+static llvm::cl::opt<bool> g_dump_input(
+    "i",
+    llvm::cl::desc("Dump input as well as output"),
+    llvm::cl::init(false));
 
-int main(int argc, char **argv) {
+static llvm::cl::opt<bool> g_dump_ast(
+    "a",
+    llvm::cl::desc("Dump AST as well as output"),
+    llvm::cl::init(false));
+
+int main(int argc, char** argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ErrorOrBuffer =
-      llvm::MemoryBuffer::getFileOrSTDIN(InputFilename);
+      llvm::MemoryBuffer::getFileOrSTDIN(g_input_filename);
 
   if (ErrorOrBuffer.getError()) {
-    llvm::errs() << "unable to read " << InputFilename << "\n";
+    llvm::errs() << "unable to read " << g_input_filename << "\n";
     return 1;
   }
 
-  auto &Buffer = ErrorOrBuffer.get();
+  auto& Buffer = ErrorOrBuffer.get();
 
-  if (DumpInput) {
+  if (g_dump_input) {
     llvm::errs() << "INPUT:\n";
     llvm::errs() << Buffer->getBuffer();
     llvm::errs() << "OUTPUT:\n";
   }
-  wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
-                          InputFilename.c_str(), false);
-  if (DumbParser.Parse()) {
+  wasm::Parser TheParser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
+                         g_input_filename.c_str(), false);
+  if (TheParser.Parse()) {
     return 1;
   }
 
+  if (g_dump_ast) {
+    wasm::AstDumper dumper;
+    dumper.Visit(TheParser.module);
+  }
   WAOTVisitor converter;
-  auto LLVMModule = converter.Visit(DumbParser.module);
+  auto llvm_module = converter.Visit(TheParser.module);
+  llvm_module->dump();
   return 0;
 }

@@ -34,10 +34,6 @@ static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
   }
 }
 
-// WAOTVisitor::WAOTVisitor() {
-//
-//}
-
 std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
   module_ = llvm::make_unique<Module>("wasm_module", ctx_);
   assert(module_ && "Could not create Module");
@@ -55,6 +51,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
   SmallVector<Type*, 4> arg_types;
   for (auto& arg : func.args) {
+    // TODO: handle arg names
     arg_types.push_back(getLLVMType(arg.type, ctx_));
   }
 
@@ -76,11 +73,14 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {}
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 
-AstValue WAOTVisitor::VisitNop() { return {}; }
+AstValue WAOTVisitor::VisitNop() {
+  return {};
+}
 AstValue WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
   return {};
 }
-AstValue WAOTVisitor::VisitCall(WasmOpType opcode, const wasm::Callable& callee,
+AstValue WAOTVisitor::VisitCall(WasmOpType opcode,
+                                const wasm::Callable& callee,
                                 int callee_index,
                                 const wasm::Expression::ExprVector& args) {
   return {};
@@ -88,4 +88,6 @@ AstValue WAOTVisitor::VisitCall(WasmOpType opcode, const wasm::Callable& callee,
 AstValue WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) {
   return {};
 }
-AstValue WAOTVisitor::VisitConst(const wasm::Literal& l) { return {}; }
+AstValue WAOTVisitor::VisitConst(const wasm::Literal& l) {
+  return {};
+}
