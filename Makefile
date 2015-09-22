@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-ALL = sexpr_dump
+ALL = sexpr_dump waot
 CC ?= gcc
 CXX ?= g++
 CFLAGS ?= -Wall -Werror -g -O0
@@ -22,8 +22,10 @@ WASMGEN_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(WASMGEN_SRCS))
 PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parse.h $(PARSER_SRC)/hash.h
 
 WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h ast_visitor.h ast_dumper.h
-SEXPR_DUMP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_visitor.cc ast_dumper.cc sexpr_dump.cc
-SEXPR_DUMP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(SEXPR_DUMP_SRCS))
+WASM_CPP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_dumper.cc
+WASM_CPP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WASM_CPP_SRCS))
+
+WAOT_SRCS = waot.cc
 
 LLVM_PATH ?= /s/llvm-upstream/release_37/install
 LLVM_BUILD_PATH ?= /s/llvm-upstream/release_37/build
@@ -50,8 +52,11 @@ $(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(WASM_CPP_HEADERS)
 $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS)
 
-$(OUT_DIR)/sexpr_dump: $(PARSER_OBJS) $(SEXPR_DUMP_OBJS)
-	$(CXX) -o $@ $(PARSER_OBJS) $(SEXPR_DUMP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+$(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) 
+	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+
+$(OUT_DIR)/waot: out/waot.o $(PARSER_OBJS) $(WASM_CPP_OBJS)
+	$(CXX) -o $@ out/waot.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
 $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
