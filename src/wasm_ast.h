@@ -1,5 +1,5 @@
-#ifndef WASM_AST
-#define WASM_AST
+#ifndef WASM_AST_H
+#define WASM_AST_H
 
 #include "wasm.h"
 
@@ -21,7 +21,6 @@ class Literal {
     float f32;
     double f64;
   } value;
-  void dump();
 };
 
 class Variable {
@@ -32,6 +31,7 @@ class Variable {
 
 class Expression {
  public:
+  typedef std::vector<std::unique_ptr<Expression>> ExprVector;
   // Common
   WasmOpType opcode = WASM_OP_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
@@ -41,10 +41,9 @@ class Expression {
   int callee_index = 0;
   Callable* callee;
   // Common (block, call args)
-  std::vector<std::unique_ptr<Expression>> exprs;
+  ExprVector exprs;
 
   Expression(WasmOpType op) : opcode(op) {}
-  void dump();
 };
 
 class Callable {
@@ -52,15 +51,6 @@ class Callable {
   WasmType result_type = WASM_TYPE_VOID;
   std::vector<Variable> args;
   std::string local_name;  // Empty if none bound
-
-  // Functions can be declared with a single parameter list like
-  // (func (param i32 i64)) or with a split parameter list like
-  // (func (param i32) (param i32)
-  // If any of the params have name bindings e.g. (param $n i32) then the
-  // style must be used. However imports are required to use the single
-  // style. If this is fixed, arg dumping can be shared here.
-  void dump_result();
-  void dump();
 };
 
 class Function : public Callable {
@@ -71,16 +61,12 @@ class Function : public Callable {
   int index_in_module = 0;
   bool is_external = false;
   int depth = 0;
-
-  void dump_var_list(const std::vector<Variable>& lst, const char* name);
-  void dump();
 };
 
 class Import : public Callable {
  public:
   std::string module_name;
   std::string func_name;
-  void dump();
 };
 
 class Segment {
@@ -88,12 +74,7 @@ class Segment {
   size_t size = 0;
   size_t address = 0;
   std::vector<char> initial_data;
-  std::string as_string() const {
-    return std::string(initial_data.begin(), initial_data.end());
-  }
-  void dump() {
-    printf("(segment %zu \"%s\")\n", address, as_string().c_str());
-  }
+  std::string as_string() const;
 };
 
 class Module {
@@ -104,9 +85,7 @@ class Module {
   std::vector<Import> imports;
   uint32_t initial_memory_size = 0;
   uint32_t max_memory_size = 0;
-
-  void dump();
 };
 
 }  // namespace wasm
-#endif  // WASM_AST
+#endif  // WASM_AST_H

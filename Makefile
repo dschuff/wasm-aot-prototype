@@ -21,8 +21,8 @@ WASMGEN_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(WASMGEN_SRCS))
 
 PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parse.h $(PARSER_SRC)/hash.h
 
-WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h
-SEXPR_DUMP_SRCS = wasm_parser_cxx.cc wasm_ast.cc sexpr_dump.cc
+WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h ast_visitor.h ast_dumper.h
+SEXPR_DUMP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_visitor.cc ast_dumper.cc sexpr_dump.cc
 SEXPR_DUMP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(SEXPR_DUMP_SRCS))
 
 LLVM_PATH ?= /s/llvm-upstream/release_37/install

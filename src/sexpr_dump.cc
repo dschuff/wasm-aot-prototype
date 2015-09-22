@@ -1,3 +1,4 @@
+#include "ast_dumper.h"
 #include "wasm.h"
 #include "wasm_parser_cxx.h"
 
@@ -36,7 +37,8 @@ int main(int argc, char **argv) {
   if (DumbParser.Parse()) {
     return 1;
   }
-  DumbParser.module.dump();
 
+  wasm::AstDumper dumper;
+  dumper.Visit(DumbParser.module);
   return 0;
 }
