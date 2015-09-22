@@ -3,11 +3,13 @@
 ALL = sexpr_dump waot
 CC ?= gcc
 CXX ?= g++
+
 CFLAGS ?= -Wall -Werror -g -O0
 # -fno-exceptions and -fno-rtti are required to link with LLVM (which uses these
 # flags by default) but we don't want ALL of LLVM's cflags (e.g. warning flags,
 # -fPIC)
 CXXFLAGS = -std=c++11 -fno-exceptions -fno-rtti
+LDFLAGS =
 
 PARSER_SRC = third_party/sexpr-wasm-prototype/src
 OUT_DIR = out
@@ -39,6 +41,11 @@ LLVM_LIBDIR := $(shell $(LLVM_CONFIG) --libdir)
 LLVM_SYSTEMLIBS := $(shell  $(LLVM_CONFIG) --system-libs)
 LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath=$(LLVM_LIBDIR) -Wl,--as-needed
 
+SANITIZE ?=
+ifneq ($(SANITIZE),)
+	CFLAGS += -fsanitize=$(SANITIZE)
+	LDFLAGS += -fsanitize=$(SANITIZE)
+endif
 
 .PHONY: all
 all: $(OUT_DIR) $(addprefix $(OUT_DIR)/,$(ALL))
@@ -52,20 +59,20 @@ $(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
 	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(PARSER_SRC) -Wno-format $(CFLAGS) -c -o $@ $<
 
 $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
-	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS)
+	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS) $(LDFLAGS)
 
 $(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) 
-	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
 $(OUT_DIR)/waot: $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
-	$(CXX) -o $@ $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+	$(CXX) -o $@ $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
 $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
 
 #### TESTS ####
 .PHONY: test
-test: $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm
+test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot
 	PATH=$(PATH):$(LLVM_PATH)/bin:`pwd`/$(OUT_DIR) $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
