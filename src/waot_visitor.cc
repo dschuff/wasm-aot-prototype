@@ -51,7 +51,6 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
   SmallVector<Type*, 4> arg_types;
   for (auto& arg : func.args) {
-    // TODO: handle arg names
     arg_types.push_back(getLLVMType(arg.type, ctx_));
   }
 
@@ -59,6 +58,13 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
                              Function::InternalLinkage, func.local_name.c_str(),
                              module_.get());
   assert(f && "Could not create Function");
+
+  auto arg_iterator = f->arg_begin();
+  for (auto& arg : func.args) {
+    if (!arg.local_name.empty())
+      arg_iterator->setName(arg.local_name);
+    ++arg_iterator;
+  }
 
   BasicBlock::Create(ctx_, "entry", f);
   auto& bb = f->getEntryBlock();
