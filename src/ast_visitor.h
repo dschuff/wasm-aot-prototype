@@ -3,6 +3,8 @@
 
 #include "wasm_ast.h"
 
+#include <cassert>
+
 namespace wasm {
 
 // Visitor-ish pattern; abstracts the data layout of Expression, but driven by
@@ -21,9 +23,10 @@ namespace wasm {
 // might make more sense just to keep the extra data available to the derived
 // implementations though.
 
+template <typename ExprVal>
 class AstVisitor {
 public:
-  void Visit(const Module& mod);
+  void Visit(const Module& mod) { VisitModule(mod); }
  protected:
   virtual void VisitModule(const Module& mod) = 0;
   virtual void VisitImport(const Import& imp) = 0;
@@ -31,15 +34,33 @@ public:
   virtual void VisitFunction(const Function& func) = 0;
   virtual void VisitSegment(const Segment& seg) = 0;
 
-  void VisitExpression(const Expression& expr);
-  virtual void VisitNop() = 0;
-  virtual void VisitBlock(const Expression::ExprVector& exprs) = 0;
-  virtual void VisitCall(WasmOpType opcode,
+  ExprVal VisitExpression(const Expression& expr) {
+    switch (expr.opcode) {
+      case WASM_OP_NOP:
+        return VisitNop();
+      case WASM_OP_BLOCK:
+        return VisitBlock(expr.exprs);
+      case WASM_OP_CALL:
+      case WASM_OP_CALL_IMPORT:
+        return VisitCall(expr.opcode, *expr.callee, expr.callee_index, expr.exprs);
+      case WASM_OP_RETURN:
+        assert(expr.exprs.size() <= 1);
+        // TODO: if multiple returns are really gone, do something better
+        return VisitReturn(expr.exprs);
+      case WASM_OP_CONST:
+        return VisitConst(expr.literal);
+      default:
+        assert(false);
+    }
+  }
+  virtual ExprVal VisitNop() = 0;
+  virtual ExprVal VisitBlock(const Expression::ExprVector& exprs) = 0;
+  virtual ExprVal VisitCall(WasmOpType opcode,
                          const Callable& callee,
                          int callee_index,
                          const Expression::ExprVector& args) = 0;
-  virtual void VisitReturn(const Expression::ExprVector& value) = 0;
-  virtual void VisitConst(const Literal& l) = 0;
+  virtual ExprVal VisitReturn(const Expression::ExprVector& value) = 0;
+  virtual ExprVal VisitConst(const Literal& l) = 0;
 };
 }
 

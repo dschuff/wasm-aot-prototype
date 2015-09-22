@@ -6,7 +6,7 @@
 
 namespace wasm {
 
-class AstDumper : public AstVisitor {
+class AstDumper : public AstVisitor<void> {
 protected:
   void VisitModule(const Module& mod) override;
   void VisitImport(const Import& imp) override;
