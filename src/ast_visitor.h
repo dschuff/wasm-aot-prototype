@@ -23,12 +23,12 @@ namespace wasm {
 // might make more sense just to keep the extra data available to the derived
 // implementations though.
 
-template <typename ExprVal>
+template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
 public:
-  void Visit(const Module& mod) { VisitModule(mod); }
+  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
  protected:
-  virtual void VisitModule(const Module& mod) = 0;
+  virtual ModuleVal VisitModule(const Module& mod) = 0;
   virtual void VisitImport(const Import& imp) = 0;
   // TODO: define VisitExport for symmetry?
   virtual void VisitFunction(const Function& func) = 0;

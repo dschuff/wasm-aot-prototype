@@ -4,17 +4,20 @@
 #include "wasm_parser_cxx.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Signals.h"
+
 
 static llvm::cl::opt<std::string>
-    InputFilename(llvm::cl::Positional, llvm::cl::desc("<input sexpr file>"),
-                  llvm::cl::init("-"));
+InputFilename(llvm::cl::Positional, llvm::cl::desc("<input sexpr file>"),
+              llvm::cl::init("-"));
 
 static llvm::cl::opt<bool>
-    DumpInput("i", llvm::cl::desc("Dump input as well as output"),
-              llvm::cl::init(false));
-
+DumpInput("i", llvm::cl::desc("Dump input as well as output"),
+          llvm::cl::init(false));
 
 
 int main(int argc, char **argv) {
@@ -42,6 +45,6 @@ int main(int argc, char **argv) {
   }
 
   WAOTVisitor converter;
-  converter.Visit(DumbParser.module);
+  auto LLVMModule = converter.Visit(DumbParser.module);
   return 0;
 }
