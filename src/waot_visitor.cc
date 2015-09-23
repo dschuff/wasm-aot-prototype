@@ -40,22 +40,19 @@ static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
 
 static std::string Mangle(const std::string& module,
                           const std::string& function) {
-  return std::string("#" + module + "#" + function);
+  return std::string("." + module + "." + function);
 }
 
 std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
   module_ = llvm::make_unique<Module>(mod.name, ctx_);
   assert(module_ && "Could not create Module");
 
-  for (auto& imp : mod.imports) {
+  for (auto& imp : mod.imports)
     VisitImport(imp);
-  }
-  for (auto& func : mod.functions) {
+  for (auto& func : mod.functions)
     VisitFunction(func);
-  }
-  for (auto& exp : mod.exports) {
+  for (auto& exp : mod.exports)
     VisitExport(exp);
-  }
   return std::move(module_);
 }
 
