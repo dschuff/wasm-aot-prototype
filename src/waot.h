@@ -4,17 +4,18 @@
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
 
 #include <memory>
+#include <unordered_map>
 
 namespace llvm {
-class Module;
+class BasicBlock;
+class Function;
 }
 
-class AstValue {};
-
 class WAOTVisitor
-    : public wasm::AstVisitor<std::unique_ptr<llvm::Module>, AstValue> {
+    : public wasm::AstVisitor<std::unique_ptr<llvm::Module>, llvm::Value*> {
  public:
   WAOTVisitor() : ctx_(llvm::getGlobalContext()) {}
 
@@ -24,16 +25,20 @@ class WAOTVisitor
   void VisitFunction(const wasm::Function& func) override;
   void VisitSegment(const wasm::Segment& seg) override;
 
-  AstValue VisitNop() override;
-  AstValue VisitBlock(const wasm::Expression::ExprVector& exprs) override;
-  AstValue VisitCall(WasmOpType opcode,
-                     const wasm::Callable& callee,
-                     int callee_index,
-                     const wasm::Expression::ExprVector& args) override;
-  AstValue VisitReturn(const wasm::Expression::ExprVector& value) override;
-  AstValue VisitConst(const wasm::Literal& l) override;
+  llvm::Value* VisitNop() override;
+  llvm::Value* VisitBlock(const wasm::Expression::ExprVector& exprs) override;
+  llvm::Value* VisitCall(WasmOpType opcode,
+                         const wasm::Callable& callee,
+                         int callee_index,
+                         const wasm::Expression::ExprVector& args) override;
+  llvm::Value* VisitReturn(const wasm::Expression::ExprVector& value) override;
+  llvm::Value* VisitConst(const wasm::Literal& l) override;
 
  private:
   llvm::LLVMContext& ctx_;
   std::unique_ptr<llvm::Module> module_;
+
+  std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
+  llvm::Function* current_func_;
+  llvm::BasicBlock* current_bb_;
 };

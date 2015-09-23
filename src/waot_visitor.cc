@@ -4,9 +4,12 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+
+#include <cassert>
 
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
@@ -16,6 +19,7 @@ using llvm::IRBuilder;
 using llvm::Module;
 using llvm::SmallVector;
 using llvm::Type;
+using llvm::Value;
 
 static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
   switch (T) {
@@ -74,26 +78,61 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
     irb.CreateAlloca(getLLVMType(local.type, ctx_), nullptr,
                      local.local_name.c_str());
   }
+  functions_.emplace(&func, f);
+  current_func_ = f;
+  current_bb_ = &bb;
+
+  for (auto& expr : func.body) {
+    VisitExpression(*expr);
+  }
 }
 
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {}
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 
-AstValue WAOTVisitor::VisitNop() {
-  return {};
+Value* WAOTVisitor::VisitNop() {
+  return nullptr;
 }
-AstValue WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
-  return {};
+Value* WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
+  return nullptr;
 }
-AstValue WAOTVisitor::VisitCall(WasmOpType opcode,
-                                const wasm::Callable& callee,
-                                int callee_index,
-                                const wasm::Expression::ExprVector& args) {
-  return {};
+
+Value* WAOTVisitor::VisitCall(WasmOpType opcode,
+                              const wasm::Callable& callee,
+                              int callee_index,
+                              const wasm::Expression::ExprVector& args) {
+  assert(current_bb_);
+  BasicBlock* bb(current_bb_);
+  SmallVector<Value*, 8> arg_values;
+  for (auto& arg : args) {
+    arg_values.push_back(VisitExpression(*arg));
+  }
+  IRBuilder<> irb(bb);
+  return irb.CreateCall(functions_[&callee], arg_values);
 }
-AstValue WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) {
-  return {};
+
+Value* WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) {
+  IRBuilder<> irb(current_bb_);
+  if (!value.size())
+    return irb.CreateRetVoid();
+  return irb.CreateRet(VisitExpression(*value.front()));
 }
-AstValue WAOTVisitor::VisitConst(const wasm::Literal& l) {
-  return {};
+
+Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
+  switch (l.type) {
+    case WASM_TYPE_VOID:
+      return llvm::UndefValue::get(Type::getVoidTy(ctx_));
+    case WASM_TYPE_I32:
+    case WASM_TYPE_I64:
+      return llvm::ConstantInt::get(
+          getLLVMType(l.type, ctx_),
+          l.type == WASM_TYPE_I32 ? l.value.i32 : l.value.i64);
+    case WASM_TYPE_F32:
+    case WASM_TYPE_F64:
+      return llvm::ConstantFP::get(
+          getLLVMType(l.type, ctx_),
+          l.type == WASM_TYPE_F32 ? l.value.f32 : l.value.f64);
+    default:
+      assert(false);
+  }
 }
