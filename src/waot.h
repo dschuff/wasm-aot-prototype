@@ -35,6 +35,8 @@ class WAOTVisitor
   llvm::Value* VisitConst(const wasm::Literal& l) override;
 
  private:
+  llvm::Function* GetFunction(const wasm::Callable& func,
+                              llvm::Function::LinkageTypes linkage);
   llvm::LLVMContext& ctx_;
   std::unique_ptr<llvm::Module> module_;
 

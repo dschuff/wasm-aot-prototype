@@ -38,17 +38,26 @@ static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
   }
 }
 
+static std::string Mangle(const std::string& module,
+                          const std::string& function) {
+  return std::string("#" + module + "#" + function);
+}
+
 std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
   module_ = llvm::make_unique<Module>(mod.name, ctx_);
   assert(module_ && "Could not create Module");
 
+  for (auto& imp : mod.imports) {
+    VisitImport(imp);
+  }
   for (auto& func : mod.functions) {
     VisitFunction(func);
   }
   return std::move(module_);
 }
 
-void WAOTVisitor::VisitFunction(const wasm::Function& func) {
+Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
+                                   Function::LinkageTypes linkage) {
   Type* ret_type = Type::getVoidTy(ctx_);
   if (func.result_type != WASM_TYPE_VOID) {
     ret_type = getLLVMType(func.result_type, ctx_);
@@ -59,8 +68,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
 
   auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
-                             Function::InternalLinkage, func.local_name.c_str(),
-                             module_.get());
+                             linkage, func.local_name.c_str(), module_.get());
   assert(f && "Could not create Function");
 
   auto arg_iterator = f->arg_begin();
@@ -69,6 +77,12 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
       arg_iterator->setName(arg.local_name);
     ++arg_iterator;
   }
+  functions_.emplace(&func, f);
+  return f;
+}
+
+void WAOTVisitor::VisitFunction(const wasm::Function& func) {
+  auto* f = GetFunction(func, Function::InternalLinkage);
 
   BasicBlock::Create(ctx_, "entry", f);
   auto& bb = f->getEntryBlock();
@@ -78,7 +92,6 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
     irb.CreateAlloca(getLLVMType(local.type, ctx_), nullptr,
                      local.local_name.c_str());
   }
-  functions_.emplace(&func, f);
   current_func_ = f;
   current_bb_ = &bb;
 
@@ -97,7 +110,11 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
 }
 
-void WAOTVisitor::VisitImport(const wasm::Import& imp) {}
+void WAOTVisitor::VisitImport(const wasm::Import& imp) {
+  auto* f = GetFunction(imp, Function::ExternalLinkage);
+  f->setName(Mangle(imp.module_name, imp.func_name));
+}
+
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 
 Value* WAOTVisitor::VisitNop() {
