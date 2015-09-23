@@ -1,7 +1,5 @@
 ;; RUN: waot %s | FileCheck %s
 (module
-;; CHECK: call.wast
-
  (func (param i32)
 ;; CHECK: define internal void @0
   (call 0 (i32.const 1)))

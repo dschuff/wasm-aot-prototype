@@ -31,7 +31,7 @@ public:
  protected:
   virtual ModuleVal VisitModule(const Module& mod) = 0;
   virtual void VisitImport(const Import& imp) = 0;
-  // TODO: define VisitExport for symmetry?
+  virtual void VisitExport(const Export& exp) = 0;
   virtual void VisitFunction(const Function& func) = 0;
   virtual void VisitSegment(const Segment& seg) = 0;
 

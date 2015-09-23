@@ -170,7 +170,10 @@ void Parser::before_module(WasmModule* m) {
 
 void Parser::after_export(WasmModule* m, WasmExport* e) {
   Function* f = &module.functions[e->index];
-  f->export_name.assign(e->name);
-  module.exports.push_back(f);
+  module.exports.emplace_back();
+  Export& exp = module.exports.back();
+  exp.function = f;
+  exp.name.assign(e->name);
+  exp.module = &module;
 }
-}
+}  // namespace wasm

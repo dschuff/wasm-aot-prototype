@@ -1,6 +1,5 @@
 ;; RUN: waot %s | FileCheck %s
 (module
-;; CHECK: return.wast
 
 (func (return))
 ;; CHECK: define internal void @0

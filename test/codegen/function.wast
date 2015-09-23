@@ -1,11 +1,10 @@
 ;; RUN: waot -S %s | FileCheck %s
 (module
-;; CHECK: function.wast
 
 ;; Unnamed function
  (func )
-;; Named function
 ;; CHECK: define internal void @0()
+;; Named function
  (func $foo)
 ;; CHECK: define internal void @"$foo"
 

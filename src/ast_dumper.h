@@ -10,6 +10,7 @@ class AstDumper : public AstVisitor<void, void> {
 protected:
   void VisitModule(const Module& mod) override;
   void VisitImport(const Import& imp) override;
+  void VisitExport(const Export& exp) override;
   void VisitFunction(const Function& func) override;
   void VisitSegment(const Segment& seg) override;
 

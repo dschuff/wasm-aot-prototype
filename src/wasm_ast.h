@@ -56,11 +56,16 @@ class Callable {
 class Function : public Callable {
  public:
   std::vector<Variable> locals;
-  std::string export_name;  // Empty if not exported.
   std::vector<std::unique_ptr<Expression>> body;
   int index_in_module = 0;
-  bool is_external = false;
   int depth = 0;
+};
+
+class Export {
+ public:
+  Function* function;
+  std::string name;
+  Module* module;
 };
 
 class Import : public Callable {
@@ -79,9 +84,9 @@ class Segment {
 
 class Module {
  public:
-  std::vector<Function> functions;
-  std::vector<Function*> exports;
   std::vector<Segment> segments;
+  std::vector<Function> functions;
+  std::vector<Export> exports;
   std::vector<Import> imports;
   uint32_t initial_memory_size = 0;
   uint32_t max_memory_size = 0;

@@ -22,6 +22,7 @@ class WAOTVisitor
  protected:
   std::unique_ptr<llvm::Module> VisitModule(const wasm::Module& mod) override;
   void VisitImport(const wasm::Import& imp) override;
+  void VisitExport(const wasm::Export& exp) override;
   void VisitFunction(const wasm::Function& func) override;
   void VisitSegment(const wasm::Segment& seg) override;
 

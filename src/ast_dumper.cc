@@ -38,8 +38,8 @@ void AstDumper::VisitModule(const Module& mod) {
 
   for (auto& imp : mod.imports)
     VisitImport(imp);
-  for (auto* ex : mod.exports)
-    printf("(export \"%s\" %u)", ex->export_name.c_str(), ex->index_in_module);
+  for (auto& ex : mod.exports)
+    VisitExport(ex);
 
   printf(")\n");
 }
@@ -68,6 +68,10 @@ void AstDumper::VisitImport(const Import& import) {
   }
   dump_result(import);
   printf(")\n");
+}
+
+void AstDumper::VisitExport(const Export& exp) {
+  printf("(export \"%s\" %u)", exp.name.c_str(), exp.function->index_in_module);
 }
 
 static void dump_var_list(const std::vector<Variable>& lst,

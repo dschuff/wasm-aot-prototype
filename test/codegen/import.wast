@@ -1,6 +1,5 @@
 ;; RUN: waot %s | FileCheck %s
 (module
-;; CHECK: import.wast
 
 ;; unnamed
   (import "foo" "bar" (param i32) (result i64))

@@ -53,6 +53,9 @@ std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
   for (auto& func : mod.functions) {
     VisitFunction(func);
   }
+  for (auto& exp : mod.exports) {
+    VisitExport(exp);
+  }
   return std::move(module_);
 }
 
@@ -113,6 +116,13 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {
   auto* f = GetFunction(imp, Function::ExternalLinkage);
   f->setName(Mangle(imp.module_name, imp.func_name));
+}
+
+void WAOTVisitor::VisitExport(const wasm::Export& exp) {
+  llvm::GlobalAlias::create(functions_[exp.function]->getType(),
+                            Function::ExternalLinkage,
+                            Mangle(exp.module->name, exp.name),
+                            functions_[exp.function], module_.get());
 }
 
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
