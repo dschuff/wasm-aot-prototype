@@ -82,8 +82,18 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   current_func_ = f;
   current_bb_ = &bb;
 
+  Value* last_value = nullptr;
   for (auto& expr : func.body) {
-    VisitExpression(*expr);
+    last_value = VisitExpression(*expr);
+  }
+  // Handle implicit return of the last expression
+  if (!bb.getTerminator()) {
+    if (func.result_type == WASM_TYPE_VOID) {
+      irb.CreateRetVoid();
+    } else {
+      assert(func.body.size());
+      irb.CreateRet(last_value);
+    }
   }
 }
 

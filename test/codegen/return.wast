@@ -13,4 +13,13 @@
 ;; CHECK: define internal double @2
   (return (f64.const 0.1)))
 ;; CHECK: ret double 1.000000e-01
+
+;; Implicit return
+(func (result i32) (i32.const 1))
+;; CHECK: define internal i32
+;; ret i32 1
+(func (result i32) (call 1))
+;; CHECK: define internal i32
+;; CHECK: %0 = call i32 @1
+;; CHECK: ret i32 %0
 )

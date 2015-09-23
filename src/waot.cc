@@ -6,6 +6,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -91,7 +92,9 @@ int main(int argc, char** argv) {
 
   llvm::ModulePassManager mpm{};
   assert(g_print_asm);  // For now, only support printing assembly.
+  mpm.addPass(llvm::VerifierPass());
   mpm.addPass(llvm::PrintModulePass(output->os()));
   mpm.run(*llvm_module);
+  output->keep();
   return 0;
 }
