@@ -47,6 +47,7 @@ ifneq ($(SANITIZE),)
 	LDFLAGS += -fsanitize=$(SANITIZE)
 endif
 
+
 .PHONY: all
 all: $(OUT_DIR) $(addprefix $(OUT_DIR)/,$(ALL))
 
@@ -70,9 +71,30 @@ $(OUT_DIR)/waot: $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
 $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
 
+#### RUNTIME ###
+RUNTIME_CC = $(CC)
+RUNTIME_CFLAGS = $(CFLAGS) -Wno-unused-function
+
+RUNTIME_SRCS = stdio.c wasm_main.c
+RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS))
+
+$(OUT_DIR)/%.o: host/%.c
+	$(RUNTIME_CC) $(RUNTIME_CFLAGS) -c -o $@ $<
+
+$(OUT_DIR)/libwaot_runtime.a: $(RUNTIME_OBJS)
+	ar rcs $@ $(RUNTIME_OBJS)
+
+.PHONY: runtime
+TEST_CC = $(OUT_DIR)/waot_test_cc.py
+
+$(TEST_CC): src/waot_test_cc.py
+	cp $< $(OUT_DIR)
+runtime: $(OUT_DIR)/libwaot_runtime.a $(TEST_CC)
+
+
 #### TESTS ####
 .PHONY: test
-test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot
+test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot runtime
 	PATH=$(PATH):$(LLVM_PATH)/bin:`pwd`/$(OUT_DIR) $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
