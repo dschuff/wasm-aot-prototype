@@ -6,7 +6,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 
-#include <memory>
 #include <unordered_map>
 
 namespace llvm {
@@ -14,13 +13,13 @@ class BasicBlock;
 class Function;
 }
 
-class WAOTVisitor
-    : public wasm::AstVisitor<std::unique_ptr<llvm::Module>, llvm::Value*> {
+class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
  public:
-  WAOTVisitor() : ctx_(llvm::getGlobalContext()) {}
+  WAOTVisitor(llvm::Module* llvm_module)
+      : module_(llvm_module), ctx_(llvm_module->getContext()) {}
 
  protected:
-  std::unique_ptr<llvm::Module> VisitModule(const wasm::Module& mod) override;
+  llvm::Module* VisitModule(const wasm::Module& mod) override;
   void VisitImport(const wasm::Import& imp) override;
   void VisitExport(const wasm::Export& exp) override;
   void VisitFunction(const wasm::Function& func) override;
@@ -38,10 +37,10 @@ class WAOTVisitor
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,
                               llvm::Function::LinkageTypes linkage);
+  llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
-  std::unique_ptr<llvm::Module> module_;
 
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
-  llvm::Function* current_func_;
-  llvm::BasicBlock* current_bb_;
+  llvm::Function* current_func_ = nullptr;
+  llvm::BasicBlock* current_bb_ = nullptr;
 };

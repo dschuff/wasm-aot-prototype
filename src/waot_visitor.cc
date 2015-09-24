@@ -43,8 +43,9 @@ static std::string Mangle(const std::string& module,
   return std::string("." + module + "." + function);
 }
 
-std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
-  module_ = llvm::make_unique<Module>(mod.name, ctx_);
+Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
+  if (!module_)
+    module_ = new Module(mod.name, ctx_);
   assert(module_ && "Could not create Module");
 
   for (auto& imp : mod.imports)
@@ -53,7 +54,7 @@ std::unique_ptr<Module> WAOTVisitor::VisitModule(const wasm::Module& mod) {
     VisitFunction(func);
   for (auto& exp : mod.exports)
     VisitExport(exp);
-  return std::move(module_);
+  return module_;
 }
 
 Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
@@ -68,7 +69,7 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
   }
 
   auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
-                             linkage, func.local_name.c_str(), module_.get());
+                             linkage, func.local_name.c_str(), module_);
   assert(f && "Could not create Function");
 
   auto arg_iterator = f->arg_begin();
@@ -116,10 +117,9 @@ void WAOTVisitor::VisitImport(const wasm::Import& imp) {
 }
 
 void WAOTVisitor::VisitExport(const wasm::Export& exp) {
-  llvm::GlobalAlias::create(functions_[exp.function]->getType(),
-                            Function::ExternalLinkage,
-                            Mangle(exp.module->name, exp.name),
-                            functions_[exp.function], module_.get());
+  llvm::GlobalAlias::create(
+      functions_[exp.function]->getType(), Function::ExternalLinkage,
+      Mangle(exp.module->name, exp.name), functions_[exp.function], module_);
 }
 
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
