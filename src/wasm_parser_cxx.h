@@ -17,10 +17,11 @@ namespace wasm {
   CALLBACK(before_block, WasmParserCookie) \
   CALLBACK(before_return, void)
 
-#define EACH_CALLBACK1                    \
-  CALLBACK(before_call, void, int)        \
-  CALLBACK(before_call_import, void, int) \
-  CALLBACK(before_module, void, WasmModule*)
+#define EACH_CALLBACK1                       \
+  CALLBACK(before_call, void, int)           \
+  CALLBACK(before_call_import, void, int)    \
+  CALLBACK(before_module, void, WasmModule*) \
+  CALLBACK(after_module, void, WasmModule*)
 
 #define EACH_CALLBACK2                                        \
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
@@ -49,9 +50,13 @@ class Parser {
     EACH_CALLBACK3
 #undef CALLBACK
   }
-  int Parse() { return wasm_parse_module(&source_, &parser); }
+  int Parse(bool spec_script_mode) {
+    if (spec_script_mode)
+      return wasm_parse_file(&source_, &parser);
+    return wasm_parse_module(&source_, &parser);
+  }
 
-  Module module;
+  std::vector<Module> modules;
 
  private:
 #define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);
@@ -61,6 +66,7 @@ class Parser {
   EACH_CALLBACK3
 #undef CALLBACK
 
+  Module* module = nullptr;
   WasmParserCallbacks parser = {};
   WasmSource source_;
   bool desugar_;

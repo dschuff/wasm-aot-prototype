@@ -14,6 +14,13 @@ static llvm::cl::opt<bool>
     DumpInput("i", llvm::cl::desc("Dump input as well as output"),
               llvm::cl::init(false));
 
+static llvm::cl::opt<bool> g_spec_test_script_mode(
+    "spec-test-script",
+    llvm::cl::desc(
+        "Run in spec test script mode (allow multiple modules per file and"
+        "test assertions"),
+    llvm::cl::init(false));
+
 int main(int argc, char **argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
@@ -32,13 +39,15 @@ int main(int argc, char **argv) {
     llvm::errs() << Buffer->getBuffer();
     llvm::errs() << "OUTPUT:\n";
   }
-  wasm::Parser DumbParser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
-                          InputFilename.c_str(), false);
-  if (DumbParser.Parse()) {
+  wasm::Parser parser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
+                      InputFilename.c_str(), false);
+  if (parser.Parse(g_spec_test_script_mode)) {
     return 1;
   }
 
-  wasm::AstDumper dumper;
-  dumper.Visit(DumbParser.module);
+  for (auto& module : parser.modules) {
+    wasm::AstDumper dumper;
+    dumper.Visit(module);
+  }
   return 0;
 }

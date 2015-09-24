@@ -26,12 +26,12 @@ void Parser::ParseCall(bool is_import, int index) {
   auto* expr = new Expression(WASM_OPCODE_CALL);
   expr->callee_index = index;
   expr->is_import = is_import;
-  assert(is_import ? module.imports.size() > static_cast<unsigned>(index) :
-         module.functions.size() > static_cast<unsigned>(index));
+  assert(is_import ? module->imports.size() > static_cast<unsigned>(index)
+                   : module->functions.size() > static_cast<unsigned>(index));
   if (is_import) {
-    expr->callee = &module.imports[index];
+    expr->callee = &module->imports[index];
   } else {
-    expr->callee = &module.functions[index];
+    expr->callee = &module->functions[index];
   }
   insert_update(expr);
 }
@@ -99,15 +99,18 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
 }
 
 void Parser::before_module(WasmModule* m) {
-  module.initial_memory_size = m->initial_memory_size;
-  module.max_memory_size = m->max_memory_size;
-  assert(module.max_memory_size >= module.initial_memory_size);
+  assert(!module);
+  modules.emplace_back();
+  module = &modules.back();
+  module->initial_memory_size = m->initial_memory_size;
+  module->max_memory_size = m->max_memory_size;
+  assert(module->max_memory_size >= module->initial_memory_size);
 
-  module.functions.reserve(m->functions.size);
+  module->functions.reserve(m->functions.size);
   for (size_t i = 0; i < m->functions.size; ++i) {
     WasmFunction* parser_func = &m->functions.data[i];
-    module.functions.emplace_back();
-    Function& func = module.functions.back();
+    module->functions.emplace_back();
+    Function& func = module->functions.back();
     functions_[parser_func] = &func;
 
     func.index_in_module = i;
@@ -136,13 +139,13 @@ void Parser::before_module(WasmModule* m) {
 
   for (size_t i = 0; i < m->function_bindings.size; ++i) {
     WasmBinding& binding = m->function_bindings.data[i];
-    module.functions[binding.index].local_name.assign(binding.name);
+    module->functions[binding.index].local_name.assign(binding.name);
   }
 
   for (size_t i = 0; i < m->imports.size; ++i) {
     WasmImport& parser_import = m->imports.data[i];
-    module.imports.emplace_back();
-    Import& imp = module.imports.back();
+    module->imports.emplace_back();
+    Import& imp = module->imports.back();
     imp.module_name.assign(parser_import.module_name);
     imp.func_name.assign(parser_import.func_name);
     imp.result_type = parser_import.result_type;
@@ -153,18 +156,18 @@ void Parser::before_module(WasmModule* m) {
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
     WasmBinding& binding = m->import_bindings.data[i];
-    Import& imp = module.imports[binding.index];
+    Import& imp = module->imports[binding.index];
     imp.local_name.assign(binding.name);
   }
 
   if (m->segments.size) {
-    assert(module.initial_memory_size > 0);
-    module.segments.reserve(m->segments.size);
+    assert(module->initial_memory_size > 0);
+    module->segments.reserve(m->segments.size);
   }
   for (size_t i = 0; i < m->segments.size; ++i) {
     WasmSegment& parser_seg = m->segments.data[i];
-    module.segments.emplace_back();
-    Segment& seg = module.segments.back();
+    module->segments.emplace_back();
+    Segment& seg = module->segments.back();
     seg.size = parser_seg.size;
     seg.address = parser_seg.address;
     seg.initial_data.resize(seg.size);
@@ -173,13 +176,18 @@ void Parser::before_module(WasmModule* m) {
   }
 }
 
+void Parser::after_module(WasmModule* m) {
+  module = nullptr;
+}
+
 void Parser::after_export(WasmModule* m, WasmFunction* f) {
   Function* func = functions_[f];
-  module.exports.emplace_back();
-  Export& exp = module.exports.back();
+  module->exports.emplace_back();
+  Export& exp = module->exports.back();
   exp.function = func;
   assert(f->exported_name);
   exp.name.assign(f->exported_name);
-  exp.module = &module;
+  exp.module = module;
 }
+
 }  // namespace wasm
