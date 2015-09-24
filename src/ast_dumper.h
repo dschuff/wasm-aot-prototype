@@ -16,7 +16,7 @@ protected:
 
   void VisitNop() override;
   void VisitBlock(const Expression::ExprVector& exprs) override;
-  void VisitCall(WasmOpType opcode,
+  void VisitCall(bool is_import,
                  const Callable& callee,
                  int callee_index,
                  const Expression::ExprVector& args) override;

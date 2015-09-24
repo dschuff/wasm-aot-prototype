@@ -33,17 +33,18 @@ class Expression {
  public:
   typedef std::vector<std::unique_ptr<Expression>> ExprVector;
   // Common
-  WasmOpType opcode = WASM_OP_NOP;
+  WasmOpcode opcode = WASM_OPCODE_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
   // Const
   Literal literal = {};
   // Call, CallImport
   int callee_index = 0;
+  bool is_import = false;
   Callable* callee;
   // Common (block, call args)
   ExprVector exprs;
 
-  Expression(WasmOpType op) : opcode(op) {}
+  Expression(WasmOpcode op) : opcode(op) {}
 };
 
 class Callable {

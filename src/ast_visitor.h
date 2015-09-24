@@ -37,18 +37,21 @@ public:
 
   ExprVal VisitExpression(const Expression& expr) {
     switch (expr.opcode) {
-      case WASM_OP_NOP:
+      case WASM_OPCODE_NOP:
         return VisitNop();
-      case WASM_OP_BLOCK:
+      case WASM_OPCODE_BLOCK:
         return VisitBlock(expr.exprs);
-      case WASM_OP_CALL:
-      case WASM_OP_CALL_IMPORT:
-        return VisitCall(expr.opcode, *expr.callee, expr.callee_index, expr.exprs);
-      case WASM_OP_RETURN:
+      case WASM_OPCODE_CALL:
+        return VisitCall(expr.is_import, *expr.callee, expr.callee_index, expr.exprs);
+      case WASM_OPCODE_RETURN:
         assert(expr.exprs.size() <= 1);
         // TODO: if multiple returns are really gone, do something better
         return VisitReturn(expr.exprs);
-      case WASM_OP_CONST:
+      case WASM_OPCODE_I8_CONST:
+      case WASM_OPCODE_I32_CONST:
+      case WASM_OPCODE_I64_CONST:
+      case WASM_OPCODE_F32_CONST:
+      case WASM_OPCODE_F64_CONST:
         return VisitConst(expr.literal);
       default:
         assert(false);
@@ -56,10 +59,10 @@ public:
   }
   virtual ExprVal VisitNop() = 0;
   virtual ExprVal VisitBlock(const Expression::ExprVector& exprs) = 0;
-  virtual ExprVal VisitCall(WasmOpType opcode,
-                         const Callable& callee,
-                         int callee_index,
-                         const Expression::ExprVector& args) = 0;
+  virtual ExprVal VisitCall(bool is_import,
+                            const Callable& callee,
+                            int callee_index,
+                            const Expression::ExprVector& args) = 0;
   virtual ExprVal VisitReturn(const Expression::ExprVector& value) = 0;
   virtual ExprVal VisitConst(const Literal& l) = 0;
 };

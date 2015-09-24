@@ -28,7 +28,7 @@ class WAOTVisitor
 
   llvm::Value* VisitNop() override;
   llvm::Value* VisitBlock(const wasm::Expression::ExprVector& exprs) override;
-  llvm::Value* VisitCall(WasmOpType opcode,
+  llvm::Value* VisitCall(bool is_import,
                          const wasm::Callable& callee,
                          int callee_index,
                          const wasm::Expression::ExprVector& args) override;

@@ -131,7 +131,7 @@ Value* WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
   return nullptr;
 }
 
-Value* WAOTVisitor::VisitCall(WasmOpType opcode,
+Value* WAOTVisitor::VisitCall(bool is_import,
                               const wasm::Callable& callee,
                               int callee_index,
                               const wasm::Expression::ExprVector& args) {

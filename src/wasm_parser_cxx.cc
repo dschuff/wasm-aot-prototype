@@ -9,11 +9,11 @@ void Parser::error(WasmSourceLocation loc, const char* msg) {
 }
 
 void Parser::after_nop() {
-  insert(new Expression(WASM_OP_NOP));
+  insert(new Expression(WASM_OPCODE_NOP));
 }
 
 WasmParserCookie Parser::before_block() {
-  auto* expr = new Expression(WASM_OP_BLOCK);
+  auto* expr = new Expression(WASM_OPCODE_BLOCK);
   insert_update(expr);
   return 0;
 }
@@ -22,29 +22,35 @@ void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
   insertion_point_ = nullptr;
 }
 
-void Parser::before_call(int func_index) {
-  auto* expr = new Expression(WASM_OP_CALL);
-  expr->callee_index = func_index;
-  assert(module.functions.size() > (unsigned)func_index);
-  expr->callee = &module.functions[func_index];
+void Parser::ParseCall(bool is_import, int index) {
+  auto* expr = new Expression(WASM_OPCODE_CALL);
+  expr->callee_index = index;
+  expr->is_import = is_import;
+  assert(is_import ? module.imports.size() > static_cast<unsigned>(index) :
+         module.functions.size() > static_cast<unsigned>(index));
+  if (is_import) {
+    expr->callee = &module.imports[index];
+  } else {
+    expr->callee = &module.functions[index];
+  }
   insert_update(expr);
+}
+
+void Parser::before_call(int func_index) {
+  ParseCall(false, func_index);
 }
 
 void Parser::before_call_import(int import_index) {
-  auto* expr = new Expression(WASM_OP_CALL_IMPORT);
-  expr->callee_index = import_index;
-  assert(module.imports.size() > (unsigned)import_index);
-  expr->callee = &module.imports[import_index];
-  insert_update(expr);
+  ParseCall(true, import_index);
 }
 
 void Parser::before_return() {
-  auto* expr = new Expression(WASM_OP_RETURN);
+  auto* expr = new Expression(WASM_OPCODE_RETURN);
   insert_update(expr);
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
-  auto* expr = new Expression(WASM_OP_CONST);
+  auto* expr = new Expression(opcode);
   expr->expr_type = ty;
   expr->literal.type = ty;
   switch (ty) {
@@ -80,12 +86,12 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
   if (desugar_) {
     Function* func = functions_[f];
     if (func->body.size() > 1) {
-      auto* expr = new Expression(WASM_OP_BLOCK);
+      auto* expr = new Expression(WASM_OPCODE_BLOCK);
       std::swap(expr->exprs, func->body);
       insertion_point_ = &func->body;
       insert(expr);
     } else if (func->body.empty()) {
-      insert(new Expression(WASM_OP_NOP));
+      insert(new Expression(WASM_OPCODE_NOP));
     }
   }
 
@@ -162,18 +168,18 @@ void Parser::before_module(WasmModule* m) {
     seg.size = parser_seg.size;
     seg.address = parser_seg.address;
     seg.initial_data.resize(seg.size);
-    size_t copied = wasm_copy_string_contents(parser_seg.data,
-                                              &seg.initial_data[0], seg.size);
-    assert(copied == seg.size);
+    wasm_copy_segment_data(parser_seg.data,
+                           &seg.initial_data[0], seg.size);
   }
 }
 
-void Parser::after_export(WasmModule* m, WasmExport* e) {
-  Function* f = &module.functions[e->index];
+void Parser::after_export(WasmModule* m, WasmFunction* f) {
+  Function* func = functions_[f];
   module.exports.emplace_back();
   Export& exp = module.exports.back();
-  exp.function = f;
-  exp.name.assign(e->name);
+  exp.function = func;
+  assert(f->exported_name);
+  exp.name.assign(f->exported_name);
   exp.module = &module;
 }
 }  // namespace wasm

@@ -26,7 +26,7 @@ namespace wasm {
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(after_block, void, int, WasmParserCookie)          \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
-  CALLBACK(after_export, void, WasmModule*, WasmExport*)
+  CALLBACK(after_export, void, WasmModule*, WasmFunction*)
 
 #define EACH_CALLBACK3                                          \
   CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber) \
@@ -40,7 +40,6 @@ class Parser {
     source_.filename = filename.c_str();
     source_.start = start;
     source_.end = end;
-    wasm_init_parser(&parser, &source_);
     parser.user_data = this;
 
 #define CALLBACK(name, retty, ...) parser.name = wrapper_##name;
@@ -50,7 +49,7 @@ class Parser {
     EACH_CALLBACK3
 #undef CALLBACK
   }
-  int Parse() { return wasm_parse_module(&parser); }
+  int Parse() { return wasm_parse_module(&source_, &parser); }
 
   Module module;
 
@@ -62,7 +61,7 @@ class Parser {
   EACH_CALLBACK3
 #undef CALLBACK
 
-  WasmParser parser = {};
+  WasmParserCallbacks parser = {};
   WasmSource source_;
   bool desugar_;
 
@@ -109,6 +108,8 @@ class Parser {
   }
   EACH_CALLBACK3
 #undef CALLBACK
+
+  void ParseCall(bool is_import, int index);
 };
 
 }  // namespace wasm

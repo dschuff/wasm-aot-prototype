@@ -116,11 +116,11 @@ void AstDumper::VisitBlock(const Expression::ExprVector& exprs) {
   printf(") ");
 }
 
-void AstDumper::VisitCall(WasmOpType opcode,
+void AstDumper::VisitCall(bool is_import,
                           const Callable& callee,
                           int callee_index,
                           const Expression::ExprVector& args) {
-  printf(opcode == WASM_OP_CALL ? "(call " : "(call_import ");
+  printf(is_import ? "(call_import " : "(call ");
   if (callee.local_name.size()) {
     printf("%s ", callee.local_name.c_str());
   } else {
