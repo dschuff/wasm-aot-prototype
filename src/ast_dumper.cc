@@ -32,7 +32,7 @@ void AstDumper::VisitModule(const Module& mod) {
     if (mod.max_memory_size)
       printf(" %u ", mod.max_memory_size);
     for (auto& seg : mod.segments)
-      VisitSegment(seg);
+      VisitSegment(*seg);
     printf(")\n");
   }
 
@@ -108,7 +108,7 @@ void AstDumper::VisitNop() {
   printf("(nop)");
 }
 
-void AstDumper::VisitBlock(const Expression::ExprVector& exprs) {
+void AstDumper::VisitBlock(const UniquePtrVector<Expression>& exprs) {
   printf("(block ");
   for (auto& e : exprs) {
     VisitExpression(*e);
@@ -119,7 +119,7 @@ void AstDumper::VisitBlock(const Expression::ExprVector& exprs) {
 void AstDumper::VisitCall(bool is_import,
                           const Callable& callee,
                           int callee_index,
-                          const Expression::ExprVector& args) {
+                          const UniquePtrVector<Expression>& args) {
   printf(is_import ? "(call_import " : "(call ");
   if (callee.local_name.size()) {
     printf("%s ", callee.local_name.c_str());
@@ -132,7 +132,7 @@ void AstDumper::VisitCall(bool is_import,
   printf(") ");
 }
 
-void AstDumper::VisitReturn(const Expression::ExprVector& value) {
+void AstDumper::VisitReturn(const UniquePtrVector<Expression>& value) {
       printf("(return ");
       if (value.size()) VisitExpression(*value.front());
       printf(") ");

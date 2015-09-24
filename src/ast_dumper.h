@@ -15,12 +15,12 @@ protected:
   void VisitSegment(const Segment& seg) override;
 
   void VisitNop() override;
-  void VisitBlock(const Expression::ExprVector& exprs) override;
+  void VisitBlock(const UniquePtrVector<Expression>& exprs) override;
   void VisitCall(bool is_import,
                  const Callable& callee,
                  int callee_index,
-                 const Expression::ExprVector& args) override;
-  void VisitReturn(const Expression::ExprVector& value) override;
+                 const UniquePtrVector<Expression>& args) override;
+  void VisitReturn(const UniquePtrVector<Expression>& value) override;
   void VisitConst(const Literal& l) override;
 };
 }

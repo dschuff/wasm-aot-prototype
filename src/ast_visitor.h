@@ -58,12 +58,12 @@ public:
     }
   }
   virtual ExprVal VisitNop() = 0;
-  virtual ExprVal VisitBlock(const Expression::ExprVector& exprs) = 0;
+  virtual ExprVal VisitBlock(const UniquePtrVector<Expression>& exprs) = 0;
   virtual ExprVal VisitCall(bool is_import,
                             const Callable& callee,
                             int callee_index,
-                            const Expression::ExprVector& args) = 0;
-  virtual ExprVal VisitReturn(const Expression::ExprVector& value) = 0;
+                            const UniquePtrVector<Expression>& args) = 0;
+  virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) = 0;
   virtual ExprVal VisitConst(const Literal& l) = 0;
 };
 }

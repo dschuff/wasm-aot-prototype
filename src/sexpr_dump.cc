@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 
   for (auto& module : parser.modules) {
     wasm::AstDumper dumper;
-    dumper.Visit(module);
+    dumper.Visit(*module);
   }
   return 0;
 }

@@ -44,10 +44,7 @@ static std::string Mangle(const std::string& module,
 }
 
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
-  if (!module_)
-    module_ = new Module(mod.name, ctx_);
-  assert(module_ && "Could not create Module");
-
+  assert(module_);
   for (auto& imp : mod.imports)
     VisitImport(imp);
   for (auto& func : mod.functions)
@@ -127,14 +124,16 @@ void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 Value* WAOTVisitor::VisitNop() {
   return nullptr;
 }
-Value* WAOTVisitor::VisitBlock(const wasm::Expression::ExprVector& exprs) {
+Value* WAOTVisitor::VisitBlock(
+    const wasm::UniquePtrVector<wasm::Expression>& exprs) {
   return nullptr;
 }
 
-Value* WAOTVisitor::VisitCall(bool is_import,
-                              const wasm::Callable& callee,
-                              int callee_index,
-                              const wasm::Expression::ExprVector& args) {
+Value* WAOTVisitor::VisitCall(
+    bool is_import,
+    const wasm::Callable& callee,
+    int callee_index,
+    const wasm::UniquePtrVector<wasm::Expression>& args) {
   assert(current_bb_);
   BasicBlock* bb(current_bb_);
   SmallVector<Value*, 8> arg_values;
@@ -145,7 +144,8 @@ Value* WAOTVisitor::VisitCall(bool is_import,
   return irb.CreateCall(functions_[&callee], arg_values);
 }
 
-Value* WAOTVisitor::VisitReturn(const wasm::Expression::ExprVector& value) {
+Value* WAOTVisitor::VisitReturn(
+    const wasm::UniquePtrVector<wasm::Expression>& value) {
   IRBuilder<> irb(current_bb_);
   if (!value.size())
     return irb.CreateRetVoid();

@@ -95,16 +95,16 @@ int main(int argc, char** argv) {
   mpm.addPass(llvm::VerifierPass());
   mpm.addPass(llvm::PrintModulePass(output->os()));
 
-  parser.modules.front().name = llvm::sys::path::stem(g_input_filename);
+  parser.modules.front()->name = llvm::sys::path::stem(g_input_filename);
   auto llvm_module = llvm::make_unique<llvm::Module>(
-      parser.modules.front().name, llvm::getGlobalContext());
+      parser.modules.front()->name, llvm::getGlobalContext());
   WAOTVisitor converter(llvm_module.get());
   for (auto& module : parser.modules) {
     if (g_dump_ast) {
       wasm::AstDumper dumper;
-      dumper.Visit(module);
+      dumper.Visit(*module);
     }
-    converter.Visit(module);
+    converter.Visit(*module);
   }
   mpm.run(*llvm_module);
   output->keep();

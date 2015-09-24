@@ -100,8 +100,8 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
 
 void Parser::before_module(WasmModule* m) {
   assert(!module);
-  modules.emplace_back();
-  module = &modules.back();
+  modules.emplace_back(new Module());
+  module = modules.back().get();
   module->initial_memory_size = m->initial_memory_size;
   module->max_memory_size = m->max_memory_size;
   assert(module->max_memory_size >= module->initial_memory_size);
@@ -166,13 +166,12 @@ void Parser::before_module(WasmModule* m) {
   }
   for (size_t i = 0; i < m->segments.size; ++i) {
     WasmSegment& parser_seg = m->segments.data[i];
-    module->segments.emplace_back();
-    Segment& seg = module->segments.back();
-    seg.size = parser_seg.size;
-    seg.address = parser_seg.address;
-    seg.initial_data.resize(seg.size);
-    wasm_copy_segment_data(parser_seg.data,
-                           &seg.initial_data[0], seg.size);
+    module->segments.emplace_back(new Segment());
+    Segment* seg = module->segments.back().get();
+    seg->size = parser_seg.size;
+    seg->address = parser_seg.address;
+    seg->initial_data.resize(seg->size);
+    wasm_copy_segment_data(parser_seg.data, &seg->initial_data[0], seg->size);
   }
 }
 

@@ -26,12 +26,15 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   void VisitSegment(const wasm::Segment& seg) override;
 
   llvm::Value* VisitNop() override;
-  llvm::Value* VisitBlock(const wasm::Expression::ExprVector& exprs) override;
-  llvm::Value* VisitCall(bool is_import,
-                         const wasm::Callable& callee,
-                         int callee_index,
-                         const wasm::Expression::ExprVector& args) override;
-  llvm::Value* VisitReturn(const wasm::Expression::ExprVector& value) override;
+  llvm::Value* VisitBlock(
+      const wasm::UniquePtrVector<wasm::Expression>& exprs) override;
+  llvm::Value* VisitCall(
+      bool is_import,
+      const wasm::Callable& callee,
+      int callee_index,
+      const wasm::UniquePtrVector<wasm::Expression>& args) override;
+  llvm::Value* VisitReturn(
+      const wasm::UniquePtrVector<wasm::Expression>& value) override;
   llvm::Value* VisitConst(const wasm::Literal& l) override;
 
  private:

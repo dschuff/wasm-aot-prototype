@@ -56,7 +56,7 @@ class Parser {
     return wasm_parse_module(&source_, &parser);
   }
 
-  std::vector<Module> modules;
+  UniquePtrVector<Module> modules;
 
  private:
 #define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);

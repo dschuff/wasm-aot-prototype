@@ -11,6 +11,8 @@ namespace wasm {
 
 class Callable;
 class Module;
+template <typename T>
+using UniquePtrVector = std::vector<std::unique_ptr<T>>;
 
 class Literal {
  public:
@@ -31,7 +33,6 @@ class Variable {
 
 class Expression {
  public:
-  typedef std::vector<std::unique_ptr<Expression>> ExprVector;
   // Common
   WasmOpcode opcode = WASM_OPCODE_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
@@ -42,7 +43,7 @@ class Expression {
   bool is_import = false;
   Callable* callee;
   // Common (block, call args)
-  ExprVector exprs;
+  UniquePtrVector<Expression> exprs;
 
   Expression(WasmOpcode op) : opcode(op) {}
 };
@@ -57,7 +58,7 @@ class Callable {
 class Function : public Callable {
  public:
   std::vector<Variable> locals;
-  std::vector<std::unique_ptr<Expression>> body;
+  UniquePtrVector<Expression> body;
   int index_in_module = 0;
   int depth = 0;
 };
@@ -85,7 +86,7 @@ class Segment {
 
 class Module {
  public:
-  std::vector<Segment> segments;
+  UniquePtrVector<Segment> segments;
   std::vector<Function> functions;
   std::vector<Export> exports;
   std::vector<Import> imports;
