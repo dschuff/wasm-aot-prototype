@@ -35,10 +35,12 @@ namespace wasm {
 
 class Parser {
  public:
-  Parser(const char* start, const char* end, const std::string& filename,
+  Parser(const char* start,
+         const char* end,
+         const std::string& filename,
          bool desugar)
-      : desugar_(desugar) {
-    source_.filename = filename.c_str();
+      : filename_(filename), desugar_(desugar) {
+    source_.filename = filename_.c_str();
     source_.start = start;
     source_.end = end;
     parser.user_data = this;
@@ -69,6 +71,7 @@ class Parser {
   Module* module = nullptr;
   WasmParserCallbacks parser = {};
   WasmSource source_;
+  std::string filename_;
   bool desugar_;
 
   std::unordered_map<WasmFunction*, Function*> functions_;
