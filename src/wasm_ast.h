@@ -88,8 +88,8 @@ class Module {
  public:
   UniquePtrVector<Segment> segments;
   UniquePtrVector<Function> functions;
-  std::vector<Export> exports;
-  std::vector<Import> imports;
+  UniquePtrVector<Export> exports;
+  UniquePtrVector<Import> imports;
   uint32_t initial_memory_size = 0;
   uint32_t max_memory_size = 0;
   std::string name;

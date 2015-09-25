@@ -29,7 +29,7 @@ void Parser::ParseCall(bool is_import, int index) {
   assert(is_import ? module->imports.size() > static_cast<unsigned>(index)
                    : module->functions.size() > static_cast<unsigned>(index));
   if (is_import) {
-    expr->callee = &module->imports[index];
+    expr->callee = module->imports[index].get();
   } else {
     expr->callee = module->functions[index].get();
   }
@@ -144,20 +144,20 @@ void Parser::before_module(WasmModule* m) {
 
   for (size_t i = 0; i < m->imports.size; ++i) {
     WasmImport& parser_import = m->imports.data[i];
-    module->imports.emplace_back();
-    Import& imp = module->imports.back();
-    imp.module_name.assign(parser_import.module_name);
-    imp.func_name.assign(parser_import.func_name);
-    imp.result_type = parser_import.result_type;
+    module->imports.emplace_back(new Import());
+    Import* imp = module->imports.back().get();
+    imp->module_name.assign(parser_import.module_name);
+    imp->func_name.assign(parser_import.func_name);
+    imp->result_type = parser_import.result_type;
     for (size_t j = 0; j < parser_import.args.size; ++j) {
-      imp.args.emplace_back();
-      imp.args.back().type = parser_import.args.data[j].type;
+      imp->args.emplace_back();
+      imp->args.back().type = parser_import.args.data[j].type;
     }
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
     WasmBinding& binding = m->import_bindings.data[i];
-    Import& imp = module->imports[binding.index];
-    imp.local_name.assign(binding.name);
+    Import* imp = module->imports[binding.index].get();
+    imp->local_name.assign(binding.name);
   }
 
   if (m->segments.size) {
@@ -181,12 +181,12 @@ void Parser::after_module(WasmModule* m) {
 
 void Parser::after_export(WasmModule* m, WasmFunction* f) {
   Function* func = functions_[f];
-  module->exports.emplace_back();
-  Export& exp = module->exports.back();
-  exp.function = func;
+  module->exports.emplace_back(new Export());
+  Export* exp = module->exports.back().get();
+  exp->function = func;
   assert(f->exported_name);
-  exp.name.assign(f->exported_name);
-  exp.module = module;
+  exp->name.assign(f->exported_name);
+  exp->module = module;
 }
 
 }  // namespace wasm

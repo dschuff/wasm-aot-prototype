@@ -37,9 +37,9 @@ void AstDumper::VisitModule(const Module& mod) {
   }
 
   for (auto& imp : mod.imports)
-    VisitImport(imp);
+    VisitImport(*imp);
   for (auto& ex : mod.exports)
-    VisitExport(ex);
+    VisitExport(*ex);
 
   printf(")\n");
 }

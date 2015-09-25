@@ -46,11 +46,11 @@ static std::string Mangle(const std::string& module,
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
   for (auto& imp : mod.imports)
-    VisitImport(imp);
+    VisitImport(*imp);
   for (auto& func : mod.functions)
     VisitFunction(*func);
   for (auto& exp : mod.exports)
-    VisitExport(exp);
+    VisitExport(*exp);
   return module_;
 }
 
