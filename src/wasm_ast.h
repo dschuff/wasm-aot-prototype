@@ -87,7 +87,7 @@ class Segment {
 class Module {
  public:
   UniquePtrVector<Segment> segments;
-  std::vector<Function> functions;
+  UniquePtrVector<Function> functions;
   std::vector<Export> exports;
   std::vector<Import> imports;
   uint32_t initial_memory_size = 0;

@@ -48,7 +48,7 @@ Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   for (auto& imp : mod.imports)
     VisitImport(imp);
   for (auto& func : mod.functions)
-    VisitFunction(func);
+    VisitFunction(*func);
   for (auto& exp : mod.exports)
     VisitExport(exp);
   return module_;

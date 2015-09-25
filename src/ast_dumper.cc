@@ -25,7 +25,7 @@ namespace wasm {
 void AstDumper::VisitModule(const Module& mod) {
   printf("(module\n");
   for (auto& func : mod.functions)
-    VisitFunction(func);
+    VisitFunction(*func);
 
   if (mod.initial_memory_size) {
     printf("(memory %u", mod.initial_memory_size);
