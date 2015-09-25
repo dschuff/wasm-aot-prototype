@@ -95,7 +95,7 @@ runtime: $(OUT_DIR)/libwaot_runtime.a $(TEST_CC)
 #### TESTS ####
 .PHONY: test
 test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot runtime
-	PATH=$(PATH):$(LLVM_PATH)/bin:`pwd`/$(OUT_DIR) $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
+	PATH=$(PATH):$(LLVM_PATH)/bin $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
 clean:
