@@ -115,20 +115,18 @@ void Parser::before_module(WasmModule* m) {
 
     func->args.reserve(parser_func->num_args);
     for (int j = 0; j < parser_func->num_args; ++j) {
-      func->args.emplace_back();
-      func->args.back().type = parser_func->locals.data[j].type;
+      func->args.emplace_back(new Variable(parser_func->locals.data[j].type));
     }
     func->locals.reserve(parser_func->locals.size - parser_func->num_args);
     for (size_t j = parser_func->num_args; j < parser_func->locals.size; ++j) {
-      func->locals.emplace_back();
-      func->locals.back().type = parser_func->locals.data[j].type;
+      func->locals.emplace_back(new Variable(parser_func->locals.data[j].type));
     }
     for (size_t j = 0; j < parser_func->local_bindings.size; ++j) {
       WasmBinding& binding = parser_func->local_bindings.data[j];
       if (binding.index < parser_func->num_args) {
-        func->args[binding.index].local_name.assign(binding.name);
+        func->args[binding.index]->local_name.assign(binding.name);
       } else {
-        func->locals[binding.index - parser_func->num_args].local_name.assign(
+        func->locals[binding.index - parser_func->num_args]->local_name.assign(
             binding.name);
       }
     }
@@ -146,8 +144,7 @@ void Parser::before_module(WasmModule* m) {
                                             parser_import.func_name));
     Import* imp = module->imports.back().get();
     for (size_t j = 0; j < parser_import.args.size; ++j) {
-      imp->args.emplace_back();
-      imp->args.back().type = parser_import.args.data[j].type;
+      imp->args.emplace_back(new Variable(parser_import.args.data[j].type));
     }
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
@@ -162,10 +159,9 @@ void Parser::before_module(WasmModule* m) {
   }
   for (size_t i = 0; i < m->segments.size; ++i) {
     WasmSegment& parser_seg = m->segments.data[i];
-    module->segments.emplace_back(new Segment());
+    module->segments.emplace_back(
+        new Segment(parser_seg.size, parser_seg.address));
     Segment* seg = module->segments.back().get();
-    seg->size = parser_seg.size;
-    seg->address = parser_seg.address;
     seg->initial_data.resize(seg->size);
     wasm_copy_segment_data(parser_seg.data, &seg->initial_data[0], seg->size);
   }

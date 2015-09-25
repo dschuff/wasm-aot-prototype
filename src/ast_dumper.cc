@@ -63,7 +63,7 @@ void AstDumper::VisitImport(const Import& import) {
   if (import.args.size()) {
     printf(" (param");
     for (auto& arg : import.args)
-      printf(" %s", TypeName(arg.type));
+      printf(" %s", TypeName(arg->type));
     printf(")");
   }
   dump_result(import);
@@ -74,13 +74,13 @@ void AstDumper::VisitExport(const Export& exp) {
   printf("(export \"%s\" %u)", exp.name.c_str(), exp.function->index_in_module);
 }
 
-static void dump_var_list(const std::vector<Variable>& lst,
+static void dump_var_list(const UniquePtrVector<Variable>& lst,
                           const char* name) {
   for (auto& var : lst) {
     printf(" (%s", name);
-    if (var.local_name.size())
-      printf(" %s", var.local_name.c_str());
-    printf(" %s)", TypeName(var.type));
+    if (var->local_name.size())
+      printf(" %s", var->local_name.c_str());
+    printf(" %s)", TypeName(var->type));
   }
 }
 

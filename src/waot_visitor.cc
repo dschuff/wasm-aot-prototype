@@ -62,7 +62,7 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
   }
   SmallVector<Type*, 4> arg_types;
   for (auto& arg : func.args) {
-    arg_types.push_back(getLLVMType(arg.type, ctx_));
+    arg_types.push_back(getLLVMType(arg->type, ctx_));
   }
 
   auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
@@ -71,8 +71,8 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
 
   auto arg_iterator = f->arg_begin();
   for (auto& arg : func.args) {
-    if (!arg.local_name.empty())
-      arg_iterator->setName(arg.local_name);
+    if (!arg->local_name.empty())
+      arg_iterator->setName(arg->local_name);
     ++arg_iterator;
   }
   functions_.emplace(&func, f);
@@ -87,8 +87,8 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   IRBuilder<> irb(&bb);
   for (auto& local : func.locals) {
-    irb.CreateAlloca(getLLVMType(local.type, ctx_), nullptr,
-                     local.local_name.c_str());
+    irb.CreateAlloca(getLLVMType(local->type, ctx_), nullptr,
+                     local->local_name.c_str());
   }
   current_func_ = f;
   current_bb_ = &bb;

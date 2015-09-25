@@ -27,12 +27,14 @@ class Literal {
 
 class Variable {
  public:
+  Variable(WasmType t) : type(t) {}
   WasmType type = WASM_TYPE_VOID;
   std::string local_name;  // Empty if none bound
 };
 
 class Expression {
  public:
+  Expression(WasmOpcode op) : opcode(op) {}
   // Common
   WasmOpcode opcode = WASM_OPCODE_NOP;
   WasmType expr_type = WASM_TYPE_VOID;
@@ -44,8 +46,6 @@ class Expression {
   Callable* callee;
   // Common (block, call args)
   UniquePtrVector<Expression> exprs;
-
-  Expression(WasmOpcode op) : opcode(op) {}
 };
 
 class Callable {
@@ -53,13 +53,13 @@ class Callable {
   Callable(WasmType t) : result_type(t) {}
   WasmType result_type = WASM_TYPE_VOID;
   std::string local_name;  // Empty if none bound
-  std::vector<Variable> args;
+  UniquePtrVector<Variable> args;
 };
 
 class Function : public Callable {
  public:
   Function(WasmType t, int idx) : Callable(t), index_in_module(idx) {}
-  std::vector<Variable> locals;
+  UniquePtrVector<Variable> locals;
   UniquePtrVector<Expression> body;
   int index_in_module = 0;
 };
@@ -83,10 +83,11 @@ class Import : public Callable {
 
 class Segment {
  public:
+  Segment(size_t sz, size_t addr) : size(sz), address(addr) {}
+  std::string as_string() const;
   size_t size = 0;
   size_t address = 0;
   std::vector<char> initial_data;
-  std::string as_string() const;
 };
 
 class Module {
