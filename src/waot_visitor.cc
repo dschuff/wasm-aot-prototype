@@ -1,4 +1,4 @@
-#include "waot.h"
+#include "waot_visitor.h"
 #include "wasm.h"
 
 #include "llvm/ADT/SmallVector.h"

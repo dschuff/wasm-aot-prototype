@@ -27,7 +27,7 @@ WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h ast_visitor.h ast_dumper.h
 WASM_CPP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_dumper.cc
 WASM_CPP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WASM_CPP_SRCS))
 
-WAOT_HEADERS = waot.h
+WAOT_HEADERS = waot_visitor.h
 WAOT_SRCS = waot_visitor.cc waot.cc
 WAOT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAOT_SRCS))
 

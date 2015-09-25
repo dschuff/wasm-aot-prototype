@@ -1,5 +1,5 @@
 #include "ast_dumper.h"
-#include "waot.h"
+#include "waot_visitor.h"
 #include "wasm.h"
 #include "wasm_parser_cxx.h"
 
