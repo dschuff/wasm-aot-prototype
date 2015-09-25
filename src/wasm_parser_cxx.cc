@@ -9,17 +9,18 @@ void Parser::error(WasmSourceLocation loc, const char* msg) {
 }
 
 void Parser::after_nop() {
-  insert(new Expression(WASM_OPCODE_NOP));
+  Insert(new Expression(WASM_OPCODE_NOP));
 }
 
 WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OPCODE_BLOCK);
-  insert_update(expr);
+  // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
+  InsertAndPush(expr, -1);
   return 0;
 }
 
 void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
-  insertion_point_ = nullptr;
+  PopInsertionPoint();
 }
 
 void Parser::ParseCall(bool is_import, int index) {
@@ -33,7 +34,7 @@ void Parser::ParseCall(bool is_import, int index) {
   } else {
     expr->callee = module->functions[index].get();
   }
-  insert_update(expr);
+  InsertAndPush(expr, expr->callee->args.size());
 }
 
 void Parser::before_call(int func_index) {
@@ -46,7 +47,11 @@ void Parser::before_call_import(int import_index) {
 
 void Parser::before_return() {
   auto* expr = new Expression(WASM_OPCODE_RETURN);
-  insert_update(expr);
+  InsertAndPush(expr, -1);
+}
+
+void Parser::after_return(WasmType ty) {
+  PopInsertionPoint();
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
@@ -73,11 +78,11 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
     default:
       assert(false);
   }
-  insert(expr);
+  Insert(expr);
 }
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  insertion_point_ = &functions_[f]->body;
+  ResetInsertionPoint(&functions_[f]->body);
 }
 
 void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
@@ -88,14 +93,14 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
     if (func->body.size() > 1) {
       auto* expr = new Expression(WASM_OPCODE_BLOCK);
       std::swap(expr->exprs, func->body);
-      insertion_point_ = &func->body;
-      insert(expr);
+      assert(insertion_points_.size() == 1);
+      insertion_points_[0].point = &func->body;
+      Insert(expr);
     } else if (func->body.empty()) {
-      insert(new Expression(WASM_OPCODE_NOP));
+      Insert(new Expression(WASM_OPCODE_NOP));
     }
   }
-
-  insertion_point_ = nullptr;
+  PopInsertionPoint();
 }
 
 void Parser::before_module(WasmModule* m) {

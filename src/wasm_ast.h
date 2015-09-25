@@ -44,7 +44,7 @@ class Expression {
   int callee_index = 0;
   bool is_import = false;
   Callable* callee;
-  // Common (block, call args)
+  // Common (block, call args, return vals)
   UniquePtrVector<Expression> exprs;
 };
 

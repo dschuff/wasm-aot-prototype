@@ -20,6 +20,7 @@ namespace wasm {
 #define EACH_CALLBACK1                       \
   CALLBACK(before_call, void, int)           \
   CALLBACK(before_call_import, void, int)    \
+  CALLBACK(after_return, void, WasmType)     \
   CALLBACK(before_module, void, WasmModule*) \
   CALLBACK(after_module, void, WasmModule*)
 
@@ -76,14 +77,38 @@ class Parser {
 
   std::unordered_map<WasmFunction*, Function*> functions_;
 
-  std::vector<std::unique_ptr<Expression>>* insertion_point_;
-  void insert(Expression* ex) {
-    assert(insertion_point_);
-    insertion_point_->emplace_back(ex);
+  // Expression insertion points are a UniquePtrVector onto which the expression
+  // will be appended. Keep the insertion points in a stack. For expressions
+  // which have a sub-list (call args, binary ops, return val), keep a count of
+  // how many exprs we expect, so we can pop the stack after we see them (this
+  // is because there is no "after_foo" event for these. Block is special
+  // because it has an unknown number of subexprs, but it has an after_block
+  // callback (likewise for the implicit block of a function body).
+  struct InsertionState {
+    InsertionState(UniquePtrVector<Expression>* p, int e)
+        : point(p), exprs(e) {}
+    UniquePtrVector<Expression>* point;
+    int exprs;
+  };
+  std::vector<InsertionState> insertion_points_;
+  void Insert(Expression* ex) {
+    assert(insertion_points_.size());
+    InsertionState& is = insertion_points_.back();
+    is.point->emplace_back(ex);
+    if (is.exprs != -1 && --is.exprs == 0)
+      PopInsertionPoint();
   }
-  void insert_update(Expression* ex) {
-    insert(ex);
-    insertion_point_ = &ex->exprs;
+  void ResetInsertionPoint(UniquePtrVector<Expression>* point) {
+    assert(insertion_points_.empty());
+    insertion_points_.emplace_back(point, -1);
+  }
+  void InsertAndPush(Expression* ex, int expected_exprs) {
+    Insert(ex);
+    insertion_points_.emplace_back(&ex->exprs, expected_exprs);
+  }
+  void PopInsertionPoint() {
+    assert(insertion_points_.size() > 0 && insertion_points_.back().exprs <= 0);
+    insertion_points_.pop_back();
   }
 
 // The callbacks unfortunately are split by arity because we need to
