@@ -50,21 +50,24 @@ class Expression {
 
 class Callable {
  public:
+  Callable(WasmType t) : result_type(t) {}
   WasmType result_type = WASM_TYPE_VOID;
-  std::vector<Variable> args;
   std::string local_name;  // Empty if none bound
+  std::vector<Variable> args;
 };
 
 class Function : public Callable {
  public:
+  Function(WasmType t, int idx) : Callable(t), index_in_module(idx) {}
   std::vector<Variable> locals;
   UniquePtrVector<Expression> body;
   int index_in_module = 0;
-  int depth = 0;
 };
 
 class Export {
  public:
+  Export(Function* f, const std::string& n, Module* m)
+      : function(f), name(n), module(m) {}
   Function* function;
   std::string name;
   Module* module;
@@ -72,6 +75,8 @@ class Export {
 
 class Import : public Callable {
  public:
+  Import(WasmType t, const std::string& m, const std::string& f)
+      : Callable(t), module_name(m), func_name(f) {}
   std::string module_name;
   std::string func_name;
 };

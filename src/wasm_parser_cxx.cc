@@ -109,12 +109,9 @@ void Parser::before_module(WasmModule* m) {
   module->functions.reserve(m->functions.size);
   for (size_t i = 0; i < m->functions.size; ++i) {
     WasmFunction* parser_func = &m->functions.data[i];
-    module->functions.emplace_back(new Function());
+    module->functions.emplace_back(new Function(parser_func->result_type, i));
     Function* func = module->functions.back().get();
     functions_[parser_func] = func;
-
-    func->index_in_module = i;
-    func->result_type = parser_func->result_type;
 
     func->args.reserve(parser_func->num_args);
     for (int j = 0; j < parser_func->num_args; ++j) {
@@ -144,11 +141,10 @@ void Parser::before_module(WasmModule* m) {
 
   for (size_t i = 0; i < m->imports.size; ++i) {
     WasmImport& parser_import = m->imports.data[i];
-    module->imports.emplace_back(new Import());
+    module->imports.emplace_back(new Import(parser_import.result_type,
+                                            parser_import.module_name,
+                                            parser_import.func_name));
     Import* imp = module->imports.back().get();
-    imp->module_name.assign(parser_import.module_name);
-    imp->func_name.assign(parser_import.func_name);
-    imp->result_type = parser_import.result_type;
     for (size_t j = 0; j < parser_import.args.size; ++j) {
       imp->args.emplace_back();
       imp->args.back().type = parser_import.args.data[j].type;
@@ -181,12 +177,8 @@ void Parser::after_module(WasmModule* m) {
 
 void Parser::after_export(WasmModule* m, WasmFunction* f) {
   Function* func = functions_[f];
-  module->exports.emplace_back(new Export());
-  Export* exp = module->exports.back().get();
-  exp->function = func;
   assert(f->exported_name);
-  exp->name.assign(f->exported_name);
-  exp->module = module;
+  module->exports.emplace_back(new Export(func, f->exported_name, module));
 }
 
 }  // namespace wasm
