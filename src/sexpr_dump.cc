@@ -45,9 +45,12 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  wasm::AstDumper dumper;
   for (auto& module : parser.modules) {
-    wasm::AstDumper dumper;
     dumper.Visit(*module);
+  }
+  for (auto& script_expr : parser.test_script) {
+    dumper.Visit(*script_expr);
   }
   return 0;
 }

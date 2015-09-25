@@ -170,3 +170,14 @@ Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
       assert(false);
   }
 }
+
+Value* WAOTVisitor::VisitInvoke(
+    const wasm::Export& callee,
+    const wasm::UniquePtrVector<wasm::Expression>&) {
+  return nullptr;
+}
+
+Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& arg,
+                                  const wasm::Expression& expected) {
+  return nullptr;
+}

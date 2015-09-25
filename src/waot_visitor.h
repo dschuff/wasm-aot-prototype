@@ -37,6 +37,12 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
       const wasm::UniquePtrVector<wasm::Expression>& value) override;
   llvm::Value* VisitConst(const wasm::Literal& l) override;
 
+  llvm::Value* VisitInvoke(
+      const wasm::Export& callee,
+      const wasm::UniquePtrVector<wasm::Expression>&) override;
+  llvm::Value* VisitAssertEq(const wasm::TestScriptExpr& arg,
+                             const wasm::Expression& expected) override;
+
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,
                               llvm::Function::LinkageTypes linkage);

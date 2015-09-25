@@ -100,4 +100,4 @@ test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot run
 .PHONY: clean
 clean:
 	rm -rf $(OUT_DIR)
-	rm -rf test/Output
+	rm -rf test/*/Output

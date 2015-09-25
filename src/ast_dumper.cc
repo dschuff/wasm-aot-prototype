@@ -71,7 +71,12 @@ void AstDumper::VisitImport(const Import& import) {
 }
 
 void AstDumper::VisitExport(const Export& exp) {
-  printf("(export \"%s\" %u)", exp.name.c_str(), exp.function->index_in_module);
+  printf("(export \"%s\" ", exp.name.c_str());
+  if (exp.function->local_name.empty()) {
+    printf("%u)", exp.function->index_in_module);
+  } else {
+    printf("%s)", exp.function->local_name.c_str());
+  }
 }
 
 static void dump_var_list(const UniquePtrVector<Variable>& lst,
@@ -158,5 +163,21 @@ void AstDumper::VisitConst(const Literal& l) {
   }
 }
 
+void AstDumper::VisitInvoke(const Export& callee,
+                            const UniquePtrVector<Expression>& args) {
+  printf("(invoke \"%s\" ", callee.name.c_str());
+  for (auto& e : args) {
+    VisitExpression(*e);
+  }
+  printf(")\n");
+}
+
+void AstDumper::VisitAssertEq(const TestScriptExpr& invoke_arg,
+                              const Expression& expected) {
+  printf("(assert_eq ");
+  Visit(invoke_arg);
+  VisitExpression(expected);
+  printf(")\n");
+}
 
 } // namespace wasm

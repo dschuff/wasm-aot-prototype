@@ -34,6 +34,7 @@ void Parser::ParseCall(bool is_import, int index) {
   } else {
     expr->callee = module->functions[index].get();
   }
+  expr->expr_type = expr->callee->result_type;
   InsertAndPush(expr, expr->callee->args.size());
 }
 
@@ -82,7 +83,7 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
 }
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  ResetInsertionPoint(&functions_[f]->body);
+  ResetInsertionPoint(&functions_[f]->body, -1);
 }
 
 void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
@@ -182,4 +183,26 @@ void Parser::after_export(WasmModule* m, WasmFunction* f) {
   module->exports.emplace_back(new Export(func, f->exported_name, module));
 }
 
+void Parser::before_invoke(const char* invoke_name, int invoke_function_index) {
+  assert(modules.size());
+  Module* last_module = modules.back().get();
+  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke);
+  if (current_assert_eq_) {
+    current_assert_eq_->invoke.reset(expr);
+  } else {
+    test_script.emplace_back(expr);
+  }
+  expr->callee = last_module->exports[invoke_function_index].get();
+  PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
+}
+
+WasmParserCookie Parser::before_assert_eq() {
+  assert(modules.size() && !module);
+  Module* last_module = modules.back().get();
+  test_script.emplace_back(
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertEq));
+  current_assert_eq_ = test_script.back().get();
+  ResetInsertionPoint(&current_assert_eq_->exprs, 1);
+  return 0;
+}
 }  // namespace wasm

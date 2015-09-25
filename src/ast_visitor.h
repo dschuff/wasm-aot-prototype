@@ -27,6 +27,9 @@ template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
 public:
  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
+ virtual void Visit(const TestScriptExpr& script) {
+   VisitTestScriptExpr(script);
+ }
 
  protected:
   virtual ModuleVal VisitModule(const Module& mod) = 0;
@@ -65,6 +68,21 @@ public:
                             const UniquePtrVector<Expression>& args) = 0;
   virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) = 0;
   virtual ExprVal VisitConst(const Literal& l) = 0;
+
+  ExprVal VisitTestScriptExpr(const TestScriptExpr& expr) {
+    switch (expr.opcode) {
+      case TestScriptExpr::kInvoke:
+        return VisitInvoke(*expr.callee, expr.exprs);
+      case TestScriptExpr::kAssertEq:
+        return VisitAssertEq(*expr.invoke, *expr.exprs[0]);
+      default:
+        assert(false);
+    }
+  }
+  virtual ExprVal VisitInvoke(const Export& callee,
+                              const UniquePtrVector<Expression>&) = 0;
+  virtual ExprVal VisitAssertEq(const TestScriptExpr& arg,
+                                const Expression& expected) = 0;
 };
 }
 

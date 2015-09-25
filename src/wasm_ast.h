@@ -101,5 +101,22 @@ class Module {
   std::string name;
 };
 
+// For spec repo test scripts. The spec test script operations are basically
+// expressions but have no wasm opcodes and they exist outside modules, so at
+// the top level they have their own classes, which contain Expressions.  Each
+// script expression refers to the module that immediately preceeds it in the
+// file (the parser checks this and sets up the mapping when creating the AST).
+class TestScriptExpr {
+ public:
+  typedef enum { kAssertInvalid, kInvoke, kAssertEq, kAssertTrap } Opcode;
+  TestScriptExpr(Module* mod, Opcode op) : module(mod), opcode(op) {}
+
+  Module* module;
+  Opcode opcode;
+  Export* callee;                          // Invoke
+  std::unique_ptr<TestScriptExpr> invoke;  // AssertEq
+  UniquePtrVector<Expression> exprs;       // Invoke args, AssertEq expectation
+};
+
 }  // namespace wasm
 #endif  // WASM_AST_H

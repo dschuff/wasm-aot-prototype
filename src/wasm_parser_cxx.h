@@ -15,7 +15,8 @@ namespace wasm {
 #define EACH_CALLBACK0                     \
   CALLBACK(after_nop, void)                \
   CALLBACK(before_block, WasmParserCookie) \
-  CALLBACK(before_return, void)
+  CALLBACK(before_return, void)            \
+  CALLBACK(before_assert_eq, WasmParserCookie)
 
 #define EACH_CALLBACK1                       \
   CALLBACK(before_call, void, int)           \
@@ -28,7 +29,8 @@ namespace wasm {
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(after_block, void, int, WasmParserCookie)          \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
-  CALLBACK(after_export, void, WasmModule*, WasmFunction*)
+  CALLBACK(after_export, void, WasmModule*, WasmFunction*)    \
+  CALLBACK(before_invoke, void, const char*, int)
 
 #define EACH_CALLBACK3                                          \
   CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber) \
@@ -60,6 +62,7 @@ class Parser {
   }
 
   UniquePtrVector<Module> modules;
+  UniquePtrVector<TestScriptExpr> test_script;
 
  private:
 #define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);
@@ -74,6 +77,7 @@ class Parser {
   WasmSource source_;
   std::string filename_;
   bool desugar_;
+  TestScriptExpr* current_assert_eq_ = nullptr;
 
   std::unordered_map<WasmFunction*, Function*> functions_;
 
@@ -98,13 +102,18 @@ class Parser {
     if (is.exprs != -1 && --is.exprs == 0)
       PopInsertionPoint();
   }
-  void ResetInsertionPoint(UniquePtrVector<Expression>* point) {
+  void ResetInsertionPoint(UniquePtrVector<Expression>* point,
+                           int expected_exprs) {
     assert(insertion_points_.empty());
-    insertion_points_.emplace_back(point, -1);
+    insertion_points_.emplace_back(point, expected_exprs);
   }
   void InsertAndPush(Expression* ex, int expected_exprs) {
     Insert(ex);
-    insertion_points_.emplace_back(&ex->exprs, expected_exprs);
+    PushInsertionPoint(&ex->exprs, expected_exprs);
+  }
+  void PushInsertionPoint(UniquePtrVector<Expression>* point,
+                          int expected_exprs) {
+    insertion_points_.emplace_back(point, expected_exprs);
   }
   void PopInsertionPoint() {
     assert(insertion_points_.size() > 0 && insertion_points_.back().exprs <= 0);

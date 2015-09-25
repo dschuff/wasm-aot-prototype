@@ -22,6 +22,11 @@ protected:
                  const UniquePtrVector<Expression>& args) override;
   void VisitReturn(const UniquePtrVector<Expression>& value) override;
   void VisitConst(const Literal& l) override;
+
+  void VisitInvoke(const Export& callee,
+                   const UniquePtrVector<Expression>& args) override;
+  void VisitAssertEq(const TestScriptExpr& invoke_arg,
+                     const Expression& expected) override;
 };
 }
 
