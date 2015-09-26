@@ -5,6 +5,7 @@
 #include "wasm-parse.h"
 #include "wasm_ast.h"
 
+#include <limits>
 #include <string>
 #include <unordered_map>
 #include <cassert>
@@ -94,12 +95,13 @@ class Parser {
     UniquePtrVector<Expression>* point;
     int exprs;
   };
+  const static int kUnknownExpectedExprs = std::numeric_limits<int>::max();
   std::vector<InsertionState> insertion_points_;
   void Insert(Expression* ex) {
     assert(insertion_points_.size());
     InsertionState& is = insertion_points_.back();
     is.point->emplace_back(ex);
-    if (is.exprs != -1 && --is.exprs == 0)
+    if (is.exprs != kUnknownExpectedExprs && --is.exprs == 0)
       PopInsertionPoint();
   }
   void ResetInsertionPoint(UniquePtrVector<Expression>* point,
@@ -109,14 +111,17 @@ class Parser {
   }
   void InsertAndPush(Expression* ex, int expected_exprs) {
     Insert(ex);
-    PushInsertionPoint(&ex->exprs, expected_exprs);
+    if (expected_exprs > 0)
+      PushInsertionPoint(&ex->exprs, expected_exprs);
   }
   void PushInsertionPoint(UniquePtrVector<Expression>* point,
                           int expected_exprs) {
     insertion_points_.emplace_back(point, expected_exprs);
   }
   void PopInsertionPoint() {
-    assert(insertion_points_.size() > 0 && insertion_points_.back().exprs <= 0);
+    assert(insertion_points_.size() > 0 &&
+           (insertion_points_.back().exprs == kUnknownExpectedExprs ||
+            insertion_points_.back().exprs == 0));
     insertion_points_.pop_back();
   }
 

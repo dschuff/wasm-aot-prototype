@@ -15,7 +15,7 @@ void Parser::after_nop() {
 WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OPCODE_BLOCK);
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
-  InsertAndPush(expr, -1);
+  InsertAndPush(expr, kUnknownExpectedExprs);
   return 0;
 }
 
@@ -48,7 +48,7 @@ void Parser::before_call_import(int import_index) {
 
 void Parser::before_return() {
   auto* expr = new Expression(WASM_OPCODE_RETURN);
-  InsertAndPush(expr, -1);
+  InsertAndPush(expr, kUnknownExpectedExprs);
 }
 
 void Parser::after_return(WasmType ty) {
@@ -83,7 +83,7 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
 }
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  ResetInsertionPoint(&functions_[f]->body, -1);
+  ResetInsertionPoint(&functions_[f]->body, kUnknownExpectedExprs);
 }
 
 void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {

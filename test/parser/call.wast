@@ -7,4 +7,6 @@
 (module (func (param i32)
   (call 0 (i32.const 1)))
   (func (param i32) (call 1 (i32.const 2)))
+  (func (call 2))
+  (func (call 1 (i32.const 1)))
 )
