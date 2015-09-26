@@ -111,12 +111,12 @@ class Parser {
   }
   void InsertAndPush(Expression* ex, int expected_exprs) {
     Insert(ex);
-    if (expected_exprs > 0)
-      PushInsertionPoint(&ex->exprs, expected_exprs);
+    PushInsertionPoint(&ex->exprs, expected_exprs);
   }
   void PushInsertionPoint(UniquePtrVector<Expression>* point,
                           int expected_exprs) {
-    insertion_points_.emplace_back(point, expected_exprs);
+    if (expected_exprs > 0)
+      insertion_points_.emplace_back(point, expected_exprs);
   }
   void PopInsertionPoint() {
     assert(insertion_points_.size() > 0 &&
