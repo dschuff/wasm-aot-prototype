@@ -6,6 +6,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 
@@ -42,6 +44,21 @@ static std::string Mangle(const std::string& module,
                           const std::string& function) {
   return std::string("." + module + "." + function);
 }
+
+// RAII class to set current_bb_ and restore it on return.
+class BBStacker {
+ public:
+  BBStacker(BasicBlock** current_bb_ptr, BasicBlock* new_value) {
+    current_bb_ = current_bb_ptr;
+    last_value_ = *current_bb_ptr;
+    *current_bb_ptr = new_value;
+  }
+  ~BBStacker() { *current_bb_ = last_value_; }
+
+ private:
+  BasicBlock** current_bb_;
+  BasicBlock* last_value_;
+};
 
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
@@ -83,22 +100,23 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   auto* f = GetFunction(func, Function::InternalLinkage);
 
   BasicBlock::Create(ctx_, "entry", f);
-  auto& bb = f->getEntryBlock();
+  auto* bb = &f->getEntryBlock();
 
-  IRBuilder<> irb(&bb);
+  IRBuilder<> irb(bb);
   for (auto& local : func.locals) {
     irb.CreateAlloca(getLLVMType(local->type, ctx_), nullptr,
                      local->local_name.c_str());
   }
   current_func_ = f;
-  current_bb_ = &bb;
+  assert(current_bb_ == nullptr);
+  BBStacker bbs(&current_bb_, bb);
 
   Value* last_value = nullptr;
   for (auto& expr : func.body) {
     last_value = VisitExpression(*expr);
   }
   // Handle implicit return of the last expression
-  if (!bb.getTerminator()) {
+  if (!bb->getTerminator()) {
     if (func.result_type == WASM_TYPE_VOID) {
       irb.CreateRetVoid();
     } else {
@@ -139,13 +157,11 @@ Value* WAOTVisitor::VisitCall(
     int callee_index,
     const wasm::UniquePtrVector<wasm::Expression>& args) {
   assert(current_bb_);
-  BasicBlock* bb(current_bb_);
   SmallVector<Value*, 8> arg_values;
   for (auto& arg : args) {
     arg_values.push_back(VisitExpression(*arg));
   }
-  current_bb_ = bb;
-  IRBuilder<> irb(bb);
+  IRBuilder<> irb(current_bb_);
   return irb.CreateCall(functions_[&callee], arg_values);
 }
 
@@ -185,17 +201,15 @@ Value* WAOTVisitor::VisitInvoke(
       Function::ExternalLinkage, "Invoke", module_);
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
-  auto& bb = f->getEntryBlock();
+  auto* bb = &f->getEntryBlock();
+  BBStacker bbs(&current_bb_, bb);
 
   current_func_ = f;
-  BasicBlock* last_bb(current_bb_);
-  current_bb_ = &bb;
   Value* call = VisitCall(false, *callee.function,
                           callee.function->index_in_module, args);
 
-  IRBuilder<> irb(&bb);
+  IRBuilder<> irb(bb);
   irb.CreateRet(call);
-  current_bb_ = last_bb;
   return f;
 }
 
@@ -205,23 +219,34 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
       FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
       Function::ExternalLinkage, "AssertEq", module_);
   BasicBlock::Create(ctx_, "entry", f);
-  auto& bb = f->getEntryBlock();
+  auto* bb = &f->getEntryBlock();
   current_func_ = f;
-  current_bb_ = &bb;
+  BBStacker bbs(&current_bb_, bb);
   Value* invoke_func = VisitInvoke(*invoke.callee, invoke.exprs);
   // invoke_func->dump();
-  IRBuilder<> irb(&bb);
+  IRBuilder<> irb(bb);
   Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
   Value* expected_result = VisitExpression(expected);
+  Value* cmp_result;
   assert(result->getType() == expected_result->getType());
   if (result->getType()->isIntOrIntVectorTy()) {
-    irb.CreateICmpEQ(result, expected_result);
+    cmp_result = irb.CreateICmpEQ(result, expected_result);
   } else if (result->getType()->isFloatTy()) {
-    irb.CreateFCmpOEQ(result, expected_result);
+    cmp_result = irb.CreateFCmpOEQ(result, expected_result);
   } else {
     assert(false);
   }
-  irb.CreateRetVoid();
+
+  BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
+  llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
+  BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
+  IRBuilder<> fail_irb(fail_bb);
+  // TODO: replace this trap with something useful (call a runtime function?)
+  fail_irb.CreateCall(llvm::Intrinsic::getDeclaration(
+      module_, llvm::Intrinsic::trap, std::vector<Type*>()));
+  fail_irb.CreateUnreachable();
+  irb.CreateCondBr(cmp_result, success_bb, fail_bb);
+
   // f->dump();
-  return nullptr;
+  return f;
 }

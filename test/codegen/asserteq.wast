@@ -12,7 +12,12 @@
 (assert_eq (invoke "foo") (i32.const 0))
 ;; CHECK: define void @AssertEq()
 ;; CHECK: call i32 @Invoke
-;; CHECK: icmp eq i32 %0, 0
+;; CHECK: %1 = icmp eq i32 %0, 0
+;; CHECK: br i1 %1, label %AssertSuccess, label %AssertFail
+;; CHECK: AssertSuccess:
+;; CHECK: ret void
+;; CHECK: AssertFail:
+;; CHECK: call void @llvm.trap
 ;; CHECK: define i32 @Invoke
 ;; CHECK: call i32 @"$foo"()
 
