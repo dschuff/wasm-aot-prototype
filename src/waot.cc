@@ -106,7 +106,14 @@ int main(int argc, char** argv) {
     }
     converter.Visit(*module);
   }
+
+  if (g_spec_test_script_mode) {
+    for (auto& script_expr : parser.test_script) {
+      converter.Visit(*script_expr);
+    }
+  }
   mpm.run(*llvm_module);
   output->keep();
+
   return 0;
 }

@@ -126,7 +126,11 @@ Value* WAOTVisitor::VisitNop() {
 }
 Value* WAOTVisitor::VisitBlock(
     const wasm::UniquePtrVector<wasm::Expression>& exprs) {
-  return nullptr;
+  Value* ret = nullptr;  // A void expr instead?
+  for (auto& expr : exprs) {
+    ret = VisitExpression(*expr);
+  }
+  return ret;
 }
 
 Value* WAOTVisitor::VisitCall(
@@ -140,6 +144,7 @@ Value* WAOTVisitor::VisitCall(
   for (auto& arg : args) {
     arg_values.push_back(VisitExpression(*arg));
   }
+  current_bb_ = bb;
   IRBuilder<> irb(bb);
   return irb.CreateCall(functions_[&callee], arg_values);
 }
@@ -173,11 +178,50 @@ Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
 
 Value* WAOTVisitor::VisitInvoke(
     const wasm::Export& callee,
-    const wasm::UniquePtrVector<wasm::Expression>&) {
-  return nullptr;
+    const wasm::UniquePtrVector<wasm::Expression>& args) {
+  auto* ret_type = getLLVMType(callee.function->result_type, ctx_);
+  auto* f = Function::Create(
+      FunctionType::get(ret_type, SmallVector<Type*, 1>(), false),
+      Function::ExternalLinkage, "Invoke", module_);
+  assert(f);
+  BasicBlock::Create(ctx_, "entry", f);
+  auto& bb = f->getEntryBlock();
+
+  current_func_ = f;
+  BasicBlock* last_bb(current_bb_);
+  current_bb_ = &bb;
+  Value* call = VisitCall(false, *callee.function,
+                          callee.function->index_in_module, args);
+
+  IRBuilder<> irb(&bb);
+  irb.CreateRet(call);
+  current_bb_ = last_bb;
+  return f;
 }
 
-Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& arg,
+Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
                                   const wasm::Expression& expected) {
+  auto* f = Function::Create(
+      FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
+      Function::ExternalLinkage, "AssertEq", module_);
+  BasicBlock::Create(ctx_, "entry", f);
+  auto& bb = f->getEntryBlock();
+  current_func_ = f;
+  current_bb_ = &bb;
+  Value* invoke_func = VisitInvoke(*invoke.callee, invoke.exprs);
+  // invoke_func->dump();
+  IRBuilder<> irb(&bb);
+  Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
+  Value* expected_result = VisitExpression(expected);
+  assert(result->getType() == expected_result->getType());
+  if (result->getType()->isIntOrIntVectorTy()) {
+    irb.CreateICmpEQ(result, expected_result);
+  } else if (result->getType()->isFloatTy()) {
+    irb.CreateFCmpOEQ(result, expected_result);
+  } else {
+    assert(false);
+  }
+  irb.CreateRetVoid();
+  // f->dump();
   return nullptr;
 }
