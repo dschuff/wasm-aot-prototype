@@ -209,7 +209,11 @@ Value* WAOTVisitor::VisitInvoke(
                           callee.function->index_in_module, args);
 
   IRBuilder<> irb(bb);
-  irb.CreateRet(call);
+  if (ret_type->isVoidTy()) {
+    irb.CreateRetVoid();
+  } else {
+    irb.CreateRet(call);
+  }
   return f;
 }
 
@@ -223,7 +227,7 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
   current_func_ = f;
   BBStacker bbs(&current_bb_, bb);
   Value* invoke_func = VisitInvoke(*invoke.callee, invoke.exprs);
-  // invoke_func->dump();
+
   IRBuilder<> irb(bb);
   Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
   Value* expected_result = VisitExpression(expected);
@@ -247,6 +251,5 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
   fail_irb.CreateUnreachable();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
 
-  // f->dump();
   return f;
 }
