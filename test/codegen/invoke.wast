@@ -17,3 +17,10 @@
 (invoke "test" (i32.const -30))
 ;; CHECK: define i32 @Invoke
 ;; CHECK: call i32 @"$test"(i32 -30)
+
+;; Check that the test script calls the invokes
+;; CHECK: define i32 @main()
+;; CHECK: call i32 @Invoke
+;; CHECK: call i32 @Invoke.1
+;; CHECK: call i32 @Invoke
+;; CHECK: ret i32 0

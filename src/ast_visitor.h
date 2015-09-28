@@ -27,8 +27,8 @@ template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
 public:
  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
- virtual void Visit(const TestScriptExpr& script) {
-   VisitTestScriptExpr(script);
+ ExprVal Visit(const TestScriptExpr& script) {
+   return VisitTestScriptExpr(script);
  }
 
  protected:

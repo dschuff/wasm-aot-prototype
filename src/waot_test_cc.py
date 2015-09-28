@@ -17,20 +17,30 @@ def find_runtime_dir(start_dir):
       return f
   return None
 
-def log_call(verbose, args):
+def log_call_internal(verbose, args):
   if verbose:
     print >> sys.stderr, ' '.join(args)
-  subprocess.check_call(args)
+  try:
+    subprocess.check_call(args)
+  except subprocess.CalledProcessError:
+    print >> sys.stderr, 'Command Failed:'
+    print >> sys.stderr, ' '.join(args)
+    sys.exit(1)
 
 def Main(argv):
   parser = argparse.ArgumentParser(
       description="End-to-end compiler driver for waot tests")
-  parser.add_argument('-o', dest='output', help='Output file', default='a.out')
-  parser.add_argument('-v', dest='verbose', help='Log calls',
+  parser.add_argument('-o', '--output', help='Output file', default='a.out')
+  parser.add_argument('-s', '--spec-test-script',
+                      help='Run translator in spec test script mode',
+                      action='store_true')
+  parser.add_argument('-v', '--verbose', help='Log calls',
                       action='store_true')
   parser.add_argument('inputs', metavar='INPUT', type=str, nargs='+',
                       help='input file')
   options = parser.parse_args(argv)
+  def log_call(args):
+    return log_call_internal(options.verbose, args)
 
   runtime_libdir = (
       find_runtime_dir(
@@ -46,11 +56,14 @@ def Main(argv):
   for input in options.inputs:
     ll_temp = os.path.join(outdir, os.path.basename(input)) + '.ll'
     o_temp = os.path.join(outdir, os.path.basename(input)) + '.o'
-    log_call(options.verbose, ['waot', '-o', ll_temp, input])
-    log_call(options.verbose, ['llc', ll_temp, '-filetype=obj', '-o', o_temp])
+    waot_flags = ['-o', ll_temp, input]
+    if options.spec_test_script:
+      waot_flags.append('-spec-test-script')
+    log_call(['waot'] + waot_flags)
+    log_call(['llc', ll_temp, '-filetype=obj', '-o', o_temp])
     objs.append(o_temp)
 
-  log_call(options.verbose, ['gcc', '-o', options.output] + objs +
+  log_call(['gcc', '-o', options.output] + objs +
            ['-L'+runtime_libdir, '-l'+RUNTIME_LIB])
 
 if __name__ == '__main__':

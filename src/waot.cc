@@ -4,7 +4,9 @@
 #include "wasm_parser_cxx.h"
 
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
@@ -18,6 +20,9 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 using llvm::errs;
+using llvm::Function;
+using llvm::FunctionType;
+using llvm::Type;
 
 static llvm::cl::opt<std::string> g_input_filename(
     llvm::cl::Positional,
@@ -90,28 +95,44 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  llvm::LLVMContext& context = llvm::getGlobalContext();
   llvm::ModulePassManager mpm{};
   assert(g_print_asm);  // For now, only support printing assembly.
   mpm.addPass(llvm::VerifierPass());
   mpm.addPass(llvm::PrintModulePass(output->os()));
 
   parser.modules.front()->name = llvm::sys::path::stem(g_input_filename);
-  auto llvm_module = llvm::make_unique<llvm::Module>(
-      parser.modules.front()->name, llvm::getGlobalContext());
+  auto llvm_module =
+      llvm::make_unique<llvm::Module>(parser.modules.front()->name, context);
   WAOTVisitor converter(llvm_module.get());
+  wasm::AstDumper dumper;
   for (auto& module : parser.modules) {
-    if (g_dump_ast) {
-      wasm::AstDumper dumper;
+    if (g_dump_ast)
       dumper.Visit(*module);
-    }
     converter.Visit(*module);
   }
 
   if (g_spec_test_script_mode) {
+    std::vector<llvm::Value*> assert_funcs;
     for (auto& script_expr : parser.test_script) {
-      converter.Visit(*script_expr);
+      if (g_dump_ast)
+        dumper.Visit(*script_expr);
+      assert_funcs.push_back(converter.Visit(*script_expr));
     }
+    Function* script_main =
+        Function::Create(FunctionType::get(Type::getInt32Ty(context),
+                                           std::vector<Type*>(), false),
+                         Function::ExternalLinkage, "main", llvm_module.get());
+    llvm::BasicBlock::Create(context, "entry", script_main);
+    auto* bb = &script_main->getEntryBlock();
+    llvm::IRBuilder<> irb(bb);
+    for (auto* func : assert_funcs) {
+      auto* f = llvm::cast<Function>(func);
+      irb.CreateCall(f);
+    }
+    irb.CreateRet(llvm::ConstantInt::get(Type::getInt32Ty(context), 0));
   }
+
   mpm.run(*llvm_module);
   output->keep();
 

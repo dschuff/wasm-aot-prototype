@@ -22,7 +22,7 @@
 ;; CHECK: call i32 @"$foo"()
 
 (assert_eq (invoke "bar" (f32.const 0)) (f32.const 0))
-;; CHECK: define void @AssertEq
+;; CHECK: define void @AssertEq.1
 ;; CHECK: call float @Invoke
 ;; CHECK: fcmp oeq float %0, 0.000000e+00
 ;; CHECK: define float @Invoke
@@ -33,3 +33,10 @@
   (invoke "bar"
     (block (f32.const 1) (f32.const 10)))
   (f32.const 11))
+
+;; Check for main function that calls all the asserteqs
+;; CHECK: define i32 @main()
+;; CHECK: call void @AssertEq()
+;; CHECK: call void @AssertEq.1()
+;; CHECK: call void @AssertEq
+;; CHECK: ret i32 0
