@@ -4,6 +4,9 @@
 
 namespace wasm {
 
+static_assert(sizeof(WasmParserCookie) == sizeof(void*),
+              "WasmParserCookie size does not match pointer size");
+
 void Parser::error(WasmSourceLocation loc, const char* msg) {
   fprintf(stderr, "%s:%d:%d: %s", loc.source->filename, loc.line, loc.col, msg);
 }
@@ -16,11 +19,15 @@ WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OPCODE_BLOCK);
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
   InsertAndPush(expr, kUnknownExpectedExprs);
-  return 0;
+  return reinterpret_cast<WasmParserCookie>(expr);
 }
 
-void Parser::after_block(int num_exprs, WasmParserCookie cookie) {
+void Parser::after_block(WasmType ty, int num_exprs, WasmParserCookie cookie) {
   PopInsertionPoint();
+  assert(insertion_points_.size() > 0);
+  Expression* block_expr = reinterpret_cast<Expression*>(cookie);
+  assert(block_expr->opcode == WASM_OPCODE_BLOCK);
+  block_expr->expr_type = ty;
 }
 
 void Parser::ParseCall(bool is_import, int index) {

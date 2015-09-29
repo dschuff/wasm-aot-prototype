@@ -28,12 +28,12 @@ namespace wasm {
 
 #define EACH_CALLBACK2                                        \
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
-  CALLBACK(after_block, void, int, WasmParserCookie)          \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_export, void, WasmModule*, WasmFunction*)    \
   CALLBACK(before_invoke, void, const char*, int)
 
 #define EACH_CALLBACK3                                          \
+  CALLBACK(after_block, void, WasmType, int, WasmParserCookie)  \
   CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber) \
   CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)
 
