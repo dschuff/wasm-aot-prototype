@@ -1,4 +1,4 @@
-;; RUN: waot %s | FileCheck %s
+;; RUN: wat %s | FileCheck %s
 (module
 
 ;; unnamed

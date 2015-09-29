@@ -1,3 +1,3 @@
-;; RUN: waot -S %s | FileCheck %s
+;; RUN: wat -S %s | FileCheck %s
 (module)
 ;; CHECK: ModuleID

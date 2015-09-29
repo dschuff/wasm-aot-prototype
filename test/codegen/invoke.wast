@@ -1,6 +1,6 @@
-;; RUN: waot -spec-test-script -S %s | FileCheck %s
+;; RUN: wat -spec-test-script -S %s | FileCheck %s
 ;; Check that the -spec-test-script flag is required to accept this file.
-;; RUN: not waot -S %s
+;; RUN: not wat -S %s
 (module
   (export "test" $test)
   (func $test (param i32) (result i32) (i32.const 3)))

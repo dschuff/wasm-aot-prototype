@@ -1,4 +1,4 @@
-;; RUN: waot_test_cc.py --spec-test-script %s -o %t1
+;; RUN: wac.py --spec-test-script %s -o %t1
 ;; RUN: not %t1
 
 (module

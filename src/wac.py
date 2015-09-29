@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-RUNTIME_LIB = 'waot_runtime'
+RUNTIME_LIB = 'wart'
 
 def find_runtime_dir(start_dir):
   lib_name = 'lib' + RUNTIME_LIB + '.a'
@@ -56,10 +56,10 @@ def Main(argv):
   for input in options.inputs:
     ll_temp = os.path.join(outdir, os.path.basename(input)) + '.ll'
     o_temp = os.path.join(outdir, os.path.basename(input)) + '.o'
-    waot_flags = ['-o', ll_temp, input]
+    wat_flags = ['-o', ll_temp, input]
     if options.spec_test_script:
-      waot_flags.append('-spec-test-script')
-    log_call(['waot'] + waot_flags)
+      wat_flags.append('-spec-test-script')
+    log_call(['wat'] + wat_flags)
     log_call(['llc', ll_temp, '-filetype=obj', '-o', o_temp])
     objs.append(o_temp)
 

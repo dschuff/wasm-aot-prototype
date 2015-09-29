@@ -1,4 +1,4 @@
-;; RUN: waot_test_cc.py --spec-test-script %s -o %t1
+;; RUN: wac.py --spec-test-script %s -o %t1
 ;; RUN: %t1 | FileCheck %s
 (module
   (export "test" $test)

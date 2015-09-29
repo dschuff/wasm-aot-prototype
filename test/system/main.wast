@@ -1,4 +1,4 @@
-;; RUN: waot_test_cc.py %s -o %t1
+;; RUN: wac.py %s -o %t1
 ;; RUN: %t1 | FileCheck %s
 (module
   (func $main (call_import 0 (i32.const 3)))

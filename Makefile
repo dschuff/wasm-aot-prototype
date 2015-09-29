@@ -1,6 +1,6 @@
 .SUFFIXES:
 
-ALL = sexpr_dump waot
+ALL = sexpr_dump wat libwart.a
 CC ?= gcc
 CXX ?= g++
 
@@ -28,8 +28,8 @@ WASM_CPP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_dumper.cc
 WASM_CPP_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WASM_CPP_SRCS))
 
 WAOT_HEADERS = waot_visitor.h
-WAOT_SRCS = waot_visitor.cc waot.cc
-WAOT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAOT_SRCS))
+WAT_SRCS = waot_visitor.cc wat.cc
+WAT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAT_SRCS))
 
 LLVM_PATH ?= /s/llvm-upstream/release_37/install
 LLVM_BUILD_PATH ?= /s/llvm-upstream/release_37/build
@@ -65,8 +65,8 @@ $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 $(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) 
 	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
-$(OUT_DIR)/waot: $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
-	$(CXX) -o $@ $(WAOT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+$(OUT_DIR)/wat: $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
+	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
 
 $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
@@ -81,20 +81,20 @@ RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS))
 $(OUT_DIR)/%.o: host/%.c
 	$(RUNTIME_CC) $(RUNTIME_CFLAGS) -c -o $@ $<
 
-$(OUT_DIR)/libwaot_runtime.a: $(RUNTIME_OBJS)
+$(OUT_DIR)/libwart.a: $(RUNTIME_OBJS)
 	ar rcs $@ $(RUNTIME_OBJS)
 
 .PHONY: runtime
-TEST_CC = $(OUT_DIR)/waot_test_cc.py
+TEST_CC = $(OUT_DIR)/wac.py
 
-$(TEST_CC): src/waot_test_cc.py
+$(TEST_CC): src/wac.py
 	cp $< $(OUT_DIR)
-runtime: $(OUT_DIR)/libwaot_runtime.a $(TEST_CC)
+runtime: $(OUT_DIR)/libwart.a $(TEST_CC)
 
 
 #### TESTS ####
 .PHONY: test
-test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/waot runtime
+test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/wat runtime
 	PATH=$(PATH):$(LLVM_PATH)/bin $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
