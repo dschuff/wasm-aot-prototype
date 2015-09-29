@@ -98,18 +98,21 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
 
 void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   auto* f = GetFunction(func, Function::InternalLinkage);
+  current_func_ = f;
 
   BasicBlock::Create(ctx_, "entry", f);
+  for (auto& arg : f->args()) {
+    current_locals_.push_back(&arg);
+  }
   auto* bb = &f->getEntryBlock();
+  assert(current_bb_ == nullptr);
+  BBStacker bbs(&current_bb_, bb);
 
   IRBuilder<> irb(bb);
   for (auto& local : func.locals) {
-    irb.CreateAlloca(getLLVMType(local->type, ctx_), nullptr,
-                     local->local_name.c_str());
+    current_locals_.push_back(irb.CreateAlloca(
+        getLLVMType(local->type, ctx_), nullptr, local->local_name.c_str()));
   }
-  current_func_ = f;
-  assert(current_bb_ == nullptr);
-  BBStacker bbs(&current_bb_, bb);
 
   Value* last_value = nullptr;
   for (auto& expr : func.body) {
@@ -124,6 +127,8 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
       irb.CreateRet(last_value);
     }
   }
+  current_func_ = nullptr;
+  current_locals_.clear();
 }
 
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {
@@ -171,6 +176,21 @@ Value* WAOTVisitor::VisitReturn(
   if (!value.size())
     return irb.CreateRetVoid();
   return irb.CreateRet(VisitExpression(*value.front()));
+}
+
+Value* WAOTVisitor::VisitGetLocal(const wasm::Variable& var) {
+  printf("get_local %d args %lu\n", var.index, current_func_->arg_size());
+  if (var.index < current_func_->arg_size())
+    return current_locals_[var.index];
+
+  IRBuilder<> irb(current_bb_);
+  auto* load_addr = current_locals_[var.index];
+  return irb.CreateLoad(getLLVMType(var.type, ctx_), load_addr, "get_local");
+}
+
+Value* WAOTVisitor::VisitSetLocal(const wasm::Variable& var,
+                                  const wasm::Expression& value) {
+  return nullptr;
 }
 
 Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {

@@ -62,6 +62,26 @@ void Parser::after_return(WasmType ty) {
   PopInsertionPoint();
 }
 
+void Parser::after_get_local(int remapped_index) {
+  auto* expr = new Expression(WASM_OPCODE_GET_LOCAL);
+  assert(current_func_);
+  size_t num_args = current_func_->args.size();
+  if (remapped_index < num_args) {
+    expr->local_var = current_func_->args[remapped_index].get();
+  } else {
+    expr->local_var = current_func_->locals[remapped_index - num_args].get();
+  }
+  expr->expr_type = expr->local_var->type;
+  Insert(expr);
+}
+
+void Parser::before_set_local(int index) {
+  auto* expr = new Expression(WASM_OPCODE_SET_LOCAL);
+  assert(current_func_);
+  expr->local_var = current_func_->locals[index].get();
+  InsertAndPush(expr, 1);
+}
+
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
   auto* expr = new Expression(opcode);
   expr->expr_type = ty;
@@ -90,7 +110,8 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
 }
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  ResetInsertionPoint(&functions_[f]->body, kUnknownExpectedExprs);
+  current_func_ = functions_[f];
+  ResetInsertionPoint(&current_func_->body, kUnknownExpectedExprs);
 }
 
 void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
@@ -109,6 +130,7 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
     }
   }
   PopInsertionPoint();
+  current_func_ = nullptr;
 }
 
 void Parser::before_module(WasmModule* m) {
@@ -128,14 +150,18 @@ void Parser::before_module(WasmModule* m) {
 
     func->args.reserve(parser_func->num_args);
     for (int j = 0; j < parser_func->num_args; ++j) {
-      func->args.emplace_back(new Variable(parser_func->locals.data[j].type));
+      const WasmVariable& var = parser_func->locals.data[j];
+      func->args.emplace_back(new Variable(var.type));
+      func->args.back()->index = var.index;
     }
     func->locals.reserve(parser_func->locals.size - parser_func->num_args);
     for (size_t j = parser_func->num_args; j < parser_func->locals.size; ++j) {
-      func->locals.emplace_back(new Variable(parser_func->locals.data[j].type));
+      const WasmVariable& var = parser_func->locals.data[j];
+      func->locals.emplace_back(new Variable(var.type));
+      func->locals.back()->index = var.index;
     }
     for (size_t j = 0; j < parser_func->local_bindings.size; ++j) {
-      WasmBinding& binding = parser_func->local_bindings.data[j];
+      const WasmBinding& binding = parser_func->local_bindings.data[j];
       if (binding.index < parser_func->num_args) {
         func->args[binding.index]->local_name.assign(binding.name);
       } else {
@@ -146,12 +172,12 @@ void Parser::before_module(WasmModule* m) {
   }
 
   for (size_t i = 0; i < m->function_bindings.size; ++i) {
-    WasmBinding& binding = m->function_bindings.data[i];
+    const WasmBinding& binding = m->function_bindings.data[i];
     module->functions[binding.index]->local_name.assign(binding.name);
   }
 
   for (size_t i = 0; i < m->imports.size; ++i) {
-    WasmImport& parser_import = m->imports.data[i];
+    const WasmImport& parser_import = m->imports.data[i];
     module->imports.emplace_back(new Import(parser_import.result_type,
                                             parser_import.module_name,
                                             parser_import.func_name));
@@ -161,7 +187,7 @@ void Parser::before_module(WasmModule* m) {
     }
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
-    WasmBinding& binding = m->import_bindings.data[i];
+    const WasmBinding& binding = m->import_bindings.data[i];
     Import* imp = module->imports[binding.index].get();
     imp->local_name.assign(binding.name);
   }
@@ -171,7 +197,7 @@ void Parser::before_module(WasmModule* m) {
     module->segments.reserve(m->segments.size);
   }
   for (size_t i = 0; i < m->segments.size; ++i) {
-    WasmSegment& parser_seg = m->segments.data[i];
+    const WasmSegment& parser_seg = m->segments.data[i];
     module->segments.emplace_back(
         new Segment(parser_seg.size, parser_seg.address));
     Segment* seg = module->segments.back().get();

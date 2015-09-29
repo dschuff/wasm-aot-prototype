@@ -13,6 +13,8 @@ class BasicBlock;
 class Function;
 }
 
+class FunctionInfo;
+
 class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
  public:
   WAOTVisitor(llvm::Module* llvm_module)
@@ -35,6 +37,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
       const wasm::UniquePtrVector<wasm::Expression>& args) override;
   llvm::Value* VisitReturn(
       const wasm::UniquePtrVector<wasm::Expression>& value) override;
+  llvm::Value* VisitGetLocal(const wasm::Variable& var) override;
+  llvm::Value* VisitSetLocal(const wasm::Variable& var,
+                             const wasm::Expression& value) override;
   llvm::Value* VisitConst(const wasm::Literal& l) override;
 
   llvm::Value* VisitInvoke(
@@ -50,6 +55,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::LLVMContext& ctx_;
 
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
+
   llvm::Function* current_func_ = nullptr;
+  // std::vector<llvm::Value*> current_args_;
+  std::vector<llvm::Value*> current_locals_;
   llvm::BasicBlock* current_bb_ = nullptr;
 };

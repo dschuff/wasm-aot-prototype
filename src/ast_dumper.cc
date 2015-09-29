@@ -138,10 +138,22 @@ void AstDumper::VisitCall(bool is_import,
 }
 
 void AstDumper::VisitReturn(const UniquePtrVector<Expression>& value) {
-      printf("(return ");
-      if (value.size()) VisitExpression(*value.front());
-      printf(") ");
+  printf("(return ");
+  if (value.size())
+    VisitExpression(*value.front());
+  printf(") ");
 }
+
+void AstDumper::VisitGetLocal(const Variable& var) {
+  printf("(get_local ");
+  if (!var.local_name.empty()) {
+    printf("%s)", var.local_name.c_str());
+  } else {
+    printf("%d)", var.index);
+  }
+}
+
+void AstDumper::VisitSetLocal(const Variable& var, const Expression& value) {}
 
 void AstDumper::VisitConst(const Literal& l) {
   switch (l.type) {

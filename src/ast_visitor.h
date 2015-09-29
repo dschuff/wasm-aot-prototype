@@ -50,6 +50,10 @@ public:
         assert(expr.exprs.size() <= 1);
         // TODO: if multiple returns are really gone, do something better
         return VisitReturn(expr.exprs);
+      case WASM_OPCODE_GET_LOCAL:
+        return VisitGetLocal(*expr.local_var);
+      case WASM_OPCODE_SET_LOCAL:
+        return VisitSetLocal(*expr.local_var, *expr.exprs.front());
       case WASM_OPCODE_I8_CONST:
       case WASM_OPCODE_I32_CONST:
       case WASM_OPCODE_I64_CONST:
@@ -67,6 +71,9 @@ public:
                             int callee_index,
                             const UniquePtrVector<Expression>& args) = 0;
   virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) = 0;
+  virtual ExprVal VisitGetLocal(const Variable& var) = 0;
+  virtual ExprVal VisitSetLocal(const Variable& var,
+                                const Expression& value) = 0;
   virtual ExprVal VisitConst(const Literal& l) = 0;
 
   ExprVal VisitTestScriptExpr(const TestScriptExpr& expr) {

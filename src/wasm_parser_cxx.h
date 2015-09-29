@@ -23,6 +23,8 @@ namespace wasm {
   CALLBACK(before_call, void, int)           \
   CALLBACK(before_call_import, void, int)    \
   CALLBACK(after_return, void, WasmType)     \
+  CALLBACK(after_get_local, void, int)       \
+  CALLBACK(before_set_local, void, int)      \
   CALLBACK(before_module, void, WasmModule*) \
   CALLBACK(after_module, void, WasmModule*)
 
@@ -78,6 +80,7 @@ class Parser {
   WasmSource source_;
   std::string filename_;
   bool desugar_;
+  Function* current_func_ = nullptr;
   TestScriptExpr* current_assert_eq_ = nullptr;
 
   std::unordered_map<WasmFunction*, Function*> functions_;

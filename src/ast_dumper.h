@@ -21,6 +21,8 @@ protected:
                  int callee_index,
                  const UniquePtrVector<Expression>& args) override;
   void VisitReturn(const UniquePtrVector<Expression>& value) override;
+  void VisitGetLocal(const Variable& var) override;
+  void VisitSetLocal(const Variable& var, const Expression& value) override;
   void VisitConst(const Literal& l) override;
 
   void VisitInvoke(const Export& callee,

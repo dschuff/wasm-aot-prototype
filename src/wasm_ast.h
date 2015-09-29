@@ -29,6 +29,7 @@ class Variable {
  public:
   Variable(WasmType t) : type(t) {}
   WasmType type = WASM_TYPE_VOID;
+  int index;
   std::string local_name;  // Empty if none bound
 };
 
@@ -44,7 +45,9 @@ class Expression {
   int callee_index = 0;
   bool is_import = false;
   Callable* callee;
-  // Common (block, call args, return vals)
+  // get_local, set_local variable
+  Variable* local_var;
+  // Common (block, call args, return/set_local vals)
   UniquePtrVector<Expression> exprs;
 };
 
