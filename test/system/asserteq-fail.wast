@@ -1,5 +1,5 @@
 ;; RUN: wac.py --spec-test-script %s -o %t1
-;; RUN: not %t1
+;; RUN: not --crash %t1
 
 (module
   (func $foo (result i32) (i32.const 0))
