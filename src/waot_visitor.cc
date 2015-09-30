@@ -101,17 +101,19 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   current_func_ = f;
 
   BasicBlock::Create(ctx_, "entry", f);
-  for (auto& arg : f->args()) {
-    current_locals_.push_back(&arg);
-  }
   auto* bb = &f->getEntryBlock();
   assert(current_bb_ == nullptr);
   BBStacker bbs(&current_bb_, bb);
 
   IRBuilder<> irb(bb);
+
   for (auto& local : func.locals) {
     current_locals_.push_back(irb.CreateAlloca(
         getLLVMType(local->type, ctx_), nullptr, local->local_name.c_str()));
+  }
+  int i = 0;
+  for (auto& arg : f->args()) {
+    irb.CreateStore(&arg, current_locals_[i++]);
   }
 
   Value* last_value = nullptr;
@@ -179,10 +181,6 @@ Value* WAOTVisitor::VisitReturn(
 }
 
 Value* WAOTVisitor::VisitGetLocal(const wasm::Variable& var) {
-  printf("get_local %d args %lu\n", var.index, current_func_->arg_size());
-  if (var.index < current_func_->arg_size())
-    return current_locals_[var.index];
-
   IRBuilder<> irb(current_bb_);
   auto* load_addr = current_locals_[var.index];
   return irb.CreateLoad(getLLVMType(var.type, ctx_), load_addr, "get_local");
@@ -190,7 +188,10 @@ Value* WAOTVisitor::VisitGetLocal(const wasm::Variable& var) {
 
 Value* WAOTVisitor::VisitSetLocal(const wasm::Variable& var,
                                   const wasm::Expression& value) {
-  return nullptr;
+  Value* store_addr = current_locals_[var.index];
+  IRBuilder<> irb(current_bb_);
+  auto* store_value = VisitExpression(value);
+  return irb.CreateStore(store_value, store_addr);
 }
 
 Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {

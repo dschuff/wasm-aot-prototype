@@ -79,13 +79,13 @@ void AstDumper::VisitExport(const Export& exp) {
   }
 }
 
-static void dump_var_list(const UniquePtrVector<Variable>& lst,
-                          const char* name) {
-  for (auto& var : lst) {
+template <typename T>
+static void dump_var_list(T&& begin, T&& end, const char* name) {
+  for (auto& var = begin; var != end; ++var) {
     printf(" (%s", name);
-    if (var->local_name.size())
-      printf(" %s", var->local_name.c_str());
-    printf(" %s)", TypeName(var->type));
+    if ((*var)->local_name.size())
+      printf(" %s", (*var)->local_name.c_str());
+    printf(" %s)", TypeName((*var)->type));
   }
 }
 
@@ -94,9 +94,10 @@ void AstDumper::VisitFunction(const Function& func) {
   if (func.local_name.size())
     printf("%s", func.local_name.c_str());
 
-  dump_var_list(func.args, "param");
+  dump_var_list(func.args.begin(), func.args.end(), "param");
   dump_result(func);
-  dump_var_list(func.locals, "local");
+  dump_var_list(func.locals.begin() + func.args.size(), func.locals.end(),
+                "local");
   for (auto& expr : func.body) {
     VisitExpression(*expr);
   }
@@ -153,7 +154,16 @@ void AstDumper::VisitGetLocal(const Variable& var) {
   }
 }
 
-void AstDumper::VisitSetLocal(const Variable& var, const Expression& value) {}
+void AstDumper::VisitSetLocal(const Variable& var, const Expression& value) {
+  printf("(set_local ");
+  if (!var.local_name.empty()) {
+    printf("%s ", var.local_name.c_str());
+  } else {
+    printf("%d ", var.index);
+  }
+  VisitExpression(value);
+  printf(")");
+}
 
 void AstDumper::VisitConst(const Literal& l) {
   switch (l.type) {

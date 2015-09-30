@@ -56,13 +56,13 @@ class Callable {
   Callable(WasmType t) : result_type(t) {}
   WasmType result_type = WASM_TYPE_VOID;
   std::string local_name;  // Empty if none bound
-  UniquePtrVector<Variable> args;
+  UniquePtrVector<Variable> locals;  // Includes the args at the front
+  std::vector<Variable*> args;       // Convenience pointers to the args
 };
 
 class Function : public Callable {
  public:
   Function(WasmType t, int idx) : Callable(t), index_in_module(idx) {}
-  UniquePtrVector<Variable> locals;
   UniquePtrVector<Expression> body;
   int index_in_module = 0;
 };

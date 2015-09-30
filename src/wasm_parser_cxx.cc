@@ -62,15 +62,10 @@ void Parser::after_return(WasmType ty) {
   PopInsertionPoint();
 }
 
-void Parser::after_get_local(int remapped_index) {
+void Parser::after_get_local(int index) {
   auto* expr = new Expression(WASM_OPCODE_GET_LOCAL);
   assert(current_func_);
-  size_t num_args = current_func_->args.size();
-  if (remapped_index < num_args) {
-    expr->local_var = current_func_->args[remapped_index].get();
-  } else {
-    expr->local_var = current_func_->locals[remapped_index - num_args].get();
-  }
+  expr->local_var = current_func_->locals[index].get();
   expr->expr_type = expr->local_var->type;
   Insert(expr);
 }
@@ -79,6 +74,7 @@ void Parser::before_set_local(int index) {
   auto* expr = new Expression(WASM_OPCODE_SET_LOCAL);
   assert(current_func_);
   expr->local_var = current_func_->locals[index].get();
+  expr->expr_type = expr->local_var->type;
   InsertAndPush(expr, 1);
 }
 
@@ -148,26 +144,19 @@ void Parser::before_module(WasmModule* m) {
     Function* func = module->functions.back().get();
     functions_[parser_func] = func;
 
+    func->locals.reserve(parser_func->locals.size);
     func->args.reserve(parser_func->num_args);
-    for (int j = 0; j < parser_func->num_args; ++j) {
-      const WasmVariable& var = parser_func->locals.data[j];
-      func->args.emplace_back(new Variable(var.type));
-      func->args.back()->index = var.index;
-    }
-    func->locals.reserve(parser_func->locals.size - parser_func->num_args);
-    for (size_t j = parser_func->num_args; j < parser_func->locals.size; ++j) {
+    for (size_t j = 0; j < parser_func->locals.size; ++j) {
       const WasmVariable& var = parser_func->locals.data[j];
       func->locals.emplace_back(new Variable(var.type));
-      func->locals.back()->index = var.index;
+      func->locals.back()->index = j;
+      if (j < parser_func->num_args)
+        func->args.push_back(func->locals.back().get());
     }
+
     for (size_t j = 0; j < parser_func->local_bindings.size; ++j) {
       const WasmBinding& binding = parser_func->local_bindings.data[j];
-      if (binding.index < parser_func->num_args) {
-        func->args[binding.index]->local_name.assign(binding.name);
-      } else {
-        func->locals[binding.index - parser_func->num_args]->local_name.assign(
-            binding.name);
-      }
+      func->locals[binding.index]->local_name.assign(binding.name);
     }
   }
 
@@ -183,7 +172,8 @@ void Parser::before_module(WasmModule* m) {
                                             parser_import.func_name));
     Import* imp = module->imports.back().get();
     for (size_t j = 0; j < parser_import.args.size; ++j) {
-      imp->args.emplace_back(new Variable(parser_import.args.data[j].type));
+      imp->locals.emplace_back(new Variable(parser_import.args.data[j].type));
+      imp->args.push_back(imp->locals.back().get());
     }
   }
   for (size_t i = 0; i < m->import_bindings.size; ++i) {
