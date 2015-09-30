@@ -55,8 +55,8 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::LLVMContext& ctx_;
 
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
-
   llvm::Function* current_func_ = nullptr;
   std::vector<llvm::Value*> current_locals_;
   llvm::BasicBlock* current_bb_ = nullptr;
+  int current_assert_eq_ = 0;
 };

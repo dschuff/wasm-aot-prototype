@@ -15,6 +15,9 @@
 
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
+using llvm::Constant;
+using llvm::ConstantInt;
+using llvm::ConstantFP;
 using llvm::Function;
 using llvm::FunctionType;
 using llvm::IRBuilder;
@@ -37,6 +40,23 @@ static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
       return Type::getDoubleTy(C);
     default:
       llvm_unreachable("Unexpexted type in getLLVMType");
+  }
+}
+
+static const char* TypeName(WasmType t) {
+  switch (t) {
+    case WASM_TYPE_VOID:
+      return "void";
+    case WASM_TYPE_I32:
+      return "i32";
+    case WASM_TYPE_I64:
+      return "i64";
+    case WASM_TYPE_F32:
+      return "f32";
+    case WASM_TYPE_F64:
+      return "f64";
+    default:
+      return "(unknown type)";
   }
 }
 
@@ -200,14 +220,14 @@ Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
       return llvm::UndefValue::get(Type::getVoidTy(ctx_));
     case WASM_TYPE_I32:
     case WASM_TYPE_I64:
-      return llvm::ConstantInt::get(
-          getLLVMType(l.type, ctx_),
-          l.type == WASM_TYPE_I32 ? l.value.i32 : l.value.i64);
+      return ConstantInt::get(getLLVMType(l.type, ctx_), l.type == WASM_TYPE_I32
+                                                             ? l.value.i32
+                                                             : l.value.i64);
     case WASM_TYPE_F32:
     case WASM_TYPE_F64:
-      return llvm::ConstantFP::get(
-          getLLVMType(l.type, ctx_),
-          l.type == WASM_TYPE_F32 ? l.value.f32 : l.value.f64);
+      return ConstantFP::get(getLLVMType(l.type, ctx_), l.type == WASM_TYPE_F32
+                                                            ? l.value.f32
+                                                            : l.value.f64);
     default:
       assert(false);
   }
@@ -238,6 +258,16 @@ Value* WAOTVisitor::VisitInvoke(
   return f;
 }
 
+static Constant* getAssertFailFunc(Module* module, WasmType ty) {
+  SmallVector<Type*, 1> params;
+  params.push_back(Type::getInt32Ty(module->getContext()));
+  params.push_back(getLLVMType(ty, module->getContext()));
+  params.push_back(getLLVMType(ty, module->getContext()));
+  return module->getOrInsertFunction(
+      std::string("__assert_fail_") + TypeName(ty),
+      FunctionType::get(Type::getVoidTy(module->getContext()), params, false));
+}
+
 Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
                                   const wasm::Expression& expected) {
   auto* f = Function::Create(
@@ -256,7 +286,8 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
   assert(result->getType() == expected_result->getType());
   if (result->getType()->isIntOrIntVectorTy()) {
     cmp_result = irb.CreateICmpEQ(result, expected_result);
-  } else if (result->getType()->isFloatTy()) {
+  } else if (result->getType()->isFloatTy() ||
+             result->getType()->isDoubleTy()) {
     cmp_result = irb.CreateFCmpOEQ(result, expected_result);
   } else {
     assert(false);
@@ -264,12 +295,19 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
+
   BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
   IRBuilder<> fail_irb(fail_bb);
-  // TODO: replace this trap with something useful (call a runtime function?)
-  fail_irb.CreateCall(llvm::Intrinsic::getDeclaration(
-      module_, llvm::Intrinsic::trap, std::vector<Type*>()));
-  fail_irb.CreateUnreachable();
+  // Call a runtime function, passing it the current assert_eq, the type, and
+  // the expected and actual values.
+  SmallVector<Value*, 1> args;
+  args.push_back(
+      ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_eq_));
+  args.push_back(expected_result);
+  args.push_back(result);
+  fail_irb.CreateCall(getAssertFailFunc(module_, expected.expr_type), args);
+
+  fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
 
   return f;

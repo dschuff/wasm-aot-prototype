@@ -75,7 +75,7 @@ $(PARSER_SRC)/hash.h: $(PARSER_SRC)/hash.txt
 RUNTIME_CC = $(CC)
 RUNTIME_CFLAGS = $(CFLAGS) -Wno-unused-function
 
-RUNTIME_SRCS = stdio.c wasm_main.c
+RUNTIME_SRCS = stdio.c wasm_main.c assert.c
 RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS))
 
 $(OUT_DIR)/%.o: host/%.c

@@ -23,4 +23,5 @@
 ;; CHECK: call i32 @Invoke
 ;; CHECK: call i32 @Invoke.1
 ;; CHECK: call i32 @Invoke
-;; CHECK: ret i32 0
+;; CHECK: [[STATUS:%.*]] = load i32, i32* @exit_status
+;; CHECK: ret i32 [[STATUS]]

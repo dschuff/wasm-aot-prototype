@@ -113,16 +113,20 @@ int main(int argc, char** argv) {
   }
 
   if (g_spec_test_script_mode) {
+    Type* int32_ty = Type::getInt32Ty(context);
+    auto* ret_val = new llvm::GlobalVariable(
+        *llvm_module, int32_ty, false, llvm::GlobalVariable::ExternalLinkage,
+        llvm::ConstantInt::get(int32_ty, 0), "exit_status");
+
     std::vector<llvm::Value*> assert_funcs;
     for (auto& script_expr : parser.test_script) {
       if (g_dump_ast)
         dumper.Visit(*script_expr);
       assert_funcs.push_back(converter.Visit(*script_expr));
     }
-    Function* script_main =
-        Function::Create(FunctionType::get(Type::getInt32Ty(context),
-                                           std::vector<Type*>(), false),
-                         Function::ExternalLinkage, "main", llvm_module.get());
+    Function* script_main = Function::Create(
+        FunctionType::get(int32_ty, std::vector<Type*>(), false),
+        Function::ExternalLinkage, "main", llvm_module.get());
     llvm::BasicBlock::Create(context, "entry", script_main);
     auto* bb = &script_main->getEntryBlock();
     llvm::IRBuilder<> irb(bb);
@@ -130,7 +134,7 @@ int main(int argc, char** argv) {
       auto* f = llvm::cast<Function>(func);
       irb.CreateCall(f);
     }
-    irb.CreateRet(llvm::ConstantInt::get(Type::getInt32Ty(context), 0));
+    irb.CreateRet(irb.CreateLoad(ret_val));
   }
 
   mpm.run(*llvm_module);
