@@ -3,17 +3,17 @@
 #include <cassert>
 #include <cstdio>
 
-static const char* TypeName(WasmType t) {
+static const char* TypeName(wasm::Type t) {
   switch (t) {
-    case WASM_TYPE_VOID:
+    case wasm::Type::kVoid:
       return "void";
-    case WASM_TYPE_I32:
+    case wasm::Type::kI32:
       return "i32";
-    case WASM_TYPE_I64:
+    case wasm::Type::kI64:
       return "i64";
-    case WASM_TYPE_F32:
+    case wasm::Type::kF32:
       return "f32";
-    case WASM_TYPE_F64:
+    case wasm::Type::kF64:
       return "f64";
     default:
       return "(unknown type)";
@@ -56,7 +56,7 @@ void AstDumper::VisitModule(const Module& mod) {
 // style must be used. However imports are required to use the single
 // style. If this is fixed, arg dumping can be shared more.
 static void dump_result(const Callable& c) {
-  if (c.result_type != WASM_TYPE_VOID)
+  if (c.result_type != Type::kVoid)
     printf(" (result %s)", TypeName(c.result_type));
 }
 
@@ -172,20 +172,20 @@ void AstDumper::VisitSetLocal(const Variable& var, const Expression& value) {
 
 void AstDumper::VisitConst(const Literal& l) {
   switch (l.type) {
-    case WASM_TYPE_I32:
+    case Type::kI32:
       printf("(%s.const 0x%x)", TypeName(l.type), l.value.i32);
       break;
-    case WASM_TYPE_I64:
+    case Type::kI64:
       printf("(%s.const 0x%lx)", TypeName(l.type), l.value.i64);
       break;
-    case WASM_TYPE_F32:
+    case Type::kF32:
       printf("(%s.const %a)", TypeName(l.type), l.value.f32);
       break;
-    case WASM_TYPE_F64:
+    case Type::kF64:
       printf("(%s.const %a)", TypeName(l.type), l.value.f64);
       break;
     default:
-      printf("unexpected type %d\n", l.type);
+      printf("unexpected type %d\n", static_cast<int>(l.type));
       assert(false);
   }
 }

@@ -26,34 +26,34 @@ using llvm::SmallVector;
 using llvm::Type;
 using llvm::Value;
 
-static Type* getLLVMType(WasmType T, llvm::LLVMContext& C) {
+static Type* getLLVMType(wasm::Type T, llvm::LLVMContext& C) {
   switch (T) {
-    case WASM_TYPE_VOID:
+    case wasm::Type::kVoid:
       return Type::getVoidTy(C);
-    case WASM_TYPE_I32:
+    case wasm::Type::kI32:
       return Type::getInt32Ty(C);
-    case WASM_TYPE_I64:
+    case wasm::Type::kI64:
       return Type::getInt64Ty(C);
-    case WASM_TYPE_F32:
+    case wasm::Type::kF32:
       return Type::getFloatTy(C);
-    case WASM_TYPE_F64:
+    case wasm::Type::kF64:
       return Type::getDoubleTy(C);
     default:
       llvm_unreachable("Unexpexted type in getLLVMType");
   }
 }
 
-static const char* TypeName(WasmType t) {
+static const char* TypeName(wasm::Type t) {
   switch (t) {
-    case WASM_TYPE_VOID:
+    case wasm::Type::kVoid:
       return "void";
-    case WASM_TYPE_I32:
+    case wasm::Type::kI32:
       return "i32";
-    case WASM_TYPE_I64:
+    case wasm::Type::kI64:
       return "i64";
-    case WASM_TYPE_F32:
+    case wasm::Type::kF32:
       return "f32";
-    case WASM_TYPE_F64:
+    case wasm::Type::kF64:
       return "f64";
     default:
       return "(unknown type)";
@@ -94,7 +94,7 @@ Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
 Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
                                    Function::LinkageTypes linkage) {
   Type* ret_type = Type::getVoidTy(ctx_);
-  if (func.result_type != WASM_TYPE_VOID) {
+  if (func.result_type != wasm::Type::kVoid) {
     ret_type = getLLVMType(func.result_type, ctx_);
   }
   SmallVector<Type*, 4> arg_types;
@@ -142,7 +142,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
   // Handle implicit return of the last expression
   if (!bb->getTerminator()) {
-    if (func.result_type == WASM_TYPE_VOID) {
+    if (func.result_type == wasm::Type::kVoid) {
       irb.CreateRetVoid();
     } else {
       assert(func.body.size());
@@ -216,18 +216,18 @@ Value* WAOTVisitor::VisitSetLocal(const wasm::Variable& var,
 
 Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
   switch (l.type) {
-    case WASM_TYPE_VOID:
+    case wasm::Type::kVoid:
       return llvm::UndefValue::get(Type::getVoidTy(ctx_));
-    case WASM_TYPE_I32:
-    case WASM_TYPE_I64:
-      return ConstantInt::get(getLLVMType(l.type, ctx_), l.type == WASM_TYPE_I32
-                                                             ? l.value.i32
-                                                             : l.value.i64);
-    case WASM_TYPE_F32:
-    case WASM_TYPE_F64:
-      return ConstantFP::get(getLLVMType(l.type, ctx_), l.type == WASM_TYPE_F32
-                                                            ? l.value.f32
-                                                            : l.value.f64);
+    case wasm::Type::kI32:
+    case wasm::Type::kI64:
+      return ConstantInt::get(
+          getLLVMType(l.type, ctx_),
+          l.type == wasm::Type::kI32 ? l.value.i32 : l.value.i64);
+    case wasm::Type::kF32:
+    case wasm::Type::kF64:
+      return ConstantFP::get(
+          getLLVMType(l.type, ctx_),
+          l.type == wasm::Type::kF32 ? l.value.f32 : l.value.f64);
     default:
       assert(false);
   }
@@ -258,7 +258,7 @@ Value* WAOTVisitor::VisitInvoke(
   return f;
 }
 
-static Constant* getAssertFailFunc(Module* module, WasmType ty) {
+static Constant* getAssertFailFunc(Module* module, wasm::Type ty) {
   SmallVector<Type*, 1> params;
   params.push_back(Type::getInt32Ty(module->getContext()));
   params.push_back(getLLVMType(ty, module->getContext()));

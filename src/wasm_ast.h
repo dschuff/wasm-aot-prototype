@@ -3,6 +3,7 @@
 
 #include "wasm.h"
 
+#include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,9 +15,33 @@ class Module;
 template <typename T>
 using UniquePtrVector = std::vector<std::unique_ptr<T>>;
 
+static_assert(WASM_NUM_TYPES == 5, "wasm::Type enum needs to be adjusted");
+// Type is basically just an enum, but implicitly convertible from WasmType.
+// It also includes an "unknown" state used during construction/type fixup.
+class Type {
+ public:
+  typedef enum Type_ {
+    kVoid = WASM_TYPE_VOID,
+    kI32 = WASM_TYPE_I32,
+    kI64 = WASM_TYPE_I64,
+    kF32 = WASM_TYPE_F32,
+    kF64 = WASM_TYPE_F64,
+    kUnknown = WASM_NUM_TYPES,
+  } Type_;
+  Type(Type_ t) : value_(t) {}
+  Type(WasmType t) : value_(static_cast<Type_>(t)) {
+    assert(t < WASM_NUM_TYPES && "Bad Type initializer");
+  }
+  operator Type_() const { return value_; }
+  explicit operator WasmType() const { return static_cast<WasmType>(value_); }
+
+ private:
+  Type_ value_ = kUnknown;
+};
+
 class Literal {
  public:
-  WasmType type = WASM_TYPE_VOID;
+  Type type = Type::kUnknown;
   union {
     uint32_t i32;
     uint64_t i64;
@@ -27,8 +52,8 @@ class Literal {
 
 class Variable {
  public:
-  Variable(WasmType t) : type(t) {}
-  WasmType type = WASM_TYPE_VOID;
+  Variable(Type t) : type(t) {}
+  Type type = Type::kUnknown;
   int index;
   std::string local_name;  // Empty if none bound
 };
@@ -38,7 +63,7 @@ class Expression {
   Expression(WasmOpcode op) : opcode(op) {}
   // Common
   WasmOpcode opcode = WASM_OPCODE_NOP;
-  WasmType expr_type = WASM_TYPE_VOID;
+  Type expr_type = Type::kUnknown;
   // Const
   Literal literal = {};
   // Call, CallImport
@@ -53,8 +78,8 @@ class Expression {
 
 class Callable {
  public:
-  Callable(WasmType t) : result_type(t) {}
-  WasmType result_type = WASM_TYPE_VOID;
+  Callable(Type t) : result_type(t) {}
+  Type result_type = Type::kVoid;
   std::string local_name;  // Empty if none bound
   UniquePtrVector<Variable> locals;  // Includes the args at the front
   std::vector<Variable*> args;       // Convenience pointers to the args
@@ -62,7 +87,7 @@ class Callable {
 
 class Function : public Callable {
  public:
-  Function(WasmType t, int idx) : Callable(t), index_in_module(idx) {}
+  Function(Type t, int idx) : Callable(t), index_in_module(idx) {}
   UniquePtrVector<Expression> body;
   int index_in_module = 0;
 };
@@ -78,7 +103,7 @@ class Export {
 
 class Import : public Callable {
  public:
-  Import(WasmType t, const std::string& m, const std::string& f)
+  Import(Type t, const std::string& m, const std::string& f)
       : Callable(t), module_name(m), func_name(f) {}
   std::string module_name;
   std::string func_name;
