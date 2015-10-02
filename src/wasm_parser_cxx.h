@@ -32,7 +32,7 @@ namespace wasm {
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_export, void, WasmModule*, WasmFunction*)    \
-  CALLBACK(before_invoke, void, const char*, int)
+  CALLBACK(before_invoke, WasmParserCookie, const char*, int)
 
 #define EACH_CALLBACK3                                          \
   CALLBACK(after_block, void, WasmType, int, WasmParserCookie)  \

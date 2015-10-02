@@ -206,7 +206,8 @@ void Parser::after_export(WasmModule* m, WasmFunction* f) {
   module->exports.emplace_back(new Export(func, f->exported_name, module));
 }
 
-void Parser::before_invoke(const char* invoke_name, int invoke_function_index) {
+WasmParserCookie Parser::before_invoke(const char* invoke_name,
+                                       int invoke_function_index) {
   assert(modules.size());
   Module* last_module = modules.back().get();
   auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke);
@@ -217,6 +218,7 @@ void Parser::before_invoke(const char* invoke_name, int invoke_function_index) {
   }
   expr->callee = last_module->exports[invoke_function_index].get();
   PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
+  return 0;
 }
 
 WasmParserCookie Parser::before_assert_eq() {
