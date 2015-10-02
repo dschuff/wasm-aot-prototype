@@ -141,12 +141,14 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
     last_value = VisitExpression(expr.get());
   }
   // Handle implicit return of the last expression
-  if (!bb->getTerminator()) {
+  if (!current_bb_->getTerminator()) {
+    IRBuilder<> irb_end(current_bb_);
     if (func.result_type == wasm::Type::kVoid) {
-      irb.CreateRetVoid();
+      irb_end.CreateRetVoid();
     } else {
       assert(func.body.size());
-      irb.CreateRet(last_value);
+      last_value->dump();
+      irb_end.CreateRet(last_value);
     }
   }
   current_func_ = nullptr;
@@ -177,10 +179,56 @@ Value* WAOTVisitor::VisitBlock(wasm::UniquePtrVector<wasm::Expression>* exprs) {
   return ret;
 }
 
-Value* WAOTVisitor::VisitCall(bool is_import,
-                              wasm::Callable* callee,
-                              int callee_index,
-                              wasm::UniquePtrVector<wasm::Expression>* args) {
+static Value* CreateCompare(IRBuilder<>* irb, Value* lhs, Value* rhs) {
+  Value* cmp_result;
+  if (lhs->getType()->isIntOrIntVectorTy()) {
+    cmp_result = irb->CreateICmpEQ(lhs, rhs);
+  } else if (lhs->getType()->isFloatTy() || lhs->getType()->isDoubleTy()) {
+    cmp_result = irb->CreateFCmpOEQ(lhs, rhs);
+  } else {
+    assert(false);
+  }
+  return cmp_result;
+}
+
+Value* WAOTVisitor::VisitIf(wasm::Expression* condition,
+                            wasm::Expression* then,
+                            wasm::Expression* els) {
+  IRBuilder<> irb(current_bb_);
+  // TODO: convert to i32
+  Value* cmp_result =
+      CreateCompare(&irb, VisitExpression(condition),
+                    ConstantInt::get(Type::getInt32Ty(ctx_), 0));
+
+  auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
+  auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
+  auto* end_bb = BasicBlock::Create(ctx_, "if.end", current_func_);
+  // IRBuilder<> then_irb(then_bb);
+  // BBStacker bbs(&current_bb_, then_bb);
+  current_bb_ = then_bb;
+  Value* then_expr = VisitExpression(then);
+  llvm::BranchInst::Create(end_bb, current_bb_);
+
+  current_bb_ = else_bb;
+  Value* else_expr = nullptr;
+  if (els)
+    else_expr = VisitExpression(els);
+  llvm::BranchInst::Create(end_bb, current_bb_);
+  IRBuilder<> end_irb(end_bb);
+  auto* phi = end_irb.CreatePHI(then_expr->getType(), 2);
+  phi->addIncoming(then_expr, then_bb);
+  phi->addIncoming(else_expr, else_bb);
+  current_bb_ = end_bb;
+
+  irb.CreateCondBr(cmp_result, then_bb, else_bb);
+  return phi;
+}
+
+Value* WAOTVisitor::VisitCall(
+    bool is_import,
+    wasm::Callable* callee,
+    int callee_index,
+    wasm::UniquePtrVector<wasm::Expression>* args) {
   assert(current_bb_);
   SmallVector<Value*, 8> arg_values;
   for (auto& arg : *args) {
@@ -279,16 +327,9 @@ Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* invoke,
   IRBuilder<> irb(bb);
   Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
   Value* expected_result = VisitExpression(expected);
-  Value* cmp_result;
+
   assert(result->getType() == expected_result->getType());
-  if (result->getType()->isIntOrIntVectorTy()) {
-    cmp_result = irb.CreateICmpEQ(result, expected_result);
-  } else if (result->getType()->isFloatTy() ||
-             result->getType()->isDoubleTy()) {
-    cmp_result = irb.CreateFCmpOEQ(result, expected_result);
-  } else {
-    assert(false);
-  }
+  Value* cmp_result = CreateCompare(&irb, result, expected_result);
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);

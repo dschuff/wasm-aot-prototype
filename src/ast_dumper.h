@@ -23,6 +23,9 @@ protected:
   }
   void VisitNop() override;
   void VisitBlock(UniquePtrVector<Expression>* exprs) override;
+  void VisitIf(Expression* condition,
+               Expression* then,
+               Expression* els) override;
   void VisitCall(bool is_import,
                  Callable* callee,
                  int callee_index,

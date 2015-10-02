@@ -30,6 +30,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitNop() override;
   llvm::Value* VisitBlock(
       wasm::UniquePtrVector<wasm::Expression>* exprs) override;
+  llvm::Value* VisitIf(wasm::Expression* condition,
+                       wasm::Expression* then,
+                       wasm::Expression* els) override;
   llvm::Value* VisitCall(
       bool is_import,
       wasm::Callable* callee,

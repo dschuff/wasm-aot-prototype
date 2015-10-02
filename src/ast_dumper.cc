@@ -134,6 +134,17 @@ void AstDumper::VisitBlock(UniquePtrVector<Expression>* exprs) {
   printf(") ");
 }
 
+void AstDumper::VisitIf(Expression* condition,
+                        Expression* then,
+                        Expression* els) {
+  printf("(if ");
+  VisitExpression(condition);
+  VisitExpression(then);
+  if (els)
+    VisitExpression(els);
+  printf(")\n");
+}
+
 void AstDumper::VisitCall(bool is_import,
                           Callable* callee,
                           int callee_index,

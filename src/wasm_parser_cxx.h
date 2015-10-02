@@ -16,6 +16,7 @@ namespace wasm {
 #define EACH_CALLBACK0                     \
   CALLBACK(after_nop, void)                \
   CALLBACK(before_block, WasmParserCookie) \
+  CALLBACK(before_if, WasmParserCookie)    \
   CALLBACK(before_return, void)            \
   CALLBACK(before_assert_eq, WasmParserCookie)
 
@@ -37,6 +38,7 @@ namespace wasm {
 
 #define EACH_CALLBACK3                                            \
   CALLBACK(after_block, void, WasmType, int, WasmParserCookie)    \
+  CALLBACK(after_if, void, WasmType, int, WasmParserCookie)     \
   CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber)   \
   CALLBACK(after_function, void, WasmModule*, WasmFunction*, int) \
   CALLBACK(after_export, void, WasmModule*, WasmFunction*, const char*)
@@ -84,8 +86,10 @@ class Parser {
   bool desugar_;
   Function* current_func_ = nullptr;
   TestScriptExpr* current_assert_eq_ = nullptr;
+  Type current_type_ = Type::kVoid;
 
   std::unordered_map<WasmFunction*, Function*> functions_;
+  std::unordered_map<std::string, Export*> exports_by_name_;
 
   // Expression insertion points are a UniquePtrVector onto which the expression
   // will be appended. Keep the insertion points in a stack. For expressions

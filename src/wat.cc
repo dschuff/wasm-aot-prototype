@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
   llvm::LLVMContext& context = llvm::getGlobalContext();
   llvm::ModulePassManager mpm{};
   assert(g_print_asm);  // For now, only support printing assembly.
-  mpm.addPass(llvm::VerifierPass());
+  // mpm.addPass(llvm::VerifierPass());
   mpm.addPass(llvm::PrintModulePass(output->os()));
 
   parser.modules.front()->name = llvm::sys::path::stem(g_input_filename);

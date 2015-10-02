@@ -17,15 +17,19 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
 
  protected:
   void VisitFunction(const wasm::Function& f) override {
+    current_function_ = &f;
+    for (auto& expr : f.body)
+      expr->expected_type = wasm::Type::kVoid;
     if (!f.body.empty())
       f.body.back()->expected_type = f.result_type;
     AstVisitor::VisitFunction(f);
   }
   void VisitBlock(wasm::UniquePtrVector<wasm::Expression>* exprs) override {
     auto& back = exprs->back();
+    wasm::Type expected = current_expected_type_;
     for (auto& e : *exprs) {
       if (e == back) {
-        e->expected_type = current_expected_type_;
+        e->expected_type = expected;
       } else {
         e->expected_type = wasm::Type::kVoid;
       }
@@ -35,9 +39,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
   void VisitArgs(wasm::Callable* callee,
                  wasm::UniquePtrVector<wasm::Expression>* args) {
     int i = 0;
-    // printf("visiting ");
     for (auto& arg : *args) {
-      // wasm::DumpExpr(*arg, true);
       assert(arg->expected_type == wasm::Type::kUnknown ||
              arg->expected_type == callee->args[i]->type);
       arg->expected_type = callee->args[i]->type;
@@ -45,13 +47,22 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       ++i;
       VisitExpression(arg.get());
     }
-    // printf("\n");
   }
   void VisitCall(bool is_import,
                  wasm::Callable* callee,
                  int callee_index,
                  wasm::UniquePtrVector<wasm::Expression>* args) override {
     VisitArgs(callee, args);
+  }
+  void VisitReturn(wasm::UniquePtrVector<wasm::Expression>* value) override {
+    if (value->size()) {
+      value->back()->expected_type = current_function_->result_type;
+      VisitExpression(value->back().get());
+    }
+  }
+  void VisitSetLocal(wasm::Variable* var, wasm::Expression* value) override {
+    value->expected_type = var->type;
+    VisitExpression(value);
   }
   void VisitInvoke(wasm::Export* callee,
                    wasm::UniquePtrVector<wasm::Expression>* args) override {
@@ -69,6 +80,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     }
   }
   wasm::Type current_expected_type_ = wasm::Type::kUnknown;
+  const wasm::Function* current_function_ = nullptr;
 };
 }
 
@@ -89,6 +101,7 @@ void Parser::after_nop() {
 
 WasmParserCookie Parser::before_block() {
   auto* expr = new Expression(WASM_OPCODE_BLOCK);
+  expr->expr_type = current_type_;
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
   InsertAndPush(expr, kUnknownExpectedExprs);
   return reinterpret_cast<WasmParserCookie>(expr);
@@ -99,6 +112,21 @@ void Parser::after_block(WasmType ty, int num_exprs, WasmParserCookie cookie) {
   Expression* block_expr = reinterpret_cast<Expression*>(cookie);
   assert(block_expr->opcode == WASM_OPCODE_BLOCK);
   block_expr->expr_type = ty;
+}
+
+WasmParserCookie Parser::before_if() {
+  auto* expr = new Expression(WASM_OPCODE_IF);
+  expr->expr_type = current_type_;
+  InsertAndPush(expr, kUnknownExpectedExprs);
+  return reinterpret_cast<WasmParserCookie>(expr);
+}
+
+void Parser::after_if(WasmType ty, int with_else, WasmParserCookie cookie) {
+  PopInsertionPoint();
+  Expression* if_expr = reinterpret_cast<Expression*>(cookie);
+  assert(if_expr->opcode == WASM_OPCODE_IF);
+  if_expr->expr_type = ty;
+  assert(if_expr->exprs.size() == (unsigned)with_else + 2);
 }
 
 void Parser::ParseCall(bool is_import, int index) {
@@ -179,6 +207,7 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {
   current_func_ = functions_[f];
+  current_type_ = current_func_->result_type;
   ResetInsertionPoint(&current_func_->body, kUnknownExpectedExprs);
 }
 
@@ -204,6 +233,7 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
 void Parser::before_module(WasmModule* m) {
   assert(!module);
   modules.emplace_back(new Module());
+  exports_by_name_.clear();
   module = modules.back().get();
   module->initial_memory_size = m->initial_memory_size;
   module->max_memory_size = m->max_memory_size;
@@ -222,7 +252,7 @@ void Parser::before_module(WasmModule* m) {
       const WasmVariable& var = parser_func->locals.data[j];
       func->locals.emplace_back(new Variable(var.type));
       func->locals.back()->index = j;
-      if (j < parser_func->num_args)
+      if (static_cast<int>(j) < parser_func->num_args)
         func->args.push_back(func->locals.back().get());
     }
 
@@ -280,6 +310,8 @@ void Parser::after_export(WasmModule* m,
   Function* func = functions_[f];
   assert(export_name);
   module->exports.emplace_back(new Export(func, export_name, module));
+  exports_by_name_.emplace(std::string(export_name),
+                           module->exports.back().get());
 }
 
 WasmParserCookie Parser::before_invoke(const char* invoke_name,
@@ -292,7 +324,10 @@ WasmParserCookie Parser::before_invoke(const char* invoke_name,
   } else {
     test_script.emplace_back(expr);
   }
-  expr->callee = last_module->exports[invoke_function_index].get();
+  assert(exports_by_name_.count(std::string(invoke_name)));
+  expr->callee = exports_by_name_.find(std::string(invoke_name))->second;
+  assert(last_module->functions[invoke_function_index].get() ==
+         expr->callee->function);
   PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
   return reinterpret_cast<WasmParserCookie>(expr);
 }

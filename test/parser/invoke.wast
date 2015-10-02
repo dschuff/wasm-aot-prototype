@@ -8,8 +8,13 @@
 ;; RUN: not sexpr_dump %s
 (module
   (export "test" $test)
-  (func $test (param i32) (result i32) (i32.const 3)))
+  (func $t (param i32) (result i32) (i32.const 3))
+  (func $test (param i32) (result i32) (i32.const 3))
+  (export "test2" $test2)
+  (func $test2 (param i32) (result i32) (i32.const 3))
+)
 
 (invoke "test" (i32.const 1))
 (invoke "test" (i32.const 100))
 (invoke "test" (i32.const -30))
+(invoke "test2" (i32.const -30))

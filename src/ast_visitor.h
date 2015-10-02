@@ -58,6 +58,9 @@ public:
         return VisitNop();
       case WASM_OPCODE_BLOCK:
         return VisitBlock(&expr->exprs);
+      case WASM_OPCODE_IF:
+        return VisitIf(expr->exprs[0].get(), expr->exprs[1].get(),
+                       expr->exprs.size() > 2 ? expr->exprs[2].get() : nullptr);
       case WASM_OPCODE_CALL:
         return VisitCall(expr->is_import, expr->callee, expr->callee_index,
                          &expr->exprs);
@@ -85,6 +88,16 @@ public:
       VisitExpression(e.get());
     return ExprVal();
   }
+  virtual ExprVal VisitIf(Expression* condition,
+                          Expression* then,
+                          Expression* els) {
+    VisitExpression(condition);
+    VisitExpression(then);
+    if (els)
+      VisitExpression(els);
+    return ExprVal();
+  }
+
   virtual ExprVal VisitCall(bool is_import,
                             Callable* callee,
                             int callee_index,
