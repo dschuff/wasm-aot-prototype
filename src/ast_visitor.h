@@ -32,13 +32,29 @@ public:
  }
 
  protected:
-  virtual ModuleVal VisitModule(const Module& mod) = 0;
-  virtual void VisitImport(const Import& imp) = 0;
-  virtual void VisitExport(const Export& exp) = 0;
-  virtual void VisitFunction(const Function& func) = 0;
-  virtual void VisitSegment(const Segment& seg) = 0;
+  virtual ModuleVal VisitModule(const Module& mod) {
+    for (auto& func : mod.functions)
+      VisitFunction(*func);
 
-  ExprVal VisitExpression(const Expression& expr) {
+    if (mod.initial_memory_size) {
+      for (auto& seg : mod.segments)
+        VisitSegment(*seg);
+    }
+    for (auto& imp : mod.imports)
+      VisitImport(*imp);
+    for (auto& ex : mod.exports)
+      VisitExport(*ex);
+    return ModuleVal();
+  }
+  virtual void VisitImport(const Import& imp) {}
+  virtual void VisitExport(const Export& exp) {}
+  virtual void VisitFunction(const Function& func) {
+    for (auto& expr : func.body)
+      VisitExpression(*expr);
+  }
+  virtual void VisitSegment(const Segment& seg) {}
+
+  virtual ExprVal VisitExpression(const Expression& expr) {
     switch (expr.opcode) {
       case WASM_OPCODE_NOP:
         return VisitNop();
@@ -64,17 +80,31 @@ public:
         assert(false);
     }
   }
-  virtual ExprVal VisitNop() = 0;
-  virtual ExprVal VisitBlock(const UniquePtrVector<Expression>& exprs) = 0;
+  virtual ExprVal VisitNop() { return ExprVal(); }
+  virtual ExprVal VisitBlock(const UniquePtrVector<Expression>& exprs) {
+    for (auto& e : exprs)
+      VisitExpression(*e);
+    return ExprVal();
+  }
   virtual ExprVal VisitCall(bool is_import,
                             const Callable& callee,
                             int callee_index,
-                            const UniquePtrVector<Expression>& args) = 0;
-  virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) = 0;
-  virtual ExprVal VisitGetLocal(const Variable& var) = 0;
-  virtual ExprVal VisitSetLocal(const Variable& var,
-                                const Expression& value) = 0;
-  virtual ExprVal VisitConst(const Literal& l) = 0;
+                            const UniquePtrVector<Expression>& args) {
+    for (auto& e : args)
+      VisitExpression(*e);
+    return ExprVal();
+  }
+  virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) {
+    if (value.size())
+      VisitExpression(*value.front());
+    return ExprVal();
+  }
+  virtual ExprVal VisitGetLocal(const Variable& var) { return ExprVal(); }
+  virtual ExprVal VisitSetLocal(const Variable& var, const Expression& value) {
+    VisitExpression(value);
+    return ExprVal();
+  }
+  virtual ExprVal VisitConst(const Literal& l) { return ExprVal(); }
 
   ExprVal VisitTestScriptExpr(const TestScriptExpr& expr) {
     switch (expr.opcode) {
@@ -87,9 +117,17 @@ public:
     }
   }
   virtual ExprVal VisitInvoke(const Export& callee,
-                              const UniquePtrVector<Expression>&) = 0;
+                              const UniquePtrVector<Expression>& args) {
+    for (auto& e : args)
+      VisitExpression(*e);
+    return ExprVal();
+  }
   virtual ExprVal VisitAssertEq(const TestScriptExpr& arg,
-                                const Expression& expected) = 0;
+                                const Expression& expected) {
+    Visit(arg);
+    VisitExpression(expected);
+    return ExprVal();
+  }
 };
 }
 
