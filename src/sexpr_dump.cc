@@ -14,6 +14,11 @@ static llvm::cl::opt<bool>
     DumpInput("i", llvm::cl::desc("Dump input as well as output"),
               llvm::cl::init(false));
 
+static llvm::cl::opt<bool> DumpTypes(
+    "t",
+    llvm::cl::desc("Dump types of expressions"),
+    llvm::cl::init(false));
+
 static llvm::cl::opt<bool> g_spec_test_script_mode(
     "spec-test-script",
     llvm::cl::desc(
@@ -45,7 +50,12 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  wasm::AstDumper dumper;
+  wasm::AstVisitor<void, void> visitor = {};
+  for (auto& module : parser.modules) {
+    visitor.Visit(*module);
+  }
+
+  wasm::AstDumper dumper(DumpTypes);
   for (auto& module : parser.modules) {
     dumper.Visit(*module);
   }

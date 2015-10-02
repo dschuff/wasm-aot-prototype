@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
   auto llvm_module =
       llvm::make_unique<llvm::Module>(parser.modules.front()->name, context);
   WAOTVisitor converter(llvm_module.get());
-  wasm::AstDumper dumper;
+  wasm::AstDumper dumper(true);
   for (auto& module : parser.modules) {
     if (g_dump_ast)
       dumper.Visit(*module);

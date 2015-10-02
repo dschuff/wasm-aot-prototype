@@ -22,6 +22,11 @@ static const char* TypeName(WasmType t) {
 
 namespace wasm {
 
+void AstDumper::PrintType(const Expression& expr) {
+  if (dump_types_)
+    printf("[%s]", TypeName(expr.expr_type));
+}
+
 void AstDumper::VisitModule(const Module& mod) {
   printf("(module\n");
   for (auto& func : mod.functions)

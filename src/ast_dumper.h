@@ -7,6 +7,9 @@
 namespace wasm {
 
 class AstDumper : public AstVisitor<void, void> {
+ public:
+  AstDumper(bool dump_types) : dump_types_(dump_types) {}
+
 protected:
   void VisitModule(const Module& mod) override;
   void VisitImport(const Import& imp) override;
@@ -14,6 +17,10 @@ protected:
   void VisitFunction(const Function& func) override;
   void VisitSegment(const Segment& seg) override;
 
+  void VisitExpression(const Expression& expr) override {
+    PrintType(expr);
+    AstVisitor::VisitExpression(expr);
+  }
   void VisitNop() override;
   void VisitBlock(const UniquePtrVector<Expression>& exprs) override;
   void VisitCall(bool is_import,
@@ -29,6 +36,10 @@ protected:
                    const UniquePtrVector<Expression>& args) override;
   void VisitAssertEq(const TestScriptExpr& invoke_arg,
                      const Expression& expected) override;
+
+ private:
+  bool dump_types_;
+  void PrintType(const Expression& expr);
 };
 }
 
