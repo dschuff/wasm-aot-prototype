@@ -32,14 +32,14 @@ namespace wasm {
 #define EACH_CALLBACK2                                        \
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
-  CALLBACK(after_export, void, WasmModule*, WasmFunction*)    \
   CALLBACK(before_invoke, WasmParserCookie, const char*, int) \
   CALLBACK(after_assert_eq, void, WasmType, WasmParserCookie)
 
-#define EACH_CALLBACK3                                          \
-  CALLBACK(after_block, void, WasmType, int, WasmParserCookie)  \
-  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber) \
-  CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)
+#define EACH_CALLBACK3                                            \
+  CALLBACK(after_block, void, WasmType, int, WasmParserCookie)    \
+  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber)   \
+  CALLBACK(after_function, void, WasmModule*, WasmFunction*, int) \
+  CALLBACK(after_export, void, WasmModule*, WasmFunction*, const char*)
 
 class Parser {
  public:

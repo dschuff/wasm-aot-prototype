@@ -274,10 +274,12 @@ void Parser::after_module(WasmModule* m) {
   module = nullptr;
 }
 
-void Parser::after_export(WasmModule* m, WasmFunction* f) {
+void Parser::after_export(WasmModule* m,
+                          WasmFunction* f,
+                          const char* export_name) {
   Function* func = functions_[f];
-  assert(f->exported_name);
-  module->exports.emplace_back(new Export(func, f->exported_name, module));
+  assert(export_name);
+  module->exports.emplace_back(new Export(func, export_name, module));
 }
 
 WasmParserCookie Parser::before_invoke(const char* invoke_name,
