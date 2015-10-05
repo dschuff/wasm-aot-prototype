@@ -10,8 +10,8 @@ namespace {
 // neede for some code generation.
 class TypeChecker : public wasm::AstVisitor<void, void> {
  public:
-  void VisitExpression(const wasm::Expression& expr) override {
-    current_expected_type_ = expr.expected_type;
+  void VisitExpression(wasm::Expression* expr) override {
+    current_expected_type_ = expr->expected_type;
     wasm::AstVisitor<void, void>::VisitExpression(expr);
   }
 
@@ -21,43 +21,41 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       f.body.back()->expected_type = f.result_type;
     AstVisitor::VisitFunction(f);
   }
-  void VisitBlock(
-      const wasm::UniquePtrVector<wasm::Expression>& exprs) override {
-    auto& back = exprs.back();
-    for (auto& e : exprs) {
+  void VisitBlock(wasm::UniquePtrVector<wasm::Expression>* exprs) override {
+    auto& back = exprs->back();
+    for (auto& e : *exprs) {
       if (e == back) {
         e->expected_type = current_expected_type_;
       } else {
         e->expected_type = wasm::Type::kVoid;
       }
-      VisitExpression(*e);
+      VisitExpression(e.get());
     }
   }
-  void VisitArgs(const wasm::Callable& callee,
-                 const wasm::UniquePtrVector<wasm::Expression>& args) {
+  void VisitArgs(wasm::Callable* callee,
+                 wasm::UniquePtrVector<wasm::Expression>* args) {
     int i = 0;
     // printf("visiting ");
-    for (auto& arg : args) {
+    for (auto& arg : *args) {
       // wasm::DumpExpr(*arg, true);
       assert(arg->expected_type == wasm::Type::kUnknown ||
-             arg->expected_type == callee.args[i]->type);
-      arg->expected_type = callee.args[i]->type;
-      CheckType(arg->expected_type, callee.args[i]->type);
+             arg->expected_type == callee->args[i]->type);
+      arg->expected_type = callee->args[i]->type;
+      CheckType(arg->expected_type, callee->args[i]->type);
       ++i;
-      VisitExpression(*arg);
+      VisitExpression(arg.get());
     }
     // printf("\n");
   }
   void VisitCall(bool is_import,
-                 const wasm::Callable& callee,
+                 wasm::Callable* callee,
                  int callee_index,
-                 const wasm::UniquePtrVector<wasm::Expression>& args) override {
+                 wasm::UniquePtrVector<wasm::Expression>* args) override {
     VisitArgs(callee, args);
   }
-  void VisitInvoke(
-      const wasm::Export& callee,
-      const wasm::UniquePtrVector<wasm::Expression>& args) override {
-    VisitArgs(*callee.function, args);
+  void VisitInvoke(wasm::Export* callee,
+                   wasm::UniquePtrVector<wasm::Expression>* args) override {
+    VisitArgs(callee->function, args);
   }
 
  private:
@@ -299,7 +297,7 @@ WasmParserCookie Parser::before_invoke(const char* invoke_name,
 
 void Parser::after_invoke(WasmParserCookie cookie) {
   TypeChecker checker = {};
-  checker.Visit(*reinterpret_cast<TestScriptExpr*>(cookie));
+  checker.Visit(reinterpret_cast<TestScriptExpr*>(cookie));
 }
 
 WasmParserCookie Parser::before_assert_eq() {
@@ -320,8 +318,8 @@ void Parser::after_assert_eq(WasmType ty, WasmParserCookie cookie) {
   expr->invoke->type = ty;
   expr->exprs.front()->expected_type = ty;
   TypeChecker checker = {};
-  checker.VisitExpression(*expr->exprs.front());
-  checker.Visit(*expr);
+  checker.VisitExpression(expr->exprs.front().get());
+  checker.Visit(expr);
 }
 
 }  // namespace wasm

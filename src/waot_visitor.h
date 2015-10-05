@@ -29,24 +29,23 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
 
   llvm::Value* VisitNop() override;
   llvm::Value* VisitBlock(
-      const wasm::UniquePtrVector<wasm::Expression>& exprs) override;
+      wasm::UniquePtrVector<wasm::Expression>* exprs) override;
   llvm::Value* VisitCall(
       bool is_import,
-      const wasm::Callable& callee,
+      wasm::Callable* callee,
       int callee_index,
-      const wasm::UniquePtrVector<wasm::Expression>& args) override;
+      wasm::UniquePtrVector<wasm::Expression>* args) override;
   llvm::Value* VisitReturn(
-      const wasm::UniquePtrVector<wasm::Expression>& value) override;
-  llvm::Value* VisitGetLocal(const wasm::Variable& var) override;
-  llvm::Value* VisitSetLocal(const wasm::Variable& var,
-                             const wasm::Expression& value) override;
-  llvm::Value* VisitConst(const wasm::Literal& l) override;
+      wasm::UniquePtrVector<wasm::Expression>* value) override;
+  llvm::Value* VisitGetLocal(wasm::Variable* var) override;
+  llvm::Value* VisitSetLocal(wasm::Variable* var,
+                             wasm::Expression* value) override;
+  llvm::Value* VisitConst(wasm::Literal* l) override;
 
-  llvm::Value* VisitInvoke(
-      const wasm::Export& callee,
-      const wasm::UniquePtrVector<wasm::Expression>&) override;
-  llvm::Value* VisitAssertEq(const wasm::TestScriptExpr& arg,
-                             const wasm::Expression& expected) override;
+  llvm::Value* VisitInvoke(wasm::Export* callee,
+                           wasm::UniquePtrVector<wasm::Expression>*) override;
+  llvm::Value* VisitAssertEq(wasm::TestScriptExpr* arg,
+                             wasm::Expression* expected) override;
 
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,

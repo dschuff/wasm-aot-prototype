@@ -121,8 +121,8 @@ int main(int argc, char** argv) {
     std::vector<llvm::Value*> assert_funcs;
     for (auto& script_expr : parser.test_script) {
       if (g_dump_ast)
-        dumper.Visit(*script_expr);
-      assert_funcs.push_back(converter.Visit(*script_expr));
+        dumper.Visit(script_expr.get());
+      assert_funcs.push_back(converter.Visit(script_expr.get()));
     }
     Function* script_main = Function::Create(
         FunctionType::get(int32_ty, std::vector<Type*>(), false),

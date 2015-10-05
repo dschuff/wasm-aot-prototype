@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     dumper.Visit(*module);
   }
   for (auto& script_expr : parser.test_script) {
-    dumper.Visit(*script_expr);
+    dumper.Visit(script_expr.get());
   }
   return 0;
 }

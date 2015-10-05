@@ -17,32 +17,30 @@ protected:
   void VisitFunction(const Function& func) override;
   void VisitSegment(const Segment& seg) override;
 
-  void VisitExpression(const Expression& expr) override {
-    PrintType(expr);
+  void VisitExpression(Expression* expr) override {
+    PrintType(*expr);
     AstVisitor::VisitExpression(expr);
   }
   void VisitNop() override;
-  void VisitBlock(const UniquePtrVector<Expression>& exprs) override;
+  void VisitBlock(UniquePtrVector<Expression>* exprs) override;
   void VisitCall(bool is_import,
-                 const Callable& callee,
+                 Callable* callee,
                  int callee_index,
-                 const UniquePtrVector<Expression>& args) override;
-  void VisitReturn(const UniquePtrVector<Expression>& value) override;
-  void VisitGetLocal(const Variable& var) override;
-  void VisitSetLocal(const Variable& var, const Expression& value) override;
-  void VisitConst(const Literal& l) override;
+                 UniquePtrVector<Expression>* args) override;
+  void VisitReturn(UniquePtrVector<Expression>* value) override;
+  void VisitGetLocal(Variable* var) override;
+  void VisitSetLocal(Variable* var, Expression* value) override;
+  void VisitConst(Literal* l) override;
 
-  void VisitInvoke(const Export& callee,
-                   const UniquePtrVector<Expression>& args) override;
-  void VisitAssertEq(const TestScriptExpr& invoke_arg,
-                     const Expression& expected) override;
+  void VisitInvoke(Export* callee, UniquePtrVector<Expression>* args) override;
+  void VisitAssertEq(TestScriptExpr* invoke_arg, Expression* expected) override;
 
  private:
   bool dump_types_;
   void PrintType(const Expression& expr);
-  friend void DumpExpr(const Expression& expr, bool dump_types);
+  friend void DumpExpr(Expression* expr, bool dump_types);
 };
 
-void DumpExpr(const Expression& expr, bool dump_types);
+void DumpExpr(Expression* expr, bool dump_types);
 }
 #endif // AST_DUMPER_H

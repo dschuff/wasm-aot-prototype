@@ -27,9 +27,7 @@ template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
 public:
  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
- ExprVal Visit(const TestScriptExpr& script) {
-   return VisitTestScriptExpr(script);
- }
+ ExprVal Visit(TestScriptExpr* script) { return VisitTestScriptExpr(script); }
 
  protected:
   virtual ModuleVal VisitModule(const Module& mod) {
@@ -50,80 +48,80 @@ public:
   virtual void VisitExport(const Export& exp) {}
   virtual void VisitFunction(const Function& func) {
     for (auto& expr : func.body)
-      VisitExpression(*expr);
+      VisitExpression(expr.get());
   }
   virtual void VisitSegment(const Segment& seg) {}
 
-  virtual ExprVal VisitExpression(const Expression& expr) {
-    switch (expr.opcode) {
+  virtual ExprVal VisitExpression(Expression* expr) {
+    switch (expr->opcode) {
       case WASM_OPCODE_NOP:
         return VisitNop();
       case WASM_OPCODE_BLOCK:
-        return VisitBlock(expr.exprs);
+        return VisitBlock(&expr->exprs);
       case WASM_OPCODE_CALL:
-        return VisitCall(expr.is_import, *expr.callee, expr.callee_index, expr.exprs);
+        return VisitCall(expr->is_import, expr->callee, expr->callee_index,
+                         &expr->exprs);
       case WASM_OPCODE_RETURN:
-        assert(expr.exprs.size() <= 1);
+        assert(expr->exprs.size() <= 1);
         // TODO: if multiple returns are really gone, do something better
-        return VisitReturn(expr.exprs);
+        return VisitReturn(&expr->exprs);
       case WASM_OPCODE_GET_LOCAL:
-        return VisitGetLocal(*expr.local_var);
+        return VisitGetLocal(expr->local_var);
       case WASM_OPCODE_SET_LOCAL:
-        return VisitSetLocal(*expr.local_var, *expr.exprs.front());
+        return VisitSetLocal(expr->local_var, expr->exprs.front().get());
       case WASM_OPCODE_I8_CONST:
       case WASM_OPCODE_I32_CONST:
       case WASM_OPCODE_I64_CONST:
       case WASM_OPCODE_F32_CONST:
       case WASM_OPCODE_F64_CONST:
-        return VisitConst(expr.literal);
+        return VisitConst(&expr->literal);
       default:
         assert(false);
     }
   }
   virtual ExprVal VisitNop() { return ExprVal(); }
-  virtual ExprVal VisitBlock(const UniquePtrVector<Expression>& exprs) {
-    for (auto& e : exprs)
-      VisitExpression(*e);
+  virtual ExprVal VisitBlock(UniquePtrVector<Expression>* exprs) {
+    for (auto& e : *exprs)
+      VisitExpression(e.get());
     return ExprVal();
   }
   virtual ExprVal VisitCall(bool is_import,
-                            const Callable& callee,
+                            Callable* callee,
                             int callee_index,
-                            const UniquePtrVector<Expression>& args) {
-    for (auto& e : args)
-      VisitExpression(*e);
+                            UniquePtrVector<Expression>* args) {
+    for (auto& e : *args)
+      VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitReturn(const UniquePtrVector<Expression>& value) {
-    if (value.size())
-      VisitExpression(*value.front());
+  virtual ExprVal VisitReturn(UniquePtrVector<Expression>* value) {
+    if (value->size())
+      VisitExpression(value->front().get());
     return ExprVal();
   }
-  virtual ExprVal VisitGetLocal(const Variable& var) { return ExprVal(); }
-  virtual ExprVal VisitSetLocal(const Variable& var, const Expression& value) {
+  virtual ExprVal VisitGetLocal(Variable* var) { return ExprVal(); }
+  virtual ExprVal VisitSetLocal(Variable* var, Expression* value) {
     VisitExpression(value);
     return ExprVal();
   }
-  virtual ExprVal VisitConst(const Literal& l) { return ExprVal(); }
+  virtual ExprVal VisitConst(Literal* l) { return ExprVal(); }
 
-  ExprVal VisitTestScriptExpr(const TestScriptExpr& expr) {
-    switch (expr.opcode) {
+  ExprVal VisitTestScriptExpr(TestScriptExpr* expr) {
+    switch (expr->opcode) {
       case TestScriptExpr::kInvoke:
-        return VisitInvoke(*expr.callee, expr.exprs);
+        return VisitInvoke(expr->callee, &expr->exprs);
       case TestScriptExpr::kAssertEq:
-        return VisitAssertEq(*expr.invoke, *expr.exprs[0]);
+        return VisitAssertEq(expr->invoke.get(), expr->exprs[0].get());
       default:
         assert(false);
     }
   }
-  virtual ExprVal VisitInvoke(const Export& callee,
-                              const UniquePtrVector<Expression>& args) {
-    for (auto& e : args)
-      VisitExpression(*e);
+  virtual ExprVal VisitInvoke(Export* callee,
+                              UniquePtrVector<Expression>* args) {
+    for (auto& e : *args)
+      VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitAssertEq(const TestScriptExpr& arg,
-                                const Expression& expected) {
+  virtual ExprVal VisitAssertEq(TestScriptExpr* arg, Expression* expected) {
     Visit(arg);
     VisitExpression(expected);
     return ExprVal();

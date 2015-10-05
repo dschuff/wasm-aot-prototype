@@ -24,7 +24,7 @@ static const char* TypeName(wasm::Type t) {
 
 namespace wasm {
 // Freestanding utility function to dump an expression for debugging.
-void DumpExpr(const Expression& expr, bool dump_types) {
+void DumpExpr(Expression* expr, bool dump_types) {
   AstDumper dumper(dump_types);
   dumper.VisitExpression(expr);
 }
@@ -111,7 +111,7 @@ void AstDumper::VisitFunction(const Function& func) {
   dump_var_list(func.locals.begin() + func.args.size(), func.locals.end(),
                 "local");
   for (auto& expr : func.body) {
-    VisitExpression(*expr);
+    VisitExpression(expr.get());
   }
   printf(")\n");
 }
@@ -126,88 +126,87 @@ void AstDumper::VisitNop() {
   printf("(nop)");
 }
 
-void AstDumper::VisitBlock(const UniquePtrVector<Expression>& exprs) {
+void AstDumper::VisitBlock(UniquePtrVector<Expression>* exprs) {
   printf("(block ");
-  for (auto& e : exprs) {
-    VisitExpression(*e);
+  for (auto& e : *exprs) {
+    VisitExpression(e.get());
   }
   printf(") ");
 }
 
 void AstDumper::VisitCall(bool is_import,
-                          const Callable& callee,
+                          Callable* callee,
                           int callee_index,
-                          const UniquePtrVector<Expression>& args) {
+                          UniquePtrVector<Expression>* args) {
   printf(is_import ? "(call_import " : "(call ");
-  if (callee.local_name.size()) {
-    printf("%s ", callee.local_name.c_str());
+  if (callee->local_name.size()) {
+    printf("%s ", callee->local_name.c_str());
   } else {
     printf("%d ", callee_index);
   }
-  for (auto& e : args) {
-    VisitExpression(*e);
+  for (auto& e : *args) {
+    VisitExpression(e.get());
   }
   printf(") ");
 }
 
-void AstDumper::VisitReturn(const UniquePtrVector<Expression>& value) {
+void AstDumper::VisitReturn(UniquePtrVector<Expression>* value) {
   printf("(return ");
-  if (value.size())
-    VisitExpression(*value.front());
+  if (value->size())
+    VisitExpression(value->front().get());
   printf(") ");
 }
 
-void AstDumper::VisitGetLocal(const Variable& var) {
+void AstDumper::VisitGetLocal(Variable* var) {
   printf("(get_local ");
-  if (!var.local_name.empty()) {
-    printf("%s)", var.local_name.c_str());
+  if (!var->local_name.empty()) {
+    printf("%s)", var->local_name.c_str());
   } else {
-    printf("%d)", var.index);
+    printf("%d)", var->index);
   }
 }
 
-void AstDumper::VisitSetLocal(const Variable& var, const Expression& value) {
+void AstDumper::VisitSetLocal(Variable* var, Expression* value) {
   printf("(set_local ");
-  if (!var.local_name.empty()) {
-    printf("%s ", var.local_name.c_str());
+  if (!var->local_name.empty()) {
+    printf("%s ", var->local_name.c_str());
   } else {
-    printf("%d ", var.index);
+    printf("%d ", var->index);
   }
   VisitExpression(value);
   printf(")");
 }
 
-void AstDumper::VisitConst(const Literal& l) {
-  switch (l.type) {
+void AstDumper::VisitConst(Literal* l) {
+  switch (l->type) {
     case Type::kI32:
-      printf("(%s.const 0x%x)", TypeName(l.type), l.value.i32);
+      printf("(%s.const 0x%x)", TypeName(l->type), l->value.i32);
       break;
     case Type::kI64:
-      printf("(%s.const 0x%lx)", TypeName(l.type), l.value.i64);
+      printf("(%s.const 0x%lx)", TypeName(l->type), l->value.i64);
       break;
     case Type::kF32:
-      printf("(%s.const %a)", TypeName(l.type), l.value.f32);
+      printf("(%s.const %a)", TypeName(l->type), l->value.f32);
       break;
     case Type::kF64:
-      printf("(%s.const %a)", TypeName(l.type), l.value.f64);
+      printf("(%s.const %a)", TypeName(l->type), l->value.f64);
       break;
     default:
-      printf("unexpected type %d\n", static_cast<int>(l.type));
+      printf("unexpected type %d\n", static_cast<int>(l->type));
       assert(false);
   }
 }
 
-void AstDumper::VisitInvoke(const Export& callee,
-                            const UniquePtrVector<Expression>& args) {
-  printf("(invoke \"%s\" ", callee.name.c_str());
-  for (auto& e : args) {
-    VisitExpression(*e);
+void AstDumper::VisitInvoke(Export* callee, UniquePtrVector<Expression>* args) {
+  printf("(invoke \"%s\" ", callee->name.c_str());
+  for (auto& e : *args) {
+    VisitExpression(e.get());
   }
   printf(")\n");
 }
 
-void AstDumper::VisitAssertEq(const TestScriptExpr& invoke_arg,
-                              const Expression& expected) {
+void AstDumper::VisitAssertEq(TestScriptExpr* invoke_arg,
+                              Expression* expected) {
   printf("(assert_eq ");
   Visit(invoke_arg);
   VisitExpression(expected);

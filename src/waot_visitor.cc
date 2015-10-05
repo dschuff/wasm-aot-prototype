@@ -138,7 +138,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   Value* last_value = nullptr;
   for (auto& expr : func.body) {
-    last_value = VisitExpression(*expr);
+    last_value = VisitExpression(expr.get());
   }
   // Handle implicit return of the last expression
   if (!bb->getTerminator()) {
@@ -169,74 +169,71 @@ void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
 Value* WAOTVisitor::VisitNop() {
   return nullptr;
 }
-Value* WAOTVisitor::VisitBlock(
-    const wasm::UniquePtrVector<wasm::Expression>& exprs) {
+Value* WAOTVisitor::VisitBlock(wasm::UniquePtrVector<wasm::Expression>* exprs) {
   Value* ret = nullptr;  // A void expr instead?
-  for (auto& expr : exprs) {
-    ret = VisitExpression(*expr);
+  for (auto& expr : *exprs) {
+    ret = VisitExpression(expr.get());
   }
   return ret;
 }
 
-Value* WAOTVisitor::VisitCall(
-    bool is_import,
-    const wasm::Callable& callee,
-    int callee_index,
-    const wasm::UniquePtrVector<wasm::Expression>& args) {
+Value* WAOTVisitor::VisitCall(bool is_import,
+                              wasm::Callable* callee,
+                              int callee_index,
+                              wasm::UniquePtrVector<wasm::Expression>* args) {
   assert(current_bb_);
   SmallVector<Value*, 8> arg_values;
-  for (auto& arg : args) {
-    arg_values.push_back(VisitExpression(*arg));
+  for (auto& arg : *args) {
+    arg_values.push_back(VisitExpression(arg.get()));
   }
   IRBuilder<> irb(current_bb_);
-  return irb.CreateCall(functions_[&callee], arg_values);
+  return irb.CreateCall(functions_[callee], arg_values);
 }
 
 Value* WAOTVisitor::VisitReturn(
-    const wasm::UniquePtrVector<wasm::Expression>& value) {
+    wasm::UniquePtrVector<wasm::Expression>* value) {
   IRBuilder<> irb(current_bb_);
-  if (!value.size())
+  if (!value->size())
     return irb.CreateRetVoid();
-  return irb.CreateRet(VisitExpression(*value.front()));
+  return irb.CreateRet(VisitExpression(value->front().get()));
 }
 
-Value* WAOTVisitor::VisitGetLocal(const wasm::Variable& var) {
+Value* WAOTVisitor::VisitGetLocal(wasm::Variable* var) {
   IRBuilder<> irb(current_bb_);
-  auto* load_addr = current_locals_[var.index];
-  return irb.CreateLoad(getLLVMType(var.type, ctx_), load_addr, "get_local");
+  auto* load_addr = current_locals_[var->index];
+  return irb.CreateLoad(getLLVMType(var->type, ctx_), load_addr, "get_local");
 }
 
-Value* WAOTVisitor::VisitSetLocal(const wasm::Variable& var,
-                                  const wasm::Expression& value) {
-  Value* store_addr = current_locals_[var.index];
+Value* WAOTVisitor::VisitSetLocal(wasm::Variable* var,
+                                  wasm::Expression* value) {
+  Value* store_addr = current_locals_[var->index];
   IRBuilder<> irb(current_bb_);
   auto* store_value = VisitExpression(value);
   return irb.CreateStore(store_value, store_addr);
 }
 
-Value* WAOTVisitor::VisitConst(const wasm::Literal& l) {
-  switch (l.type) {
+Value* WAOTVisitor::VisitConst(wasm::Literal* l) {
+  switch (l->type) {
     case wasm::Type::kVoid:
       return llvm::UndefValue::get(Type::getVoidTy(ctx_));
     case wasm::Type::kI32:
     case wasm::Type::kI64:
       return ConstantInt::get(
-          getLLVMType(l.type, ctx_),
-          l.type == wasm::Type::kI32 ? l.value.i32 : l.value.i64);
+          getLLVMType(l->type, ctx_),
+          l->type == wasm::Type::kI32 ? l->value.i32 : l->value.i64);
     case wasm::Type::kF32:
     case wasm::Type::kF64:
       return ConstantFP::get(
-          getLLVMType(l.type, ctx_),
-          l.type == wasm::Type::kF32 ? l.value.f32 : l.value.f64);
+          getLLVMType(l->type, ctx_),
+          l->type == wasm::Type::kF32 ? l->value.f32 : l->value.f64);
     default:
       assert(false);
   }
 }
 
-Value* WAOTVisitor::VisitInvoke(
-    const wasm::Export& callee,
-    const wasm::UniquePtrVector<wasm::Expression>& args) {
-  auto* ret_type = getLLVMType(callee.function->result_type, ctx_);
+Value* WAOTVisitor::VisitInvoke(wasm::Export* callee,
+                                wasm::UniquePtrVector<wasm::Expression>* args) {
+  auto* ret_type = getLLVMType(callee->function->result_type, ctx_);
   auto* f = Function::Create(
       FunctionType::get(ret_type, SmallVector<Type*, 1>(), false),
       Function::ExternalLinkage, "Invoke", module_);
@@ -246,8 +243,8 @@ Value* WAOTVisitor::VisitInvoke(
   BBStacker bbs(&current_bb_, bb);
 
   current_func_ = f;
-  Value* call = VisitCall(false, *callee.function,
-                          callee.function->index_in_module, args);
+  Value* call = VisitCall(false, callee->function,
+                          callee->function->index_in_module, args);
 
   IRBuilder<> irb(bb);
   if (ret_type->isVoidTy()) {
@@ -268,8 +265,8 @@ static Constant* getAssertFailFunc(Module* module, wasm::Type ty) {
       FunctionType::get(Type::getVoidTy(module->getContext()), params, false));
 }
 
-Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
-                                  const wasm::Expression& expected) {
+Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* invoke,
+                                  wasm::Expression* expected) {
   auto* f = Function::Create(
       FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
       Function::ExternalLinkage, "AssertEq", module_);
@@ -277,7 +274,7 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
   auto* bb = &f->getEntryBlock();
   current_func_ = f;
   BBStacker bbs(&current_bb_, bb);
-  Value* invoke_func = VisitInvoke(*invoke.callee, invoke.exprs);
+  Value* invoke_func = VisitInvoke(invoke->callee, &invoke->exprs);
 
   IRBuilder<> irb(bb);
   Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
@@ -305,7 +302,7 @@ Value* WAOTVisitor::VisitAssertEq(const wasm::TestScriptExpr& invoke,
       ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_eq_));
   args.push_back(expected_result);
   args.push_back(result);
-  fail_irb.CreateCall(getAssertFailFunc(module_, expected.expr_type), args);
+  fail_irb.CreateCall(getAssertFailFunc(module_, expected->expr_type), args);
 
   fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
