@@ -26,7 +26,8 @@ class Type {
     kI64 = WASM_TYPE_I64,
     kF32 = WASM_TYPE_F32,
     kF64 = WASM_TYPE_F64,
-    kUnknown = WASM_NUM_TYPES,
+    kAny = WASM_NUM_TYPES,  // TODO: Is this useful? could just void
+    kUnknown,
   } Type_;
   Type(Type_ t) : value_(t) {}
   Type(WasmType t) : value_(static_cast<Type_>(t)) {
@@ -64,6 +65,7 @@ class Expression {
   // Common
   WasmOpcode opcode = WASM_OPCODE_NOP;
   Type expr_type = Type::kUnknown;
+  Type expected_type = Type::kUnknown;
   // Const
   Literal literal = {};
   // Call, CallImport
@@ -137,11 +139,13 @@ class Module {
 class TestScriptExpr {
  public:
   typedef enum { kAssertInvalid, kInvoke, kAssertEq, kAssertTrap } Opcode;
-  TestScriptExpr(Module* mod, Opcode op) : module(mod), opcode(op) {}
+  TestScriptExpr(Module* mod, Opcode op)
+      : module(mod), opcode(op), type(Type::kUnknown) {}
 
   Module* module;
   Opcode opcode;
   Export* callee;                          // Invoke
+  Type type;                               // AssertEq
   std::unique_ptr<TestScriptExpr> invoke;  // AssertEq
   UniquePtrVector<Expression> exprs;       // Invoke args, AssertEq expectation
 };

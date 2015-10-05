@@ -1,6 +1,78 @@
 #include "wasm_parser_cxx.h"
+#include "ast_dumper.h"
+#include "ast_visitor.h"
 #include <cstdio>
 #include <cassert>
+
+namespace {
+// Despite its name, this class not only checks expected types, but it sets them
+// from the top down (which is not done during parsing). The expectations are
+// neede for some code generation.
+class TypeChecker : public wasm::AstVisitor<void, void> {
+ public:
+  void VisitExpression(const wasm::Expression& expr) override {
+    current_expected_type_ = expr.expected_type;
+    wasm::AstVisitor<void, void>::VisitExpression(expr);
+  }
+
+ protected:
+  void VisitFunction(const wasm::Function& f) override {
+    if (!f.body.empty())
+      f.body.back()->expected_type = f.result_type;
+    AstVisitor::VisitFunction(f);
+  }
+  void VisitBlock(
+      const wasm::UniquePtrVector<wasm::Expression>& exprs) override {
+    auto& back = exprs.back();
+    for (auto& e : exprs) {
+      if (e == back) {
+        e->expected_type = current_expected_type_;
+      } else {
+        e->expected_type = wasm::Type::kVoid;
+      }
+      VisitExpression(*e);
+    }
+  }
+  void VisitArgs(const wasm::Callable& callee,
+                 const wasm::UniquePtrVector<wasm::Expression>& args) {
+    int i = 0;
+    // printf("visiting ");
+    for (auto& arg : args) {
+      // wasm::DumpExpr(*arg, true);
+      assert(arg->expected_type == wasm::Type::kUnknown ||
+             arg->expected_type == callee.args[i]->type);
+      arg->expected_type = callee.args[i]->type;
+      CheckType(arg->expected_type, callee.args[i]->type);
+      ++i;
+      VisitExpression(*arg);
+    }
+    // printf("\n");
+  }
+  void VisitCall(bool is_import,
+                 const wasm::Callable& callee,
+                 int callee_index,
+                 const wasm::UniquePtrVector<wasm::Expression>& args) override {
+    VisitArgs(callee, args);
+  }
+  void VisitInvoke(
+      const wasm::Export& callee,
+      const wasm::UniquePtrVector<wasm::Expression>& args) override {
+    VisitArgs(*callee.function, args);
+  }
+
+ private:
+  static void CheckType(wasm::Type expected, wasm::Type actual) {
+    assert(expected != wasm::Type::kUnknown);
+    assert(actual != wasm::Type::kUnknown);
+    if (expected != wasm::Type::kVoid && actual != wasm::Type::kAny &&
+        actual != expected) {
+      fprintf(stderr, "Type mismatch: expected %d, actual %d\n",
+              (WasmType)expected, (WasmType)actual);
+    }
+  }
+  wasm::Type current_expected_type_ = wasm::Type::kUnknown;
+};
+}
 
 namespace wasm {
 
@@ -12,7 +84,9 @@ void Parser::error(WasmSourceLocation loc, const char* msg) {
 }
 
 void Parser::after_nop() {
-  Insert(new Expression(WASM_OPCODE_NOP));
+  auto* expr = new Expression(WASM_OPCODE_NOP);
+  expr->expr_type = Type::kVoid;  // Should collapse with kAny?
+  Insert(expr);
 }
 
 WasmParserCookie Parser::before_block() {
@@ -24,7 +98,6 @@ WasmParserCookie Parser::before_block() {
 
 void Parser::after_block(WasmType ty, int num_exprs, WasmParserCookie cookie) {
   PopInsertionPoint();
-  assert(insertion_points_.size() > 0);
   Expression* block_expr = reinterpret_cast<Expression*>(cookie);
   assert(block_expr->opcode == WASM_OPCODE_BLOCK);
   block_expr->expr_type = ty;
@@ -55,6 +128,7 @@ void Parser::before_call_import(int import_index) {
 
 void Parser::before_return() {
   auto* expr = new Expression(WASM_OPCODE_RETURN);
+  expr->expr_type = Type::kAny;
   InsertAndPush(expr, kUnknownExpectedExprs);
 }
 
@@ -197,6 +271,8 @@ void Parser::before_module(WasmModule* m) {
 }
 
 void Parser::after_module(WasmModule* m) {
+  TypeChecker checker = {};
+  checker.Visit(*module);
   module = nullptr;
 }
 
@@ -218,7 +294,12 @@ WasmParserCookie Parser::before_invoke(const char* invoke_name,
   }
   expr->callee = last_module->exports[invoke_function_index].get();
   PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
-  return 0;
+  return reinterpret_cast<WasmParserCookie>(expr);
+}
+
+void Parser::after_invoke(WasmParserCookie cookie) {
+  TypeChecker checker = {};
+  checker.Visit(*reinterpret_cast<TestScriptExpr*>(cookie));
 }
 
 WasmParserCookie Parser::before_assert_eq() {
@@ -228,6 +309,19 @@ WasmParserCookie Parser::before_assert_eq() {
       new TestScriptExpr(last_module, TestScriptExpr::kAssertEq));
   current_assert_eq_ = test_script.back().get();
   ResetInsertionPoint(&current_assert_eq_->exprs, 1);
-  return 0;
+  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
+
+void Parser::after_assert_eq(WasmType ty, WasmParserCookie cookie) {
+  auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
+  // The parser has already checked the types. We just need to propagate the
+  // expectations down to the expectation expr tree.
+  expr->type = ty;
+  expr->invoke->type = ty;
+  expr->exprs.front()->expected_type = ty;
+  TypeChecker checker = {};
+  checker.VisitExpression(*expr->exprs.front());
+  checker.Visit(*expr);
+}
+
 }  // namespace wasm

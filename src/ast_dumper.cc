@@ -15,16 +15,23 @@ static const char* TypeName(wasm::Type t) {
       return "f32";
     case wasm::Type::kF64:
       return "f64";
+    case wasm::Type::kAny:
+      return "(any)";
     default:
-      return "(unknown type)";
+      return "(unknown)";
   }
 }
 
 namespace wasm {
+// Freestanding utility function to dump an expression for debugging.
+void DumpExpr(const Expression& expr, bool dump_types) {
+  AstDumper dumper(dump_types);
+  dumper.VisitExpression(expr);
+}
 
 void AstDumper::PrintType(const Expression& expr) {
   if (dump_types_)
-    printf("[%s]", TypeName(expr.expr_type));
+    printf("[%s->%s]", TypeName(expr.expected_type), TypeName(expr.expr_type));
 }
 
 void AstDumper::VisitModule(const Module& mod) {

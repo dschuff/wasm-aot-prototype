@@ -40,7 +40,9 @@ protected:
  private:
   bool dump_types_;
   void PrintType(const Expression& expr);
+  friend void DumpExpr(const Expression& expr, bool dump_types);
 };
-}
 
+void DumpExpr(const Expression& expr, bool dump_types);
+}
 #endif // AST_DUMPER_H

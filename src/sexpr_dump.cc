@@ -50,11 +50,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  wasm::AstVisitor<void, void> visitor = {};
-  for (auto& module : parser.modules) {
-    visitor.Visit(*module);
-  }
-
   wasm::AstDumper dumper(DumpTypes);
   for (auto& module : parser.modules) {
     dumper.Visit(*module);

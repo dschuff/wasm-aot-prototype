@@ -26,13 +26,15 @@ namespace wasm {
   CALLBACK(after_get_local, void, int)       \
   CALLBACK(before_set_local, void, int)      \
   CALLBACK(before_module, void, WasmModule*) \
-  CALLBACK(after_module, void, WasmModule*)
+  CALLBACK(after_module, void, WasmModule*)  \
+  CALLBACK(after_invoke, void, WasmParserCookie)
 
 #define EACH_CALLBACK2                                        \
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(after_export, void, WasmModule*, WasmFunction*)    \
-  CALLBACK(before_invoke, WasmParserCookie, const char*, int)
+  CALLBACK(before_invoke, WasmParserCookie, const char*, int) \
+  CALLBACK(after_assert_eq, void, WasmType, WasmParserCookie)
 
 #define EACH_CALLBACK3                                          \
   CALLBACK(after_block, void, WasmType, int, WasmParserCookie)  \

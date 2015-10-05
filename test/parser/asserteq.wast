@@ -19,3 +19,5 @@
   (invoke "bar"
     (block (f32.const 1) (f32.const 10)))
   (f32.const 11))
+
+(assert_eq (invoke "foo") (block (i32.const 1)(nop)(i32.const 2)))
