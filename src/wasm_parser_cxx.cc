@@ -11,10 +11,8 @@ namespace {
 class TypeChecker : public wasm::AstVisitor<void, void> {
  public:
   void VisitExpression(wasm::Expression* expr) override {
-    current_expected_type_ = expr->expected_type;
-    wasm::AstVisitor<void, void>::VisitExpression(expr);
+    AstVisitor::VisitExpression(expr);
   }
-
  protected:
   void VisitFunction(const wasm::Function& f) override {
     current_function_ = &f;
@@ -27,14 +25,27 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
   void VisitBlock(wasm::Expression* expr,
                   wasm::UniquePtrVector<wasm::Expression>* exprs) override {
     auto& back = exprs->back();
-    wasm::Type expected = current_expected_type_;
     for (auto& e : *exprs) {
       if (e == back) {
-        e->expected_type = expected;
+        e->expected_type = expr->expected_type;
       } else {
         e->expected_type = wasm::Type::kVoid;
       }
       VisitExpression(e.get());
+    }
+  }
+  void VisitIf(wasm::Expression* expr,
+               wasm::Expression* condition,
+               wasm::Expression* then,
+               wasm::Expression* els) override {
+    // TODO: explicitly convert the condition result to i32
+    condition->expected_type = wasm::Type::kI32;
+    VisitExpression(condition);
+    then->expected_type = expr->expected_type;
+    VisitExpression(then);
+    if (els) {
+      els->expected_type = expr->expected_type;
+      VisitExpression(els);
     }
   }
   void VisitArgs(wasm::Callable* callee,
@@ -85,7 +96,6 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
               (WasmType)expected, (WasmType)actual);
     }
   }
-  wasm::Type current_expected_type_ = wasm::Type::kUnknown;
   const wasm::Function* current_function_ = nullptr;
 };
 }

@@ -56,6 +56,11 @@ static llvm::cl::opt<bool> g_spec_test_script_mode(
         "test assertions"),
     llvm::cl::init(false));
 
+static llvm::cl::opt<bool> g_disable_verify(
+    "disable-verify",
+    llvm::cl::desc("Disable the module verifier"),
+    llvm::cl::init(false));
+
 int main(int argc, char** argv) {
   llvm::sys::PrintStackTraceOnErrorSignal();
   llvm::PrettyStackTraceProgram X(argc, argv);
@@ -98,7 +103,8 @@ int main(int argc, char** argv) {
   llvm::LLVMContext& context = llvm::getGlobalContext();
   llvm::ModulePassManager mpm{};
   assert(g_print_asm);  // For now, only support printing assembly.
-  // mpm.addPass(llvm::VerifierPass());
+  if (!g_disable_verify)
+    mpm.addPass(llvm::VerifierPass());
   mpm.addPass(llvm::PrintModulePass(output->os()));
 
   parser.modules.front()->name = llvm::sys::path::stem(g_input_filename);

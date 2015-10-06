@@ -15,29 +15,33 @@
 
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
+using llvm::BranchInst;
 using llvm::Constant;
 using llvm::ConstantInt;
 using llvm::ConstantFP;
 using llvm::Function;
 using llvm::FunctionType;
 using llvm::IRBuilder;
+using llvm::isa;
 using llvm::Module;
+using llvm::ReturnInst;
 using llvm::SmallVector;
+using llvm::TerminatorInst;
 using llvm::Type;
 using llvm::Value;
 
-static Type* getLLVMType(wasm::Type T, llvm::LLVMContext& C) {
+Type* WAOTVisitor::getLLVMType(wasm::Type T) {
   switch (T) {
     case wasm::Type::kVoid:
-      return Type::getVoidTy(C);
+      return Type::getVoidTy(ctx_);
     case wasm::Type::kI32:
-      return Type::getInt32Ty(C);
+      return Type::getInt32Ty(ctx_);
     case wasm::Type::kI64:
-      return Type::getInt64Ty(C);
+      return Type::getInt64Ty(ctx_);
     case wasm::Type::kF32:
-      return Type::getFloatTy(C);
+      return Type::getFloatTy(ctx_);
     case wasm::Type::kF64:
-      return Type::getDoubleTy(C);
+      return Type::getDoubleTy(ctx_);
     default:
       llvm_unreachable("Unexpexted type in getLLVMType");
   }
@@ -95,11 +99,11 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
                                    Function::LinkageTypes linkage) {
   Type* ret_type = Type::getVoidTy(ctx_);
   if (func.result_type != wasm::Type::kVoid) {
-    ret_type = getLLVMType(func.result_type, ctx_);
+    ret_type = getLLVMType(func.result_type);
   }
   SmallVector<Type*, 4> arg_types;
   for (auto& arg : func.args) {
-    arg_types.push_back(getLLVMType(arg->type, ctx_));
+    arg_types.push_back(getLLVMType(arg->type));
   }
 
   auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
@@ -129,7 +133,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   for (auto& local : func.locals) {
     current_locals_.push_back(irb.CreateAlloca(
-        getLLVMType(local->type, ctx_), nullptr, local->local_name.c_str()));
+        getLLVMType(local->type), nullptr, local->local_name.c_str()));
   }
   int i = 0;
   for (auto& arg : f->args()) {
@@ -180,12 +184,19 @@ Value* WAOTVisitor::VisitBlock(wasm::Expression* expr,
   return ret;
 }
 
-static Value* CreateCompare(IRBuilder<>* irb, Value* lhs, Value* rhs) {
+static Value* CreateEqualityCompare(IRBuilder<>* irb,
+                                    Value* lhs,
+                                    Value* rhs,
+                                    bool is_eq) {
   Value* cmp_result;
   if (lhs->getType()->isIntOrIntVectorTy()) {
-    cmp_result = irb->CreateICmpEQ(lhs, rhs);
+    llvm::CmpInst::Predicate p =
+        is_eq ? llvm::CmpInst::ICMP_EQ : llvm::CmpInst::ICMP_NE;
+    cmp_result = irb->CreateICmp(p, lhs, rhs);
   } else if (lhs->getType()->isFloatTy() || lhs->getType()->isDoubleTy()) {
-    cmp_result = irb->CreateFCmpOEQ(lhs, rhs);
+    llvm::CmpInst::Predicate p =
+        is_eq ? llvm::CmpInst::FCMP_OEQ : llvm::CmpInst::FCMP_ONE;
+    cmp_result = irb->CreateFCmp(p, lhs, rhs);
   } else {
     assert(false);
   }
@@ -199,29 +210,63 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
   IRBuilder<> irb(current_bb_);
   // TODO: convert to i32
   Value* cmp_result =
-      CreateCompare(&irb, VisitExpression(condition),
-                    ConstantInt::get(Type::getInt32Ty(ctx_), 0));
+      CreateEqualityCompare(&irb, VisitExpression(condition),
+                            ConstantInt::get(Type::getInt32Ty(ctx_), 0), false);
+  cmp_result->setName("if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
   auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
   auto* end_bb = BasicBlock::Create(ctx_, "if.end", current_func_);
+  irb.CreateCondBr(cmp_result, then_bb, else_bb);
+
   current_bb_ = then_bb;
   Value* then_expr = VisitExpression(then);
-  llvm::BranchInst::Create(end_bb, current_bb_);
+  if (then_expr && isa<TerminatorInst>(then_expr)) {
+    assert(isa<ReturnInst>(then_expr));
+  } else {
+    BranchInst::Create(end_bb, current_bb_);
+  }
+  then_bb = current_bb_;
 
-  current_bb_ = else_bb;
   Value* else_expr = nullptr;
-  if (els)
+  current_bb_ = else_bb;
+  if (els) {
     else_expr = VisitExpression(els);
-  llvm::BranchInst::Create(end_bb, current_bb_);
-  IRBuilder<> end_irb(end_bb);
-  auto* phi = end_irb.CreatePHI(then_expr->getType(), 2);
-  phi->addIncoming(then_expr, then_bb);
-  phi->addIncoming(else_expr, else_bb);
+    if (else_expr && isa<TerminatorInst>(else_expr)) {
+      assert(isa<ReturnInst>(else_expr));
+    } else {
+      BranchInst::Create(end_bb, current_bb_);
+    }
+  } else {
+    BranchInst::Create(end_bb, current_bb_);
+  }
+  else_bb = current_bb_;
+
+  Value* ret = nullptr;
+  if (expr->expected_type != wasm::Type::kVoid) {
+    Type* expr_type = getLLVMType(expr->expected_type);
+    IRBuilder<> end_irb(end_bb);
+    if (!isa<TerminatorInst>(then_expr) ||
+        (else_expr && !isa<TerminatorInst>(else_expr))) {
+      auto* phi = end_irb.CreatePHI(expr_type, 2, "if.result");
+      if (then_expr && !isa<TerminatorInst>(then_expr)) {
+        phi->addIncoming(then_expr, then_bb);
+      } else {
+        phi->addIncoming(llvm::UndefValue::get(expr_type), then_bb);
+      }
+      if (else_expr && !isa<TerminatorInst>(else_expr)) {
+        phi->addIncoming(else_expr, else_bb);
+      } else {
+        phi->addIncoming(llvm::UndefValue::get(expr_type), else_bb);
+      }
+      ret = phi;
+    } else {
+      end_irb.CreateUnreachable();
+    }
+  }
   current_bb_ = end_bb;
 
-  irb.CreateCondBr(cmp_result, then_bb, else_bb);
-  return phi;
+  return ret;
 }
 
 Value* WAOTVisitor::VisitCall(wasm::Expression* expr,
@@ -241,16 +286,16 @@ Value* WAOTVisitor::VisitCall(wasm::Expression* expr,
 Value* WAOTVisitor::VisitReturn(
     wasm::Expression* expr,
     wasm::UniquePtrVector<wasm::Expression>* value) {
-  IRBuilder<> irb(current_bb_);
-  if (!value->size())
-    return irb.CreateRetVoid();
-  return irb.CreateRet(VisitExpression(value->front().get()));
+  Value* retval = nullptr;
+  if (value->size())
+    retval = VisitExpression(value->front().get());
+  return llvm::ReturnInst::Create(ctx_, retval, current_bb_);
 }
 
 Value* WAOTVisitor::VisitGetLocal(wasm::Expression* expr, wasm::Variable* var) {
   IRBuilder<> irb(current_bb_);
   auto* load_addr = current_locals_[var->index];
-  return irb.CreateLoad(getLLVMType(var->type, ctx_), load_addr, "get_local");
+  return irb.CreateLoad(getLLVMType(var->type), load_addr, "get_local");
 }
 
 Value* WAOTVisitor::VisitSetLocal(wasm::Expression* expr,
@@ -268,14 +313,14 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
       return llvm::UndefValue::get(Type::getVoidTy(ctx_));
     case wasm::Type::kI32:
     case wasm::Type::kI64:
-      return ConstantInt::get(
-          getLLVMType(l->type, ctx_),
-          l->type == wasm::Type::kI32 ? l->value.i32 : l->value.i64);
+      return ConstantInt::get(getLLVMType(l->type), l->type == wasm::Type::kI32
+                                                        ? l->value.i32
+                                                        : l->value.i64);
     case wasm::Type::kF32:
     case wasm::Type::kF64:
-      return ConstantFP::get(
-          getLLVMType(l->type, ctx_),
-          l->type == wasm::Type::kF32 ? l->value.f32 : l->value.f64);
+      return ConstantFP::get(getLLVMType(l->type), l->type == wasm::Type::kF32
+                                                       ? l->value.f32
+                                                       : l->value.f64);
     default:
       assert(false);
   }
@@ -284,7 +329,7 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
                                 wasm::Export* callee,
                                 wasm::UniquePtrVector<wasm::Expression>* args) {
-  auto* ret_type = getLLVMType(callee->function->result_type, ctx_);
+  auto* ret_type = getLLVMType(callee->function->result_type);
   auto* f = Function::Create(
       FunctionType::get(ret_type, SmallVector<Type*, 1>(), false),
       Function::ExternalLinkage, "Invoke", module_);
@@ -306,14 +351,14 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   return f;
 }
 
-static Constant* getAssertFailFunc(Module* module, wasm::Type ty) {
+Constant* WAOTVisitor::getAssertFailFunc(wasm::Type ty) {
   SmallVector<Type*, 1> params;
-  params.push_back(Type::getInt32Ty(module->getContext()));
-  params.push_back(getLLVMType(ty, module->getContext()));
-  params.push_back(getLLVMType(ty, module->getContext()));
-  return module->getOrInsertFunction(
+  params.push_back(Type::getInt32Ty(ctx_));
+  params.push_back(getLLVMType(ty));
+  params.push_back(getLLVMType(ty));
+  return module_->getOrInsertFunction(
       std::string("__assert_fail_") + TypeName(ty),
-      FunctionType::get(Type::getVoidTy(module->getContext()), params, false));
+      FunctionType::get(Type::getVoidTy(ctx_), params, false));
 }
 
 Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
@@ -333,7 +378,8 @@ Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
   Value* expected_result = VisitExpression(expected);
 
   assert(result->getType() == expected_result->getType());
-  Value* cmp_result = CreateCompare(&irb, result, expected_result);
+  Value* cmp_result =
+      CreateEqualityCompare(&irb, result, expected_result, true);
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
@@ -347,7 +393,7 @@ Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
       ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_eq_));
   args.push_back(expected_result);
   args.push_back(result);
-  fail_irb.CreateCall(getAssertFailFunc(module_, expected->expr_type), args);
+  fail_irb.CreateCall(getAssertFailFunc(expected->expr_type), args);
 
   fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);

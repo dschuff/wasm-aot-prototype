@@ -61,6 +61,8 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,
                               llvm::Function::LinkageTypes linkage);
+  llvm::Type* getLLVMType(wasm::Type ty);
+  llvm::Constant* getAssertFailFunc(wasm::Type ty);
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
 
