@@ -131,11 +131,20 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   IRBuilder<> irb(bb);
 
-  for (auto& local : func.locals) {
-    current_locals_.push_back(irb.CreateAlloca(
-        getLLVMType(local->type), nullptr, local->local_name.c_str()));
-  }
   int i = 0;
+  for (auto& local : func.locals) {
+    current_locals_.push_back(
+        irb.CreateAlloca(getLLVMType(local->type), nullptr));
+    if (!local->local_name.empty()) {
+      current_locals_.back()->setName(local->local_name.c_str());
+    } else if (i < func.args.size()) {
+      current_locals_.back()->setName("arg");
+    } else {
+      current_locals_.back()->setName("local");
+    }
+    ++i;
+  }
+  i = 0;
   for (auto& arg : f->args()) {
     irb.CreateStore(&arg, current_locals_[i++]);
   }
