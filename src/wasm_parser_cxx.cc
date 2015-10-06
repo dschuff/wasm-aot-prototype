@@ -24,7 +24,8 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       f.body.back()->expected_type = f.result_type;
     AstVisitor::VisitFunction(f);
   }
-  void VisitBlock(wasm::UniquePtrVector<wasm::Expression>* exprs) override {
+  void VisitBlock(wasm::Expression* expr,
+                  wasm::UniquePtrVector<wasm::Expression>* exprs) override {
     auto& back = exprs->back();
     wasm::Type expected = current_expected_type_;
     for (auto& e : *exprs) {
@@ -48,23 +49,28 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       VisitExpression(arg.get());
     }
   }
-  void VisitCall(bool is_import,
+  void VisitCall(wasm::Expression* expr,
+                 bool is_import,
                  wasm::Callable* callee,
                  int callee_index,
                  wasm::UniquePtrVector<wasm::Expression>* args) override {
     VisitArgs(callee, args);
   }
-  void VisitReturn(wasm::UniquePtrVector<wasm::Expression>* value) override {
+  void VisitReturn(wasm::Expression* expr,
+                   wasm::UniquePtrVector<wasm::Expression>* value) override {
     if (value->size()) {
       value->back()->expected_type = current_function_->result_type;
       VisitExpression(value->back().get());
     }
   }
-  void VisitSetLocal(wasm::Variable* var, wasm::Expression* value) override {
+  void VisitSetLocal(wasm::Expression* expr,
+                     wasm::Variable* var,
+                     wasm::Expression* value) override {
     value->expected_type = var->type;
     VisitExpression(value);
   }
-  void VisitInvoke(wasm::Export* callee,
+  void VisitInvoke(wasm::TestScriptExpr* expr,
+                   wasm::Export* callee,
                    wasm::UniquePtrVector<wasm::Expression>* args) override {
     VisitArgs(callee->function, args);
   }

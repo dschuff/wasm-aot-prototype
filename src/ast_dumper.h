@@ -21,22 +21,32 @@ protected:
     PrintType(*expr);
     AstVisitor::VisitExpression(expr);
   }
-  void VisitNop() override;
-  void VisitBlock(UniquePtrVector<Expression>* exprs) override;
-  void VisitIf(Expression* condition,
+  void VisitNop(Expression* expr) override;
+  void VisitBlock(Expression* expr,
+                  UniquePtrVector<Expression>* exprs) override;
+  void VisitIf(Expression* expr,
+               Expression* condition,
                Expression* then,
                Expression* els) override;
-  void VisitCall(bool is_import,
+  void VisitCall(Expression* expr,
+                 bool is_import,
                  Callable* callee,
                  int callee_index,
                  UniquePtrVector<Expression>* args) override;
-  void VisitReturn(UniquePtrVector<Expression>* value) override;
-  void VisitGetLocal(Variable* var) override;
-  void VisitSetLocal(Variable* var, Expression* value) override;
-  void VisitConst(Literal* l) override;
+  void VisitReturn(Expression* expr,
+                   UniquePtrVector<Expression>* value) override;
+  void VisitGetLocal(Expression* expr, Variable* var) override;
+  void VisitSetLocal(Expression* expr,
+                     Variable* var,
+                     Expression* value) override;
+  void VisitConst(Expression* expr, Literal* l) override;
 
-  void VisitInvoke(Export* callee, UniquePtrVector<Expression>* args) override;
-  void VisitAssertEq(TestScriptExpr* invoke_arg, Expression* expected) override;
+  void VisitInvoke(TestScriptExpr* expr,
+                   Export* callee,
+                   UniquePtrVector<Expression>* args) override;
+  void VisitAssertEq(TestScriptExpr* expr,
+                     TestScriptExpr* invoke_arg,
+                     Expression* expected) override;
 
  private:
   bool dump_types_;

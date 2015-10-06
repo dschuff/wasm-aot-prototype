@@ -55,40 +55,42 @@ public:
   virtual ExprVal VisitExpression(Expression* expr) {
     switch (expr->opcode) {
       case WASM_OPCODE_NOP:
-        return VisitNop();
+        return VisitNop(expr);
       case WASM_OPCODE_BLOCK:
-        return VisitBlock(&expr->exprs);
+        return VisitBlock(expr, &expr->exprs);
       case WASM_OPCODE_IF:
-        return VisitIf(expr->exprs[0].get(), expr->exprs[1].get(),
+        return VisitIf(expr, expr->exprs[0].get(), expr->exprs[1].get(),
                        expr->exprs.size() > 2 ? expr->exprs[2].get() : nullptr);
       case WASM_OPCODE_CALL:
-        return VisitCall(expr->is_import, expr->callee, expr->callee_index,
-                         &expr->exprs);
+        return VisitCall(expr, expr->is_import, expr->callee,
+                         expr->callee_index, &expr->exprs);
       case WASM_OPCODE_RETURN:
         assert(expr->exprs.size() <= 1);
         // TODO: if multiple returns are really gone, do something better
-        return VisitReturn(&expr->exprs);
+        return VisitReturn(expr, &expr->exprs);
       case WASM_OPCODE_GET_LOCAL:
-        return VisitGetLocal(expr->local_var);
+        return VisitGetLocal(expr, expr->local_var);
       case WASM_OPCODE_SET_LOCAL:
-        return VisitSetLocal(expr->local_var, expr->exprs.front().get());
+        return VisitSetLocal(expr, expr->local_var, expr->exprs.front().get());
       case WASM_OPCODE_I8_CONST:
       case WASM_OPCODE_I32_CONST:
       case WASM_OPCODE_I64_CONST:
       case WASM_OPCODE_F32_CONST:
       case WASM_OPCODE_F64_CONST:
-        return VisitConst(&expr->literal);
+        return VisitConst(expr, &expr->literal);
       default:
         assert(false);
     }
   }
-  virtual ExprVal VisitNop() { return ExprVal(); }
-  virtual ExprVal VisitBlock(UniquePtrVector<Expression>* exprs) {
+  virtual ExprVal VisitNop(Expression* expr) { return ExprVal(); }
+  virtual ExprVal VisitBlock(Expression* expr,
+                             UniquePtrVector<Expression>* exprs) {
     for (auto& e : *exprs)
       VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitIf(Expression* condition,
+  virtual ExprVal VisitIf(Expression* expr,
+                          Expression* condition,
                           Expression* then,
                           Expression* els) {
     VisitExpression(condition);
@@ -98,7 +100,8 @@ public:
     return ExprVal();
   }
 
-  virtual ExprVal VisitCall(bool is_import,
+  virtual ExprVal VisitCall(Expression* expr,
+                            bool is_import,
                             Callable* callee,
                             int callee_index,
                             UniquePtrVector<Expression>* args) {
@@ -106,35 +109,43 @@ public:
       VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitReturn(UniquePtrVector<Expression>* value) {
+  virtual ExprVal VisitReturn(Expression* expr,
+                              UniquePtrVector<Expression>* value) {
     if (value->size())
       VisitExpression(value->front().get());
     return ExprVal();
   }
-  virtual ExprVal VisitGetLocal(Variable* var) { return ExprVal(); }
-  virtual ExprVal VisitSetLocal(Variable* var, Expression* value) {
+  virtual ExprVal VisitGetLocal(Expression* expr, Variable* var) {
+    return ExprVal();
+  }
+  virtual ExprVal VisitSetLocal(Expression* expr,
+                                Variable* var,
+                                Expression* value) {
     VisitExpression(value);
     return ExprVal();
   }
-  virtual ExprVal VisitConst(Literal* l) { return ExprVal(); }
+  virtual ExprVal VisitConst(Expression* expr, Literal* l) { return ExprVal(); }
 
   ExprVal VisitTestScriptExpr(TestScriptExpr* expr) {
     switch (expr->opcode) {
       case TestScriptExpr::kInvoke:
-        return VisitInvoke(expr->callee, &expr->exprs);
+        return VisitInvoke(expr, expr->callee, &expr->exprs);
       case TestScriptExpr::kAssertEq:
-        return VisitAssertEq(expr->invoke.get(), expr->exprs[0].get());
+        return VisitAssertEq(expr, expr->invoke.get(), expr->exprs[0].get());
       default:
         assert(false);
     }
   }
-  virtual ExprVal VisitInvoke(Export* callee,
+  virtual ExprVal VisitInvoke(TestScriptExpr* expr,
+                              Export* callee,
                               UniquePtrVector<Expression>* args) {
     for (auto& e : *args)
       VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitAssertEq(TestScriptExpr* arg, Expression* expected) {
+  virtual ExprVal VisitAssertEq(TestScriptExpr* expr,
+                                TestScriptExpr* arg,
+                                Expression* expected) {
     Visit(arg);
     VisitExpression(expected);
     return ExprVal();

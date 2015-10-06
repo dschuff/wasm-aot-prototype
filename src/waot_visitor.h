@@ -27,27 +27,35 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   void VisitFunction(const wasm::Function& func) override;
   void VisitSegment(const wasm::Segment& seg) override;
 
-  llvm::Value* VisitNop() override;
+  llvm::Value* VisitNop(wasm::Expression* expr) override;
   llvm::Value* VisitBlock(
+      wasm::Expression* expr,
       wasm::UniquePtrVector<wasm::Expression>* exprs) override;
-  llvm::Value* VisitIf(wasm::Expression* condition,
+  llvm::Value* VisitIf(wasm::Expression* expr,
+                       wasm::Expression* condition,
                        wasm::Expression* then,
                        wasm::Expression* els) override;
   llvm::Value* VisitCall(
+      wasm::Expression* expr,
       bool is_import,
       wasm::Callable* callee,
       int callee_index,
       wasm::UniquePtrVector<wasm::Expression>* args) override;
   llvm::Value* VisitReturn(
+      wasm::Expression* expr,
       wasm::UniquePtrVector<wasm::Expression>* value) override;
-  llvm::Value* VisitGetLocal(wasm::Variable* var) override;
-  llvm::Value* VisitSetLocal(wasm::Variable* var,
+  llvm::Value* VisitGetLocal(wasm::Expression* expr,
+                             wasm::Variable* var) override;
+  llvm::Value* VisitSetLocal(wasm::Expression* expr,
+                             wasm::Variable* var,
                              wasm::Expression* value) override;
-  llvm::Value* VisitConst(wasm::Literal* l) override;
+  llvm::Value* VisitConst(wasm::Expression* expr, wasm::Literal* l) override;
 
-  llvm::Value* VisitInvoke(wasm::Export* callee,
+  llvm::Value* VisitInvoke(wasm::TestScriptExpr* expr,
+                           wasm::Export* callee,
                            wasm::UniquePtrVector<wasm::Expression>*) override;
-  llvm::Value* VisitAssertEq(wasm::TestScriptExpr* arg,
+  llvm::Value* VisitAssertEq(wasm::TestScriptExpr* expr,
+                             wasm::TestScriptExpr* arg,
                              wasm::Expression* expected) override;
 
  private:

@@ -121,12 +121,12 @@ void AstDumper::VisitSegment(const Segment& seg) {
            seg.address, seg.as_string().c_str());
 }
 
-
-void AstDumper::VisitNop() {
+void AstDumper::VisitNop(Expression* expr) {
   printf("(nop)");
 }
 
-void AstDumper::VisitBlock(UniquePtrVector<Expression>* exprs) {
+void AstDumper::VisitBlock(Expression* expr,
+                           UniquePtrVector<Expression>* exprs) {
   printf("(block ");
   for (auto& e : *exprs) {
     VisitExpression(e.get());
@@ -134,7 +134,8 @@ void AstDumper::VisitBlock(UniquePtrVector<Expression>* exprs) {
   printf(") ");
 }
 
-void AstDumper::VisitIf(Expression* condition,
+void AstDumper::VisitIf(Expression* expr,
+                        Expression* condition,
                         Expression* then,
                         Expression* els) {
   printf("(if ");
@@ -145,7 +146,8 @@ void AstDumper::VisitIf(Expression* condition,
   printf(")\n");
 }
 
-void AstDumper::VisitCall(bool is_import,
+void AstDumper::VisitCall(Expression* expr,
+                          bool is_import,
                           Callable* callee,
                           int callee_index,
                           UniquePtrVector<Expression>* args) {
@@ -161,14 +163,15 @@ void AstDumper::VisitCall(bool is_import,
   printf(") ");
 }
 
-void AstDumper::VisitReturn(UniquePtrVector<Expression>* value) {
+void AstDumper::VisitReturn(Expression* expr,
+                            UniquePtrVector<Expression>* value) {
   printf("(return ");
   if (value->size())
     VisitExpression(value->front().get());
   printf(") ");
 }
 
-void AstDumper::VisitGetLocal(Variable* var) {
+void AstDumper::VisitGetLocal(Expression* expr, Variable* var) {
   printf("(get_local ");
   if (!var->local_name.empty()) {
     printf("%s)", var->local_name.c_str());
@@ -177,7 +180,9 @@ void AstDumper::VisitGetLocal(Variable* var) {
   }
 }
 
-void AstDumper::VisitSetLocal(Variable* var, Expression* value) {
+void AstDumper::VisitSetLocal(Expression* expr,
+                              Variable* var,
+                              Expression* value) {
   printf("(set_local ");
   if (!var->local_name.empty()) {
     printf("%s ", var->local_name.c_str());
@@ -188,7 +193,7 @@ void AstDumper::VisitSetLocal(Variable* var, Expression* value) {
   printf(")");
 }
 
-void AstDumper::VisitConst(Literal* l) {
+void AstDumper::VisitConst(Expression* expr, Literal* l) {
   switch (l->type) {
     case Type::kI32:
       printf("(%s.const 0x%x)", TypeName(l->type), l->value.i32);
@@ -208,7 +213,9 @@ void AstDumper::VisitConst(Literal* l) {
   }
 }
 
-void AstDumper::VisitInvoke(Export* callee, UniquePtrVector<Expression>* args) {
+void AstDumper::VisitInvoke(TestScriptExpr* expr,
+                            Export* callee,
+                            UniquePtrVector<Expression>* args) {
   printf("(invoke \"%s\" ", callee->name.c_str());
   for (auto& e : *args) {
     VisitExpression(e.get());
@@ -216,7 +223,8 @@ void AstDumper::VisitInvoke(Export* callee, UniquePtrVector<Expression>* args) {
   printf(")\n");
 }
 
-void AstDumper::VisitAssertEq(TestScriptExpr* invoke_arg,
+void AstDumper::VisitAssertEq(TestScriptExpr* expr,
+                              TestScriptExpr* invoke_arg,
                               Expression* expected) {
   printf("(assert_eq ");
   Visit(invoke_arg);
