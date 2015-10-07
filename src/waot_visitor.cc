@@ -16,6 +16,7 @@
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
 using llvm::BranchInst;
+using llvm::CmpInst;
 using llvm::Constant;
 using llvm::ConstantInt;
 using llvm::ConstantFP;
@@ -193,19 +194,62 @@ Value* WAOTVisitor::VisitBlock(wasm::Expression* expr,
   return ret;
 }
 
-static Value* CreateEqualityCompare(IRBuilder<>* irb,
-                                    Value* lhs,
-                                    Value* rhs,
-                                    bool is_eq) {
+static CmpInst::Predicate GetIntPredicate(wasm::CompareOperator relop) {
+  switch (relop) {
+    case wasm::kEq:
+      return CmpInst::ICMP_EQ;
+    case wasm::kNE:
+      return CmpInst::ICMP_NE;
+    case wasm::kLtS:
+      return CmpInst::ICMP_SLT;
+    case wasm::kLtU:
+      return CmpInst::ICMP_ULT;
+    case wasm::kLeS:
+      return CmpInst::ICMP_SLE;
+    case wasm::kLeU:
+      return CmpInst::ICMP_ULE;
+    case wasm::kGtS:
+      return CmpInst::ICMP_SGT;
+    case wasm::kGtU:
+      return CmpInst::ICMP_UGT;
+    case wasm::kGeS:
+      return CmpInst::ICMP_SGE;
+    case wasm::kGeU:
+      return CmpInst::ICMP_UGE;
+    default:
+      assert(false && "Unexpected int compare op");
+  }
+}
+
+static CmpInst::Predicate GetFPPredicate(wasm::CompareOperator relop) {
+  switch (relop) {
+    case wasm::kEq:
+      return CmpInst::FCMP_OEQ;
+    case wasm::kNE:
+      return CmpInst::FCMP_ONE;
+    case wasm::kLt:
+      return CmpInst::FCMP_OLT;
+    case wasm::kLe:
+      return CmpInst::FCMP_OLE;
+    case wasm::kGt:
+      return CmpInst::FCMP_OGT;
+    case wasm::kGe:
+      return CmpInst::FCMP_OGE;
+    default:
+      assert(false && "Unexpected FP compare op");
+  }
+}
+
+static Value* CreateCompare(Type* type,
+                            wasm::CompareOperator relop,
+                            IRBuilder<>* irb,
+                            Value* lhs,
+                            Value* rhs) {
   Value* cmp_result;
-  if (lhs->getType()->isIntOrIntVectorTy()) {
-    llvm::CmpInst::Predicate p =
-        is_eq ? llvm::CmpInst::ICMP_EQ : llvm::CmpInst::ICMP_NE;
-    cmp_result = irb->CreateICmp(p, lhs, rhs);
+  if (type->isIntOrIntVectorTy()) {
+    cmp_result = irb->CreateICmp(GetIntPredicate(relop), lhs, rhs);
   } else if (lhs->getType()->isFloatTy() || lhs->getType()->isDoubleTy()) {
-    llvm::CmpInst::Predicate p =
-        is_eq ? llvm::CmpInst::FCMP_OEQ : llvm::CmpInst::FCMP_ONE;
-    cmp_result = irb->CreateFCmp(p, lhs, rhs);
+    cmp_result = irb->CreateFCmp(GetFPPredicate(relop), lhs, rhs);
   } else {
     assert(false);
   }
@@ -218,9 +262,9 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
                             wasm::Expression* els) {
   IRBuilder<> irb(current_bb_);
   // TODO: convert to i32
-  Value* cmp_result =
-      CreateEqualityCompare(&irb, VisitExpression(condition),
-                            ConstantInt::get(Type::getInt32Ty(ctx_), 0), false);
+  Value* cmp_result = CreateCompare(
+      Type::getInt32Ty(ctx_), wasm::kNE, &irb, VisitExpression(condition),
+      ConstantInt::get(Type::getInt32Ty(ctx_), 0));
   cmp_result->setName("if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
@@ -335,6 +379,17 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
   }
 }
 
+Value* WAOTVisitor::VisitCompare(
+    wasm::Expression* expr,
+    wasm::Type compare_type,
+    wasm::CompareOperator relop,
+    wasm::UniquePtrVector<wasm::Expression>* operands) {
+  IRBuilder<> irb(current_bb_);
+  return CreateCompare(getLLVMType(compare_type), relop, &irb,
+                       VisitExpression(operands->front().get()),
+                       VisitExpression(operands->back().get()));
+}
+
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
                                 wasm::Export* callee,
                                 wasm::UniquePtrVector<wasm::Expression>* args) {
@@ -387,8 +442,8 @@ Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
   Value* expected_result = VisitExpression(expected);
 
   assert(result->getType() == expected_result->getType());
-  Value* cmp_result =
-      CreateEqualityCompare(&irb, result, expected_result, true);
+  Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb, result,
+                                    expected_result);
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
