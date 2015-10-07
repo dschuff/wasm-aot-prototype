@@ -362,121 +362,107 @@ void Parser::before_binary(WasmOpcode opcode) {
   InsertAndPush(expr, 2);
 }
 
+static Type CompareType(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_EQ:
+    case WASM_OPCODE_I32_NE:
+    case WASM_OPCODE_I32_SLT:
+    case WASM_OPCODE_I32_SLE:
+    case WASM_OPCODE_I32_ULT:
+    case WASM_OPCODE_I32_ULE:
+    case WASM_OPCODE_I32_SGT:
+    case WASM_OPCODE_I32_UGT:
+    case WASM_OPCODE_I32_SGE:
+    case WASM_OPCODE_I32_UGE:
+      return Type::kI32;
+    case WASM_OPCODE_I64_EQ:
+    case WASM_OPCODE_I64_NE:
+    case WASM_OPCODE_I64_SLT:
+    case WASM_OPCODE_I64_SLE:
+    case WASM_OPCODE_I64_ULT:
+    case WASM_OPCODE_I64_ULE:
+    case WASM_OPCODE_I64_SGT:
+    case WASM_OPCODE_I64_UGT:
+    case WASM_OPCODE_I64_SGE:
+    case WASM_OPCODE_I64_UGE:
+      return Type::kI64;
+    case WASM_OPCODE_F32_EQ:
+    case WASM_OPCODE_F32_NE:
+    case WASM_OPCODE_F32_LT:
+    case WASM_OPCODE_F32_LE:
+    case WASM_OPCODE_F32_GT:
+    case WASM_OPCODE_F32_GE:
+      return Type::kF32;
+    case WASM_OPCODE_F64_EQ:
+    case WASM_OPCODE_F64_NE:
+    case WASM_OPCODE_F64_LT:
+    case WASM_OPCODE_F64_LE:
+    case WASM_OPCODE_F64_GT:
+    case WASM_OPCODE_F64_GE:
+      return Type::kF64;
+    default:
+      assert(false && "Unexpected opcode in CompareType");
+  }
+}
+
+static CompareOperator CompareOperator(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_EQ:
+    case WASM_OPCODE_I64_EQ:
+    case WASM_OPCODE_F32_EQ:
+    case WASM_OPCODE_F64_EQ:
+      return kEq;
+    case WASM_OPCODE_I32_NE:
+    case WASM_OPCODE_I64_NE:
+    case WASM_OPCODE_F32_NE:
+    case WASM_OPCODE_F64_NE:
+      return kNE;
+    case WASM_OPCODE_I32_SLT:
+    case WASM_OPCODE_I64_SLT:
+      return kLtS;
+    case WASM_OPCODE_I32_SLE:
+    case WASM_OPCODE_I64_SLE:
+      return kLeS;
+    case WASM_OPCODE_I32_ULT:
+    case WASM_OPCODE_I64_ULT:
+      return kLtU;
+    case WASM_OPCODE_I32_ULE:
+    case WASM_OPCODE_I64_ULE:
+      return kLeU;
+    case WASM_OPCODE_I32_SGT:
+    case WASM_OPCODE_I64_SGT:
+      return kGtS;
+    case WASM_OPCODE_I32_UGT:
+    case WASM_OPCODE_I64_UGT:
+      return kGtU;
+    case WASM_OPCODE_I32_SGE:
+    case WASM_OPCODE_I64_SGE:
+      return kGeS;
+    case WASM_OPCODE_I32_UGE:
+    case WASM_OPCODE_I64_UGE:
+      return kGeU;
+    case WASM_OPCODE_F32_LT:
+    case WASM_OPCODE_F64_LT:
+      return kLt;
+    case WASM_OPCODE_F32_LE:
+    case WASM_OPCODE_F64_LE:
+      return kLe;
+    case WASM_OPCODE_F32_GT:
+    case WASM_OPCODE_F64_GT:
+      return kGt;
+    case WASM_OPCODE_F32_GE:
+    case WASM_OPCODE_F64_GE:
+      return kGe;
+    default:
+      assert(false && "Unexpected opcode in before_compare");
+  }
+}
+
 void Parser::before_compare(WasmOpcode opcode) {
   auto* expr = new Expression(opcode);
-  Type op_type = Type::kVoid;
-  switch (opcode) {
-    case WASM_OPCODE_I32_EQ:
-    case WASM_OPCODE_I32_NE:
-    case WASM_OPCODE_I32_SLT:
-    case WASM_OPCODE_I32_SLE:
-    case WASM_OPCODE_I32_ULT:
-    case WASM_OPCODE_I32_ULE:
-    case WASM_OPCODE_I32_SGT:
-    case WASM_OPCODE_I32_UGT:
-    case WASM_OPCODE_I32_SGE:
-    case WASM_OPCODE_I32_UGE:
-      op_type = Type::kI32;
-      break;
-    case WASM_OPCODE_I64_EQ:
-    case WASM_OPCODE_I64_NE:
-    case WASM_OPCODE_I64_SLT:
-    case WASM_OPCODE_I64_SLE:
-    case WASM_OPCODE_I64_ULT:
-    case WASM_OPCODE_I64_ULE:
-    case WASM_OPCODE_I64_SGT:
-    case WASM_OPCODE_I64_UGT:
-    case WASM_OPCODE_I64_SGE:
-    case WASM_OPCODE_I64_UGE:
-      op_type = Type::kI64;
-      break;
-    case WASM_OPCODE_F32_EQ:
-    case WASM_OPCODE_F32_NE:
-    case WASM_OPCODE_F32_LT:
-    case WASM_OPCODE_F32_LE:
-    case WASM_OPCODE_F32_GT:
-    case WASM_OPCODE_F32_GE:
-      op_type = Type::kF32;
-      break;
-    case WASM_OPCODE_F64_EQ:
-    case WASM_OPCODE_F64_NE:
-    case WASM_OPCODE_F64_LT:
-    case WASM_OPCODE_F64_LE:
-    case WASM_OPCODE_F64_GT:
-    case WASM_OPCODE_F64_GE:
-      op_type = Type::kF64;
-      break;
-    default:
-      assert(false && "Unexpected opcode in before_compare");
-  }
-  CompareOperator relop;
-  switch (opcode) {
-    case WASM_OPCODE_I32_EQ:
-    case WASM_OPCODE_I64_EQ:
-    case WASM_OPCODE_F32_EQ:
-    case WASM_OPCODE_F64_EQ:
-      relop = kEq;
-      break;
-    case WASM_OPCODE_I32_NE:
-    case WASM_OPCODE_I64_NE:
-    case WASM_OPCODE_F32_NE:
-    case WASM_OPCODE_F64_NE:
-      relop = kNE;
-      break;
-    case WASM_OPCODE_I32_SLT:
-    case WASM_OPCODE_I64_SLT:
-      relop = kLtS;
-      break;
-    case WASM_OPCODE_I32_SLE:
-    case WASM_OPCODE_I64_SLE:
-      relop = kLeS;
-      break;
-    case WASM_OPCODE_I32_ULT:
-    case WASM_OPCODE_I64_ULT:
-      relop = kLtU;
-      break;
-    case WASM_OPCODE_I32_ULE:
-    case WASM_OPCODE_I64_ULE:
-      relop = kLeU;
-      break;
-    case WASM_OPCODE_I32_SGT:
-    case WASM_OPCODE_I64_SGT:
-      relop = kGtS;
-      break;
-    case WASM_OPCODE_I32_UGT:
-    case WASM_OPCODE_I64_UGT:
-      relop = kGtU;
-      break;
-    case WASM_OPCODE_I32_SGE:
-    case WASM_OPCODE_I64_SGE:
-      relop = kGeS;
-      break;
-    case WASM_OPCODE_I32_UGE:
-    case WASM_OPCODE_I64_UGE:
-      relop = kGeU;
-      break;
-    case WASM_OPCODE_F32_LT:
-    case WASM_OPCODE_F64_LT:
-      relop = kLt;
-      break;
-    case WASM_OPCODE_F32_LE:
-    case WASM_OPCODE_F64_LE:
-      relop = kLe;
-      break;
-    case WASM_OPCODE_F32_GT:
-    case WASM_OPCODE_F64_GT:
-      relop = kGt;
-      break;
-    case WASM_OPCODE_F32_GE:
-    case WASM_OPCODE_F64_GE:
-      relop = kGe;
-      break;
-    default:
-      assert(false && "Unexpected opcode in before_compare");
-  }
   expr->expr_type = Type::kI32;
-  expr->compare_type = op_type;
-  expr->relop = relop;
+  expr->compare_type = CompareType(opcode);
+  expr->relop = CompareOperator(opcode);
   InsertAndPush(expr, 2);
 }
 
