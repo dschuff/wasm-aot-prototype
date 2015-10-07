@@ -1,0 +1,48 @@
+;; Test that the binary encoding of the dump matches that of the original
+;; RUN: sexpr_dump %s > %t1
+;; RUN: sexpr-wasm -d %t1 > %t2
+;; RUN: sexpr-wasm -d %s | diff - %t2
+;; Test that round-tripping is stable
+;; RUN: sexpr_dump %t1 | diff %t1 -
+(module
+  (func
+    (i32.add (i32.const 0) (i32.const 0))
+    (i64.add (i64.const 0) (i64.const 0))
+    (f32.add (f32.const 0) (f32.const 0))
+    (f64.add (f64.const 0) (f64.const 0))
+    (i32.sub (i32.const 0) (i32.const 0))
+    (i64.sub (i64.const 0) (i64.const 0))
+    (f32.sub (f32.const 0) (f32.const 0))
+    (f64.sub (f64.const 0) (f64.const 0))
+    (i32.mul (i32.const 0) (i32.const 0))
+    (i64.mul (i64.const 0) (i64.const 0))
+    (f32.mul (f32.const 0) (f32.const 0))
+    (f64.mul (f64.const 0) (f64.const 0))
+    (i32.div_s (i32.const 0) (i32.const 0))
+    (i64.div_s (i64.const 0) (i64.const 0))
+    (i32.div_u (i32.const 0) (i32.const 0))
+    (i64.div_u (i64.const 0) (i64.const 0))
+    (f32.div (f32.const 0) (f32.const 0))
+    (f64.div (f64.const 0) (f64.const 0))
+    (i32.rem_s (i32.const 0) (i32.const 0))
+    (i64.rem_s (i64.const 0) (i64.const 0))
+    (i32.rem_u (i32.const 0) (i32.const 0))
+    (i64.rem_u (i64.const 0) (i64.const 0))
+    (f32.min (f32.const 0) (f32.const 0))
+    (f64.min (f64.const 0) (f64.const 0))
+    (f32.max (f32.const 0) (f32.const 0))
+    (f64.max (f64.const 0) (f64.const 0))
+    (i32.and (i32.const 0) (i32.const 0))
+    (i64.and (i64.const 0) (i64.const 0))
+    (i32.or (i32.const 0) (i32.const 0))
+    (i64.or (i64.const 0) (i64.const 0))
+    (i32.xor (i32.const 0) (i32.const 0))
+    (i64.xor (i64.const 0) (i64.const 0))
+    (i32.shl (i32.const 0) (i32.const 0))
+    (i64.shl (i64.const 0) (i64.const 0))
+    (i32.shr_u (i32.const 0) (i32.const 0))
+    (i64.shr_u (i64.const 0) (i64.const 0))
+    (i32.shr_s (i32.const 0) (i32.const 0))
+    (i64.shr_s (i64.const 0) (i64.const 0))
+    (f32.copysign (f32.const 0) (f32.const 0))
+    (f64.copysign (f64.const 0) (f64.const 0))))

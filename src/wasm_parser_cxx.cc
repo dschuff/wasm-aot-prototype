@@ -80,6 +80,15 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     value->expected_type = var->type;
     VisitExpression(value);
   }
+  void VisitBinop(wasm::Expression* expr,
+                  wasm::BinaryOperator binop,
+                  wasm::Expression* lhs,
+                  wasm::Expression* rhs) override {
+    lhs->expected_type = expr->expr_type;
+    VisitExpression(lhs);
+    rhs->expected_type = expr->expr_type;
+    VisitExpression(lhs);
+  }
   void VisitCompare(wasm::Expression* expr,
                     wasm::Type compare_type,
                     wasm::CompareOperator relop,
@@ -229,6 +238,128 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
       assert(false);
   }
   Insert(expr);
+}
+
+static Type BinopType(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_ADD:
+    case WASM_OPCODE_I32_SUB:
+    case WASM_OPCODE_I32_MUL:
+    case WASM_OPCODE_I32_SDIV:
+    case WASM_OPCODE_I32_UDIV:
+    case WASM_OPCODE_I32_SREM:
+    case WASM_OPCODE_I32_UREM:
+    case WASM_OPCODE_I32_AND:
+    case WASM_OPCODE_I32_OR:
+    case WASM_OPCODE_I32_XOR:
+    case WASM_OPCODE_I32_SHL:
+    case WASM_OPCODE_I32_SHR:
+    case WASM_OPCODE_I32_SAR:
+      return Type::kI32;
+    case WASM_OPCODE_I64_ADD:
+    case WASM_OPCODE_I64_SUB:
+    case WASM_OPCODE_I64_MUL:
+    case WASM_OPCODE_I64_SDIV:
+    case WASM_OPCODE_I64_UDIV:
+    case WASM_OPCODE_I64_SREM:
+    case WASM_OPCODE_I64_UREM:
+    case WASM_OPCODE_I64_AND:
+    case WASM_OPCODE_I64_OR:
+    case WASM_OPCODE_I64_XOR:
+    case WASM_OPCODE_I64_SHL:
+    case WASM_OPCODE_I64_SHR:
+    case WASM_OPCODE_I64_SAR:
+      return Type::kI64;
+    case WASM_OPCODE_F32_ADD:
+    case WASM_OPCODE_F32_SUB:
+    case WASM_OPCODE_F32_MUL:
+    case WASM_OPCODE_F32_DIV:
+    case WASM_OPCODE_F32_COPYSIGN:
+    case WASM_OPCODE_F32_MIN:
+    case WASM_OPCODE_F32_MAX:
+      return Type::kF32;
+    case WASM_OPCODE_F64_ADD:
+    case WASM_OPCODE_F64_SUB:
+    case WASM_OPCODE_F64_MUL:
+    case WASM_OPCODE_F64_DIV:
+    case WASM_OPCODE_F64_COPYSIGN:
+    case WASM_OPCODE_F64_MIN:
+    case WASM_OPCODE_F64_MAX:
+      return Type::kF64;
+    default:
+      assert(false && "Unexpected opcode in BinopType");
+  }
+}
+
+static BinaryOperator BinopOperator(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_ADD:
+    case WASM_OPCODE_I64_ADD:
+    case WASM_OPCODE_F32_ADD:
+    case WASM_OPCODE_F64_ADD:
+      return kAdd;
+    case WASM_OPCODE_I32_SUB:
+    case WASM_OPCODE_I64_SUB:
+    case WASM_OPCODE_F32_SUB:
+    case WASM_OPCODE_F64_SUB:
+      return kSub;
+    case WASM_OPCODE_I32_MUL:
+    case WASM_OPCODE_I64_MUL:
+    case WASM_OPCODE_F32_MUL:
+    case WASM_OPCODE_F64_MUL:
+      return kMul;
+    case WASM_OPCODE_I32_SDIV:
+    case WASM_OPCODE_I64_SDIV:
+      return kDivS;
+    case WASM_OPCODE_I32_UDIV:
+    case WASM_OPCODE_I64_UDIV:
+      return kDivU;
+    case WASM_OPCODE_I32_SREM:
+    case WASM_OPCODE_I64_SREM:
+      return kRemS;
+    case WASM_OPCODE_I32_UREM:
+    case WASM_OPCODE_I64_UREM:
+      return kRemU;
+    case WASM_OPCODE_I32_AND:
+    case WASM_OPCODE_I64_AND:
+      return kAnd;
+    case WASM_OPCODE_I32_OR:
+    case WASM_OPCODE_I64_OR:
+      return kOr;
+    case WASM_OPCODE_I32_XOR:
+    case WASM_OPCODE_I64_XOR:
+      return kXor;
+    case WASM_OPCODE_I32_SHL:
+    case WASM_OPCODE_I64_SHL:
+      return kShl;
+    case WASM_OPCODE_I32_SHR:
+    case WASM_OPCODE_I64_SHR:
+      return kShrU;
+    case WASM_OPCODE_I32_SAR:
+    case WASM_OPCODE_I64_SAR:
+      return kShrS;
+    case WASM_OPCODE_F32_DIV:
+    case WASM_OPCODE_F64_DIV:
+      return kDiv;
+    case WASM_OPCODE_F32_COPYSIGN:
+    case WASM_OPCODE_F64_COPYSIGN:
+      return kCopySign;
+    case WASM_OPCODE_F32_MIN:
+    case WASM_OPCODE_F64_MIN:
+      return kMin;
+    case WASM_OPCODE_F32_MAX:
+    case WASM_OPCODE_F64_MAX:
+      return kMax;
+    default:
+      assert(false && "Unexpected opcode in BinopOperator");
+  }
+}
+
+void Parser::before_binary(WasmOpcode opcode) {
+  auto* expr = new Expression(opcode);
+  expr->expr_type = BinopType(opcode);
+  expr->binop = BinopOperator(opcode);
+  InsertAndPush(expr, 2);
 }
 
 void Parser::before_compare(WasmOpcode opcode) {

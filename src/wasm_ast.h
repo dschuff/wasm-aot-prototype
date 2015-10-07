@@ -41,6 +41,28 @@ class Type {
 };
 
 // TODO: do we need a hierarchy of operators like the spec?
+enum BinaryOperator {
+  kAdd,
+  kSub,
+  kMul,
+  // Int
+  kDivS,
+  kDivU,
+  kRemS,
+  kRemU,
+  kAnd,
+  kOr,
+  kXor,
+  kShl,
+  kShrU,
+  kShrS,
+  // FP
+  kDiv,
+  kCopySign,
+  kMin,
+  kMax
+};
+
 enum CompareOperator {
   kEq,
   kNE,
@@ -94,6 +116,8 @@ class Expression {
   Callable* callee;
   // get_local, set_local variable
   Variable* local_var;
+  // Binops
+  BinaryOperator binop;
   // Compare
   Type compare_type = Type::kUnknown;
   CompareOperator relop;

@@ -78,6 +78,48 @@ public:
       case WASM_OPCODE_F32_CONST:
       case WASM_OPCODE_F64_CONST:
         return VisitConst(expr, &expr->literal);
+      case WASM_OPCODE_I32_ADD:
+      case WASM_OPCODE_I32_SUB:
+      case WASM_OPCODE_I32_MUL:
+      case WASM_OPCODE_I32_SDIV:
+      case WASM_OPCODE_I32_UDIV:
+      case WASM_OPCODE_I32_SREM:
+      case WASM_OPCODE_I32_UREM:
+      case WASM_OPCODE_I32_AND:
+      case WASM_OPCODE_I32_OR:
+      case WASM_OPCODE_I32_XOR:
+      case WASM_OPCODE_I32_SHL:
+      case WASM_OPCODE_I32_SHR:
+      case WASM_OPCODE_I32_SAR:
+      case WASM_OPCODE_I64_ADD:
+      case WASM_OPCODE_I64_SUB:
+      case WASM_OPCODE_I64_MUL:
+      case WASM_OPCODE_I64_SDIV:
+      case WASM_OPCODE_I64_UDIV:
+      case WASM_OPCODE_I64_SREM:
+      case WASM_OPCODE_I64_UREM:
+      case WASM_OPCODE_I64_AND:
+      case WASM_OPCODE_I64_OR:
+      case WASM_OPCODE_I64_XOR:
+      case WASM_OPCODE_I64_SHL:
+      case WASM_OPCODE_I64_SHR:
+      case WASM_OPCODE_I64_SAR:
+      case WASM_OPCODE_F32_ADD:
+      case WASM_OPCODE_F32_SUB:
+      case WASM_OPCODE_F32_MUL:
+      case WASM_OPCODE_F32_DIV:
+      case WASM_OPCODE_F32_COPYSIGN:
+      case WASM_OPCODE_F32_MIN:
+      case WASM_OPCODE_F32_MAX:
+      case WASM_OPCODE_F64_ADD:
+      case WASM_OPCODE_F64_SUB:
+      case WASM_OPCODE_F64_MUL:
+      case WASM_OPCODE_F64_DIV:
+      case WASM_OPCODE_F64_COPYSIGN:
+      case WASM_OPCODE_F64_MIN:
+      case WASM_OPCODE_F64_MAX:
+        return VisitBinop(expr, expr->binop, expr->exprs[0].get(),
+                          expr->exprs[1].get());
       case WASM_OPCODE_I32_EQ:
       case WASM_OPCODE_I32_NE:
       case WASM_OPCODE_I32_SLT:
@@ -159,6 +201,14 @@ public:
     return ExprVal();
   }
   virtual ExprVal VisitConst(Expression* expr, Literal* l) { return ExprVal(); }
+  virtual ExprVal VisitBinop(Expression* epxr,
+                             BinaryOperator binop,
+                             Expression* lhs,
+                             Expression* rhs) {
+    VisitExpression(lhs);
+    VisitExpression(rhs);
+    return ExprVal();
+  }
   virtual ExprVal VisitCompare(Expression* expr,
                                Type compare_type,
                                CompareOperator relop,

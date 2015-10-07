@@ -213,6 +213,57 @@ void AstDumper::VisitConst(Expression* expr, Literal* l) {
   }
 }
 
+static const char* BinopName(BinaryOperator binop) {
+  switch (binop) {
+    case kAdd:
+      return "add";
+    case kSub:
+      return "sub";
+    case kMul:
+      return "mul";
+    case kDivS:
+      return "div_s";
+    case kDivU:
+      return "div_u";
+    case kRemS:
+      return "rem_s";
+    case kRemU:
+      return "rem_u";
+    case kAnd:
+      return "and";
+    case kOr:
+      return "or";
+    case kXor:
+      return "xor";
+    case kShl:
+      return "shl";
+    case kShrU:
+      return "shr_u";
+    case kShrS:
+      return "shr_s";
+    case kDiv:
+      return "div";
+    case kCopySign:
+      return "copysign";
+    case kMin:
+      return "min";
+    case kMax:
+      return "max";
+    default:
+      assert(false);
+  }
+}
+
+void AstDumper::VisitBinop(Expression* expr,
+                           BinaryOperator binop,
+                           Expression* lhs,
+                           Expression* rhs) {
+  printf("(%s.%s ", TypeName(expr->expr_type), BinopName(binop));
+  VisitExpression(lhs);
+  VisitExpression(rhs);
+  printf(")\n");
+}
+
 static const char* CompareOpName(CompareOperator relop) {
   switch (relop) {
     case kEq:
