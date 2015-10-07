@@ -18,7 +18,7 @@ namespace wasm {
   CALLBACK(before_block, WasmParserCookie) \
   CALLBACK(before_if, WasmParserCookie)    \
   CALLBACK(before_return, void)            \
-  CALLBACK(before_assert_eq, WasmParserCookie)
+  CALLBACK(before_assert_return, WasmParserCookie)
 
 #define EACH_CALLBACK1                       \
   CALLBACK(before_call, void, int)           \
@@ -35,7 +35,7 @@ namespace wasm {
   CALLBACK(error, void, WasmSourceLocation, const char*)      \
   CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
   CALLBACK(before_invoke, WasmParserCookie, const char*, int) \
-  CALLBACK(after_assert_eq, void, WasmType, WasmParserCookie)
+  CALLBACK(after_assert_return, void, WasmType, WasmParserCookie)
 
 #define EACH_CALLBACK3                                            \
   CALLBACK(after_block, void, WasmType, int, WasmParserCookie)    \
@@ -86,7 +86,7 @@ class Parser {
   std::string filename_;
   bool desugar_;
   Function* current_func_ = nullptr;
-  TestScriptExpr* current_assert_eq_ = nullptr;
+  TestScriptExpr* current_assert_return_ = nullptr;
   Type current_type_ = Type::kVoid;
 
   std::unordered_map<WasmFunction*, Function*> functions_;

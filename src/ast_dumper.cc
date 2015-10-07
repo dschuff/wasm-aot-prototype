@@ -269,10 +269,10 @@ void AstDumper::VisitInvoke(TestScriptExpr* expr,
   printf(")\n");
 }
 
-void AstDumper::VisitAssertEq(TestScriptExpr* expr,
-                              TestScriptExpr* invoke_arg,
-                              Expression* expected) {
-  printf("(assert_eq ");
+void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
+                                  TestScriptExpr* invoke_arg,
+                                  Expression* expected) {
+  printf("(assert_return ");
   Visit(invoke_arg);
   VisitExpression(expected);
   printf(")\n");

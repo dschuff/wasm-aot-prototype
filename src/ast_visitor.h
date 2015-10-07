@@ -173,8 +173,9 @@ public:
     switch (expr->opcode) {
       case TestScriptExpr::kInvoke:
         return VisitInvoke(expr, expr->callee, &expr->exprs);
-      case TestScriptExpr::kAssertEq:
-        return VisitAssertEq(expr, expr->invoke.get(), expr->exprs[0].get());
+      case TestScriptExpr::kAssertReturn:
+        return VisitAssertReturn(expr, expr->invoke.get(),
+                                 expr->exprs[0].get());
       default:
         assert(false);
     }
@@ -186,9 +187,9 @@ public:
       VisitExpression(e.get());
     return ExprVal();
   }
-  virtual ExprVal VisitAssertEq(TestScriptExpr* expr,
-                                TestScriptExpr* arg,
-                                Expression* expected) {
+  virtual ExprVal VisitAssertReturn(TestScriptExpr* expr,
+                                    TestScriptExpr* arg,
+                                    Expression* expected) {
     Visit(arg);
     VisitExpression(expected);
     return ExprVal();

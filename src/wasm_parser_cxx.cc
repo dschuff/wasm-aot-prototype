@@ -463,8 +463,8 @@ WasmParserCookie Parser::before_invoke(const char* invoke_name,
   assert(modules.size());
   Module* last_module = modules.back().get();
   auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke);
-  if (current_assert_eq_) {
-    current_assert_eq_->invoke.reset(expr);
+  if (current_assert_return_) {
+    current_assert_return_->invoke.reset(expr);
   } else {
     test_script.emplace_back(expr);
   }
@@ -481,17 +481,17 @@ void Parser::after_invoke(WasmParserCookie cookie) {
   checker.Visit(reinterpret_cast<TestScriptExpr*>(cookie));
 }
 
-WasmParserCookie Parser::before_assert_eq() {
+WasmParserCookie Parser::before_assert_return() {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
   test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertEq));
-  current_assert_eq_ = test_script.back().get();
-  ResetInsertionPoint(&current_assert_eq_->exprs, 1);
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturn));
+  current_assert_return_ = test_script.back().get();
+  ResetInsertionPoint(&current_assert_return_->exprs, 1);
   return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
 
-void Parser::after_assert_eq(WasmType ty, WasmParserCookie cookie) {
+void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
   // The parser has already checked the types. We just need to propagate the
   // expectations down to the expectation expr tree.

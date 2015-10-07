@@ -12,12 +12,12 @@
   (func $bar (param f32) (result f32) (f32.const 1.0))
   (export "bar" $bar))
 
-(assert_eq (invoke "foo") (i32.const 0))
-(assert_eq (invoke "bar" (f32.const 0)) (f32.const 0))
+(assert_return (invoke "foo") (i32.const 0))
+(assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
 ;; ok to use more complex exprs
-(assert_eq
+(assert_return
   (invoke "bar"
     (block (f32.const 1) (f32.const 10)))
   (f32.const 11))
 
-(assert_eq (invoke "foo") (block (i32.const 1)(nop)(i32.const 2)))
+(assert_return (invoke "foo") (block (i32.const 1)(nop)(i32.const 2)))

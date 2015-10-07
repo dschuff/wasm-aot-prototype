@@ -9,8 +9,8 @@
 ;; CHECK: define internal float @"$bar"
   (export "bar" $bar))
 
-(assert_eq (invoke "foo") (i32.const 0))
-;; CHECK: define void @AssertEq()
+(assert_return (invoke "foo") (i32.const 0))
+;; CHECK: define void @AssertReturn()
 ;; CHECK: call i32 @Invoke
 ;; CHECK: %1 = icmp eq i32 %0, 0
 ;; CHECK: br i1 %1, label %AssertSuccess, label %AssertFail
@@ -21,8 +21,8 @@
 ;; CHECK: define i32 @Invoke
 ;; CHECK: call i32 @"$foo"()
 
-(assert_eq (invoke "bar" (f32.const 0)) (f32.const 0))
-;; CHECK: define void @AssertEq.1
+(assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
+;; CHECK: define void @AssertReturn.1
 ;; CHECK: call float @Invoke
 ;; CHECK: fcmp oeq float %0, 0.000000e+00
 ;; CHECK: AssertFail:
@@ -31,15 +31,15 @@
 ;; CHECK: call float @"$bar"(float 0.000000e+00
 
 ;; ok to use more complex exprs
-(assert_eq
+(assert_return
   (invoke "bar"
     (block (f32.const 1) (f32.const 10)))
   (f32.const 11))
 
 ;; Check for main function that calls all the asserteqs
 ;; CHECK: define i32 @main()
-;; CHECK: call void @AssertEq()
-;; CHECK: call void @AssertEq.1()
-;; CHECK: call void @AssertEq
+;; CHECK: call void @AssertReturn()
+;; CHECK: call void @AssertReturn.1()
+;; CHECK: call void @AssertReturn
 ;; CHECK: [[STATUS:%.*]] = load i32, i32* @exit_status
 ;; CHECK: ret i32 [[STATUS]]

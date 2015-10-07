@@ -49,9 +49,9 @@ protected:
   void VisitInvoke(TestScriptExpr* expr,
                    Export* callee,
                    UniquePtrVector<Expression>* args) override;
-  void VisitAssertEq(TestScriptExpr* expr,
-                     TestScriptExpr* invoke_arg,
-                     Expression* expected) override;
+  void VisitAssertReturn(TestScriptExpr* expr,
+                         TestScriptExpr* invoke_arg,
+                         Expression* expected) override;
 
  private:
   bool dump_types_;

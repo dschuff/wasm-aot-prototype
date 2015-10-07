@@ -424,12 +424,12 @@ Constant* WAOTVisitor::getAssertFailFunc(wasm::Type ty) {
       FunctionType::get(Type::getVoidTy(ctx_), params, false));
 }
 
-Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
-                                  wasm::TestScriptExpr* invoke,
-                                  wasm::Expression* expected) {
+Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
+                                      wasm::TestScriptExpr* invoke,
+                                      wasm::Expression* expected) {
   auto* f = Function::Create(
       FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
-      Function::ExternalLinkage, "AssertEq", module_);
+      Function::ExternalLinkage, "AssertReturn", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   current_func_ = f;
@@ -449,11 +449,11 @@ Value* WAOTVisitor::VisitAssertEq(wasm::TestScriptExpr* expr,
 
   BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
   IRBuilder<> fail_irb(fail_bb);
-  // Call a runtime function, passing it the current assert_eq, the type, and
-  // the expected and actual values.
+  // Call a runtime function, passing it the current assert_return, the type,
+  // and the expected and actual values.
   SmallVector<Value*, 1> args;
   args.push_back(
-      ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_eq_));
+      ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_return_));
   args.push_back(expected_result);
   args.push_back(result);
   fail_irb.CreateCall(getAssertFailFunc(expected->expr_type), args);

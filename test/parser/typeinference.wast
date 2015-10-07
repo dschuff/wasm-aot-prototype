@@ -72,9 +72,9 @@
 ;; invoke
 (invoke "foo" (f64.const 1.0))
 ;; CHECK: [f64->f64](f64.const
-;; assert_eq
+;; CHECK: assert_return
 
-(assert_eq (invoke "foo" (f64.const 5)) (block (i32.const 1)(nop)(f64.const 2)))
+(assert_return (invoke "foo" (f64.const 5)) (block (i32.const 1)(nop)(f64.const 2)))
 ;; CHECK: [f64->f64](f64.const
 ;; CHECK: [f64->f64](block
 ;; CHECK: [void->i32](i32.const

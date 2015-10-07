@@ -59,9 +59,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitInvoke(wasm::TestScriptExpr* expr,
                            wasm::Export* callee,
                            wasm::UniquePtrVector<wasm::Expression>*) override;
-  llvm::Value* VisitAssertEq(wasm::TestScriptExpr* expr,
-                             wasm::TestScriptExpr* arg,
-                             wasm::Expression* expected) override;
+  llvm::Value* VisitAssertReturn(wasm::TestScriptExpr* expr,
+                                 wasm::TestScriptExpr* arg,
+                                 wasm::Expression* expected) override;
 
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,
@@ -75,5 +75,5 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Function* current_func_ = nullptr;
   std::vector<llvm::Value*> current_locals_;
   llvm::BasicBlock* current_bb_ = nullptr;
-  int current_assert_eq_ = 0;
+  int current_assert_return_ = 0;
 };

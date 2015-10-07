@@ -161,16 +161,22 @@ class Module {
 // file (the parser checks this and sets up the mapping when creating the AST).
 class TestScriptExpr {
  public:
-  typedef enum { kAssertInvalid, kInvoke, kAssertEq, kAssertTrap } Opcode;
+  typedef enum {
+    kAssertInvalid,
+    kInvoke,
+    kAssertReturn,
+    kAssertReturnNaN,
+    kAssertTrap
+  } Opcode;
   TestScriptExpr(Module* mod, Opcode op)
       : module(mod), opcode(op), type(Type::kUnknown) {}
 
   Module* module;
   Opcode opcode;
   Export* callee;                          // Invoke
-  Type type;                               // AssertEq
-  std::unique_ptr<TestScriptExpr> invoke;  // AssertEq
-  UniquePtrVector<Expression> exprs;       // Invoke args, AssertEq expectation
+  Type type;                               // AssertReturn
+  std::unique_ptr<TestScriptExpr> invoke;  // AssertReturn
+  UniquePtrVector<Expression> exprs;       // Invoke args, AR expectation
 };
 
 }  // namespace wasm

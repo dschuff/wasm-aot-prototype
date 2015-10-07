@@ -40,20 +40,20 @@
  (export "nested" $nested)
 )
 
-(assert_eq (invoke "noelse" (i32.const -1) (i32.const 3)) (i32.const -1))
-(assert_eq (invoke "noelse" (i32.const 1) (i32.const 55)) (i32.const 1))
-(assert_eq (invoke "noelse" (i32.const 0) (i32.const 55)) (i32.const 55))
+(assert_return (invoke "noelse" (i32.const -1) (i32.const 3)) (i32.const -1))
+(assert_return (invoke "noelse" (i32.const 1) (i32.const 55)) (i32.const 1))
+(assert_return (invoke "noelse" (i32.const 0) (i32.const 55)) (i32.const 55))
 
-(assert_eq (invoke "returns" (i32.const 1)) (i32.const 2))
-(assert_eq (invoke "returns" (i32.const 0)) (i32.const 3))
+(assert_return (invoke "returns" (i32.const 1)) (i32.const 2))
+(assert_return (invoke "returns" (i32.const 0)) (i32.const 3))
 
-(assert_eq (invoke "getlocals" (i32.const 1) (i64.const 55) (i64.const 2)) (i64.const 55))
-(assert_eq (invoke "getlocals" (i32.const 0) (i64.const 55) (i64.const 2)) (i64.const 2))
+(assert_return (invoke "getlocals" (i32.const 1) (i64.const 55) (i64.const 2)) (i64.const 55))
+(assert_return (invoke "getlocals" (i32.const 0) (i64.const 55) (i64.const 2)) (i64.const 2))
 
-(assert_eq (invoke "block" (f32.const 3)(f32.const 4)(i32.const 1)) (f32.const 4))
-(assert_eq (invoke "block" (f32.const 3)(f32.const 4)(i32.const 0)) (f32.const 3))
+(assert_return (invoke "block" (f32.const 3)(f32.const 4)(i32.const 1)) (f32.const 4))
+(assert_return (invoke "block" (f32.const 3)(f32.const 4)(i32.const 0)) (f32.const 3))
 
-(assert_eq (invoke "nested" (i32.const 0) (i32.const 0)) (i64.const 3))
-(assert_eq (invoke "nested" (i32.const 1) (i32.const 0)) (i64.const 2))
-(assert_eq (invoke "nested" (i32.const 0) (i32.const 1)) (i64.const 3))
-(assert_eq (invoke "nested" (i32.const 1) (i32.const 1)) (i64.const 1))
+(assert_return (invoke "nested" (i32.const 0) (i32.const 0)) (i64.const 3))
+(assert_return (invoke "nested" (i32.const 1) (i32.const 0)) (i64.const 2))
+(assert_return (invoke "nested" (i32.const 0) (i32.const 1)) (i64.const 3))
+(assert_return (invoke "nested" (i32.const 1) (i32.const 1)) (i64.const 1))
