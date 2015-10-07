@@ -213,6 +213,51 @@ void AstDumper::VisitConst(Expression* expr, Literal* l) {
   }
 }
 
+static const char* CompareOpName(CompareOperator relop) {
+  switch (relop) {
+    case kEq:
+      return "eq";
+    case kNE:
+      return "ne";
+    case kLtS:
+      return "lt_s";
+    case kLtU:
+      return "lt_u";
+    case kLeS:
+      return "le_s";
+    case kLeU:
+      return "le_u";
+    case kGtS:
+      return "gt_s";
+    case kGtU:
+      return "gt_u";
+    case kGeS:
+      return "ge_s";
+    case kGeU:
+      return "ge_u";
+    case kLt:
+      return "lt";
+    case kLe:
+      return "le";
+    case kGt:
+      return "gt";
+    case kGe:
+      return "ge";
+    default:
+      assert(false);  // The switch is covered but gcc still warns :(
+  }
+}
+
+void AstDumper::VisitCompare(Expression* expr,
+                             Type compare_type,
+                             CompareOperator relop,
+                             UniquePtrVector<Expression>* operands) {
+  printf("(%s.%s ", TypeName(compare_type), CompareOpName(relop));
+  for (auto& op : *operands)
+    VisitExpression(op.get());
+  printf(")\n");
+}
+
 void AstDumper::VisitInvoke(TestScriptExpr* expr,
                             Export* callee,
                             UniquePtrVector<Expression>* args) {

@@ -78,6 +78,40 @@ public:
       case WASM_OPCODE_F32_CONST:
       case WASM_OPCODE_F64_CONST:
         return VisitConst(expr, &expr->literal);
+      case WASM_OPCODE_I32_EQ:
+      case WASM_OPCODE_I32_NE:
+      case WASM_OPCODE_I32_SLT:
+      case WASM_OPCODE_I32_SLE:
+      case WASM_OPCODE_I32_ULT:
+      case WASM_OPCODE_I32_ULE:
+      case WASM_OPCODE_I32_SGT:
+      case WASM_OPCODE_I32_UGT:
+      case WASM_OPCODE_I32_SGE:
+      case WASM_OPCODE_I32_UGE:
+      case WASM_OPCODE_I64_EQ:
+      case WASM_OPCODE_I64_NE:
+      case WASM_OPCODE_I64_SLT:
+      case WASM_OPCODE_I64_SLE:
+      case WASM_OPCODE_I64_ULT:
+      case WASM_OPCODE_I64_ULE:
+      case WASM_OPCODE_I64_SGT:
+      case WASM_OPCODE_I64_UGT:
+      case WASM_OPCODE_I64_SGE:
+      case WASM_OPCODE_I64_UGE:
+      case WASM_OPCODE_F32_EQ:
+      case WASM_OPCODE_F32_NE:
+      case WASM_OPCODE_F32_LT:
+      case WASM_OPCODE_F32_LE:
+      case WASM_OPCODE_F32_GT:
+      case WASM_OPCODE_F32_GE:
+      case WASM_OPCODE_F64_EQ:
+      case WASM_OPCODE_F64_NE:
+      case WASM_OPCODE_F64_LT:
+      case WASM_OPCODE_F64_LE:
+      case WASM_OPCODE_F64_GT:
+      case WASM_OPCODE_F64_GE:
+        return VisitCompare(expr, expr->compare_type, expr->relop,
+                            &expr->exprs);
       default:
         assert(false);
     }
@@ -125,6 +159,15 @@ public:
     return ExprVal();
   }
   virtual ExprVal VisitConst(Expression* expr, Literal* l) { return ExprVal(); }
+  virtual ExprVal VisitCompare(Expression* expr,
+                               Type compare_type,
+                               CompareOperator relop,
+                               UniquePtrVector<Expression>* operands) {
+    assert(operands->size() == 2);
+    for (auto& e : *operands)
+      VisitExpression(e.get());
+    return ExprVal();
+  }
 
   ExprVal VisitTestScriptExpr(TestScriptExpr* expr) {
     switch (expr->opcode) {

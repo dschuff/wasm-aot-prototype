@@ -40,6 +40,10 @@ protected:
                      Variable* var,
                      Expression* value) override;
   void VisitConst(Expression* expr, Literal* l) override;
+  void VisitCompare(Expression* expr,
+                    Type compare_type,
+                    CompareOperator relop,
+                    UniquePtrVector<Expression>* operands) override;
 
   void VisitInvoke(TestScriptExpr* expr,
                    Export* callee,

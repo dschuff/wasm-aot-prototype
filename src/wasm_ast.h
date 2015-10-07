@@ -40,6 +40,26 @@ class Type {
   Type_ value_ = kUnknown;
 };
 
+// TODO: do we need a hierarchy of operators like the spec?
+enum CompareOperator {
+  kEq,
+  kNE,
+  // Int
+  kLtS,
+  kLtU,
+  kLeS,
+  kLeU,
+  kGtS,
+  kGtU,
+  kGeS,
+  kGeU,
+  // FP
+  kLt,
+  kLe,
+  kGt,
+  kGe,
+};
+
 class Literal {
  public:
   Type type = Type::kUnknown;
@@ -74,7 +94,10 @@ class Expression {
   Callable* callee;
   // get_local, set_local variable
   Variable* local_var;
-  // Common (block, call args, return/set_local vals)
+  // Compare
+  Type compare_type = Type::kUnknown;
+  CompareOperator relop;
+  // Common (block, call args, return/set_local vals, compare operands)
   UniquePtrVector<Expression> exprs;
 };
 

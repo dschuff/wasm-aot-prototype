@@ -131,7 +131,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   IRBuilder<> irb(bb);
 
-  int i = 0;
+  unsigned i = 0;
   for (auto& local : func.locals) {
     current_locals_.push_back(
         irb.CreateAlloca(getLLVMType(local->type), nullptr));
