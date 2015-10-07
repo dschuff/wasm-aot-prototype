@@ -43,7 +43,8 @@ protected:
   void VisitCompare(Expression* expr,
                     Type compare_type,
                     CompareOperator relop,
-                    UniquePtrVector<Expression>* operands) override;
+                    Expression* lhs,
+                    Expression* rhs) override;
 
   void VisitInvoke(TestScriptExpr* expr,
                    Export* callee,

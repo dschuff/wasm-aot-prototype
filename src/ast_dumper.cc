@@ -251,10 +251,11 @@ static const char* CompareOpName(CompareOperator relop) {
 void AstDumper::VisitCompare(Expression* expr,
                              Type compare_type,
                              CompareOperator relop,
-                             UniquePtrVector<Expression>* operands) {
+                             Expression* lhs,
+                             Expression* rhs) {
   printf("(%s.%s ", TypeName(compare_type), CompareOpName(relop));
-  for (auto& op : *operands)
-    VisitExpression(op.get());
+  VisitExpression(lhs);
+  VisitExpression(rhs);
   printf(")\n");
 }
 

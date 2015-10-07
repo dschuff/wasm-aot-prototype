@@ -80,15 +80,15 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     value->expected_type = var->type;
     VisitExpression(value);
   }
-  void VisitCompare(
-      wasm::Expression* expr,
-      wasm::Type compare_type,
-      wasm::CompareOperator relop,
-      wasm::UniquePtrVector<wasm::Expression>* operands) override {
-    for (auto& op : *operands) {
-      op->expected_type = compare_type;
-      VisitExpression(op.get());
-    }
+  void VisitCompare(wasm::Expression* expr,
+                    wasm::Type compare_type,
+                    wasm::CompareOperator relop,
+                    wasm::Expression* lhs,
+                    wasm::Expression* rhs) override {
+    lhs->expected_type = compare_type;
+    VisitExpression(lhs);
+    rhs->expected_type = compare_type;
+    VisitExpression(rhs);
   }
   void VisitInvoke(wasm::TestScriptExpr* expr,
                    wasm::Export* callee,

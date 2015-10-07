@@ -50,11 +50,11 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                              wasm::Variable* var,
                              wasm::Expression* value) override;
   llvm::Value* VisitConst(wasm::Expression* expr, wasm::Literal* l) override;
-  llvm::Value* VisitCompare(
-      wasm::Expression* expr,
-      wasm::Type compare_type,
-      wasm::CompareOperator relop,
-      wasm::UniquePtrVector<wasm::Expression>* operands) override;
+  llvm::Value* VisitCompare(wasm::Expression* expr,
+                            wasm::Type compare_type,
+                            wasm::CompareOperator relop,
+                            wasm::Expression* lhs,
+                            wasm::Expression* rhs) override;
 
   llvm::Value* VisitInvoke(wasm::TestScriptExpr* expr,
                            wasm::Export* callee,

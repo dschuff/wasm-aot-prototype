@@ -111,7 +111,7 @@ public:
       case WASM_OPCODE_F64_GT:
       case WASM_OPCODE_F64_GE:
         return VisitCompare(expr, expr->compare_type, expr->relop,
-                            &expr->exprs);
+                            expr->exprs[0].get(), expr->exprs[1].get());
       default:
         assert(false);
     }
@@ -162,10 +162,10 @@ public:
   virtual ExprVal VisitCompare(Expression* expr,
                                Type compare_type,
                                CompareOperator relop,
-                               UniquePtrVector<Expression>* operands) {
-    assert(operands->size() == 2);
-    for (auto& e : *operands)
-      VisitExpression(e.get());
+                               Expression* lhs,
+                               Expression* rhs) {
+    VisitExpression(lhs);
+    VisitExpression(rhs);
     return ExprVal();
   }
 

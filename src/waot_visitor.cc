@@ -379,15 +379,14 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
   }
 }
 
-Value* WAOTVisitor::VisitCompare(
-    wasm::Expression* expr,
-    wasm::Type compare_type,
-    wasm::CompareOperator relop,
-    wasm::UniquePtrVector<wasm::Expression>* operands) {
+Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
+                                 wasm::Type compare_type,
+                                 wasm::CompareOperator relop,
+                                 wasm::Expression* lhs,
+                                 wasm::Expression* rhs) {
   IRBuilder<> irb(current_bb_);
   return CreateCompare(getLLVMType(compare_type), relop, &irb,
-                       VisitExpression(operands->front().get()),
-                       VisitExpression(operands->back().get()));
+                       VisitExpression(lhs), VisitExpression(rhs));
 }
 
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
