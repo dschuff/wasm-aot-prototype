@@ -42,10 +42,10 @@ def Main(argv):
   def log_call(args):
     return log_call_internal(options.verbose, args)
 
+  file_dir = os.path.dirname(os.path.abspath(__file__))
   runtime_libdir = (
-      find_runtime_dir(
-          os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) or
-      find_runtime_dir(os.getcwd()))
+      find_runtime_dir(file_dir) or
+      find_runtime_dir(os.path.join(os.path.dirname(file_dir), 'out')))
   if not runtime_libdir:
     print 'Could not locate', 'lib' + RUNTIME_LIB + '.a'
     return 1
@@ -59,7 +59,7 @@ def Main(argv):
     wat_flags = ['-o', ll_temp, input]
     if options.spec_test_script:
       wat_flags.append('-spec-test-script')
-    log_call(['wat'] + wat_flags)
+    log_call([os.path.join(runtime_libdir, 'wat')] + wat_flags)
     log_call(['llc', ll_temp, '-filetype=obj', '-o', o_temp])
     objs.append(o_temp)
 
