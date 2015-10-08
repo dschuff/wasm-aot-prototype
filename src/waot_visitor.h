@@ -50,6 +50,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                              wasm::Variable* var,
                              wasm::Expression* value) override;
   llvm::Value* VisitConst(wasm::Expression* expr, wasm::Literal* l) override;
+  llvm::Value* VisitUnop(wasm::Expression* expr,
+                         wasm::UnaryOperator unop,
+                         wasm::Expression* operand) override;
   llvm::Value* VisitBinop(wasm::Expression* epxr,
                           wasm::BinaryOperator binop,
                           wasm::Expression* lhs,

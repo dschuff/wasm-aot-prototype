@@ -392,6 +392,47 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
   }
 }
 
+static const llvm::Intrinsic::ID GetUnaryOpIntrinsic(wasm::UnaryOperator unop) {
+  switch (unop) {
+    case wasm::kClz:
+      return llvm::Intrinsic::ctlz;
+    case wasm::kCtz:
+      return llvm::Intrinsic::cttz;
+    case wasm::kPopcnt:
+      return llvm::Intrinsic::ctpop;
+    case wasm::kAbs:
+      return llvm::Intrinsic::fabs;
+    case wasm::kCeil:
+      return llvm::Intrinsic::ceil;
+    case wasm::kFloor:
+      return llvm::Intrinsic::floor;
+    case wasm::kTrunc:
+      return llvm::Intrinsic::trunc;
+    case wasm::kNearest:
+      return llvm::Intrinsic::round;
+    case wasm::kSqrt:
+      return llvm::Intrinsic::sqrt;
+    default:
+      assert(false && "Unexpected operand in GetUnaryOpIntrinsic");
+  }
+}
+
+Value* WAOTVisitor::VisitUnop(wasm::Expression* expr,
+                              wasm::UnaryOperator unop,
+                              wasm::Expression* operand) {
+  assert(operand->expr_type == expr->expr_type);
+  Value* op = VisitExpression(operand);
+  IRBuilder<> irb(current_bb_);
+  Function* intrin = llvm::Intrinsic::getDeclaration(
+      module_, GetUnaryOpIntrinsic(unop), getLLVMType(expr->expr_type));
+  SmallVector<Value*, 2> args;
+  args.push_back(op);
+  // For Clt/Ctz, we want 0 to produce a defined result.
+  if (unop == wasm::kClz || unop == wasm::kCtz)
+    args.push_back(ConstantInt::getFalse(Type::getInt1Ty(ctx_)));
+  return irb.CreateCall(intrin, args, "unop_expr");
+}
+
 static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
                                              wasm::BinaryOperator binop) {
   switch (binop) {

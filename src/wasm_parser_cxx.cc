@@ -5,9 +5,10 @@
 #include <cassert>
 
 namespace {
-// Despite its name, this class not only checks expected types, but it sets them
-// from the top down (which is not done during parsing). The expectations are
-// neede for some code generation.
+// Despite its name, this class does not do much checking of expected types,
+// (the parser does type checking already) but it sets them from the top down
+// (which is not done during parsing). The expectations are neede for some code
+// generation.
 class TypeChecker : public wasm::AstVisitor<void, void> {
  public:
   void VisitExpression(wasm::Expression* expr) override {
@@ -79,6 +80,12 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
                      wasm::Expression* value) override {
     value->expected_type = var->type;
     VisitExpression(value);
+  }
+  void VisitUnop(wasm::Expression* expr,
+                 wasm::UnaryOperator unop,
+                 wasm::Expression* operand) override {
+    operand->expected_type = expr->expr_type;
+    VisitExpression(operand);
   }
   void VisitBinop(wasm::Expression* expr,
                   wasm::BinaryOperator binop,
