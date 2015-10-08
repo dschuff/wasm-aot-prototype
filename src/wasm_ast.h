@@ -116,11 +116,28 @@ class Variable {
   std::string local_name;  // Empty if none bound
 };
 
+// There's only one Expression class, which has all the possible data members,
+// some of which are common. This avoids the need to make it virtual or use any
+// kind of RTTI. Only AstVisitor::VisitExpression and the parser actually need
+// to care about the kind, and the use of these members by the kinds.
 class Expression {
  public:
-  Expression(WasmOpcode op) : opcode(op) {}
+  enum ExpressionKind {
+    kNop,
+    kBlock,
+    kIf,
+    kCallDirect,
+    kReturn,
+    kGetLocal,
+    kSetLocal,
+    kConst,
+    kUnary,
+    kBinary,
+    kCompare,
+  };
+  Expression(ExpressionKind k) : kind(k) {}
   // Common
-  WasmOpcode opcode = WASM_OPCODE_NOP;
+  ExpressionKind kind;
   Type expr_type = Type::kUnknown;
   Type expected_type = Type::kUnknown;
   // Const

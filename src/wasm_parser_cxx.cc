@@ -136,13 +136,13 @@ void Parser::error(WasmSourceLocation loc, const char* msg) {
 }
 
 void Parser::after_nop() {
-  auto* expr = new Expression(WASM_OPCODE_NOP);
+  auto* expr = new Expression(Expression::kNop);
   expr->expr_type = Type::kVoid;  // Should collapse with kAny?
   Insert(expr);
 }
 
 WasmParserCookie Parser::before_block() {
-  auto* expr = new Expression(WASM_OPCODE_BLOCK);
+  auto* expr = new Expression(Expression::kBlock);
   expr->expr_type = current_type_;
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
   InsertAndPush(expr, kUnknownExpectedExprs);
@@ -152,12 +152,12 @@ WasmParserCookie Parser::before_block() {
 void Parser::after_block(WasmType ty, int num_exprs, WasmParserCookie cookie) {
   PopInsertionPoint();
   Expression* block_expr = reinterpret_cast<Expression*>(cookie);
-  assert(block_expr->opcode == WASM_OPCODE_BLOCK);
+  assert(block_expr->kind == Expression::kBlock);
   block_expr->expr_type = ty;
 }
 
 WasmParserCookie Parser::before_if() {
-  auto* expr = new Expression(WASM_OPCODE_IF);
+  auto* expr = new Expression(Expression::kIf);
   expr->expr_type = current_type_;
   InsertAndPush(expr, kUnknownExpectedExprs);
   return reinterpret_cast<WasmParserCookie>(expr);
@@ -166,13 +166,13 @@ WasmParserCookie Parser::before_if() {
 void Parser::after_if(WasmType ty, int with_else, WasmParserCookie cookie) {
   PopInsertionPoint();
   Expression* if_expr = reinterpret_cast<Expression*>(cookie);
-  assert(if_expr->opcode == WASM_OPCODE_IF);
+  assert(if_expr->kind == Expression::kIf);
   if_expr->expr_type = ty;
   assert(if_expr->exprs.size() == (unsigned)with_else + 2);
 }
 
 void Parser::ParseCall(bool is_import, int index) {
-  auto* expr = new Expression(WASM_OPCODE_CALL);
+  auto* expr = new Expression(Expression::kCallDirect);
   expr->callee_index = index;
   expr->is_import = is_import;
   assert(is_import ? module->imports.size() > static_cast<unsigned>(index)
@@ -195,7 +195,7 @@ void Parser::before_call_import(int import_index) {
 }
 
 void Parser::before_return() {
-  auto* expr = new Expression(WASM_OPCODE_RETURN);
+  auto* expr = new Expression(Expression::kReturn);
   expr->expr_type = Type::kAny;
   InsertAndPush(expr, kUnknownExpectedExprs);
 }
@@ -205,7 +205,7 @@ void Parser::after_return(WasmType ty) {
 }
 
 void Parser::after_get_local(int index) {
-  auto* expr = new Expression(WASM_OPCODE_GET_LOCAL);
+  auto* expr = new Expression(Expression::kGetLocal);
   assert(current_func_);
   expr->local_var = current_func_->locals[index].get();
   expr->expr_type = expr->local_var->type;
@@ -213,7 +213,7 @@ void Parser::after_get_local(int index) {
 }
 
 void Parser::before_set_local(int index) {
-  auto* expr = new Expression(WASM_OPCODE_SET_LOCAL);
+  auto* expr = new Expression(Expression::kSetLocal);
   assert(current_func_);
   expr->local_var = current_func_->locals[index].get();
   expr->expr_type = expr->local_var->type;
@@ -221,7 +221,7 @@ void Parser::before_set_local(int index) {
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
-  auto* expr = new Expression(opcode);
+  auto* expr = new Expression(Expression::kConst);
   expr->expr_type = ty;
   expr->literal.type = ty;
   switch (ty) {
@@ -317,7 +317,7 @@ static UnaryOperator UnopOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_unary(WasmOpcode opcode) {
-  auto* expr = new Expression(opcode);
+  auto* expr = new Expression(Expression::kUnary);
   expr->expr_type = UnopType(opcode);
   expr->unop = UnopOperator(opcode);
   InsertAndPush(expr, 1);
@@ -439,7 +439,7 @@ static BinaryOperator BinopOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_binary(WasmOpcode opcode) {
-  auto* expr = new Expression(opcode);
+  auto* expr = new Expression(Expression::kBinary);
   expr->expr_type = BinopType(opcode);
   expr->binop = BinopOperator(opcode);
   InsertAndPush(expr, 2);
@@ -542,7 +542,7 @@ static CompareOperator CompareOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_compare(WasmOpcode opcode) {
-  auto* expr = new Expression(opcode);
+  auto* expr = new Expression(Expression::kCompare);
   expr->expr_type = Type::kI32;
   expr->compare_type = CompareType(opcode);
   expr->relop = CompareOperator(opcode);
@@ -561,13 +561,13 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
   if (desugar_) {
     Function* func = functions_[f];
     if (func->body.size() > 1) {
-      auto* expr = new Expression(WASM_OPCODE_BLOCK);
+      auto* expr = new Expression(Expression::kBlock);
       std::swap(expr->exprs, func->body);
       assert(insertion_points_.size() == 1);
       insertion_points_[0].point = &func->body;
       Insert(expr);
     } else if (func->body.empty()) {
-      Insert(new Expression(WASM_OPCODE_NOP));
+      Insert(new Expression(Expression::kNop));
     }
   }
   PopInsertionPoint();

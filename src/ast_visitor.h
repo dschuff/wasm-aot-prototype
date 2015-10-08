@@ -53,126 +53,33 @@ public:
   virtual void VisitSegment(const Segment& seg) {}
 
   virtual ExprVal VisitExpression(Expression* expr) {
-    switch (expr->opcode) {
-      case WASM_OPCODE_NOP:
+    switch (expr->kind) {
+      case Expression::kNop:
         return VisitNop(expr);
-      case WASM_OPCODE_BLOCK:
+      case Expression::kBlock:
         return VisitBlock(expr, &expr->exprs);
-      case WASM_OPCODE_IF:
+      case Expression::kIf:
         return VisitIf(expr, expr->exprs[0].get(), expr->exprs[1].get(),
                        expr->exprs.size() > 2 ? expr->exprs[2].get() : nullptr);
-      case WASM_OPCODE_CALL:
+      case Expression::kCallDirect:
         return VisitCall(expr, expr->is_import, expr->callee,
                          expr->callee_index, &expr->exprs);
-      case WASM_OPCODE_RETURN:
+      case Expression::kReturn:
+        // We don't support multiple returns anymore but it could still be void
         assert(expr->exprs.size() <= 1);
-        // TODO: if multiple returns are really gone, do something better
         return VisitReturn(expr, &expr->exprs);
-      case WASM_OPCODE_GET_LOCAL:
+      case Expression::kGetLocal:
         return VisitGetLocal(expr, expr->local_var);
-      case WASM_OPCODE_SET_LOCAL:
+      case Expression::kSetLocal:
         return VisitSetLocal(expr, expr->local_var, expr->exprs.front().get());
-      case WASM_OPCODE_I8_CONST:
-      case WASM_OPCODE_I32_CONST:
-      case WASM_OPCODE_I64_CONST:
-      case WASM_OPCODE_F32_CONST:
-      case WASM_OPCODE_F64_CONST:
+      case Expression::kConst:
         return VisitConst(expr, &expr->literal);
-      case WASM_OPCODE_I32_CLZ:
-      case WASM_OPCODE_I32_CTZ:
-      case WASM_OPCODE_I32_POPCNT:
-      case WASM_OPCODE_I64_CLZ:
-      case WASM_OPCODE_I64_CTZ:
-      case WASM_OPCODE_I64_POPCNT:
-      case WASM_OPCODE_F32_NEG:
-      case WASM_OPCODE_F32_ABS:
-      case WASM_OPCODE_F32_CEIL:
-      case WASM_OPCODE_F32_FLOOR:
-      case WASM_OPCODE_F32_TRUNC:
-      case WASM_OPCODE_F32_NEAREST:
-      case WASM_OPCODE_F32_SQRT:
-      case WASM_OPCODE_F64_NEG:
-      case WASM_OPCODE_F64_ABS:
-      case WASM_OPCODE_F64_CEIL:
-      case WASM_OPCODE_F64_FLOOR:
-      case WASM_OPCODE_F64_TRUNC:
-      case WASM_OPCODE_F64_NEAREST:
-      case WASM_OPCODE_F64_SQRT:
+      case Expression::kUnary:
         return VisitUnop(expr, expr->unop, expr->exprs.front().get());
-      case WASM_OPCODE_I32_ADD:
-      case WASM_OPCODE_I32_SUB:
-      case WASM_OPCODE_I32_MUL:
-      case WASM_OPCODE_I32_SDIV:
-      case WASM_OPCODE_I32_UDIV:
-      case WASM_OPCODE_I32_SREM:
-      case WASM_OPCODE_I32_UREM:
-      case WASM_OPCODE_I32_AND:
-      case WASM_OPCODE_I32_OR:
-      case WASM_OPCODE_I32_XOR:
-      case WASM_OPCODE_I32_SHL:
-      case WASM_OPCODE_I32_SHR:
-      case WASM_OPCODE_I32_SAR:
-      case WASM_OPCODE_I64_ADD:
-      case WASM_OPCODE_I64_SUB:
-      case WASM_OPCODE_I64_MUL:
-      case WASM_OPCODE_I64_SDIV:
-      case WASM_OPCODE_I64_UDIV:
-      case WASM_OPCODE_I64_SREM:
-      case WASM_OPCODE_I64_UREM:
-      case WASM_OPCODE_I64_AND:
-      case WASM_OPCODE_I64_OR:
-      case WASM_OPCODE_I64_XOR:
-      case WASM_OPCODE_I64_SHL:
-      case WASM_OPCODE_I64_SHR:
-      case WASM_OPCODE_I64_SAR:
-      case WASM_OPCODE_F32_ADD:
-      case WASM_OPCODE_F32_SUB:
-      case WASM_OPCODE_F32_MUL:
-      case WASM_OPCODE_F32_DIV:
-      case WASM_OPCODE_F32_COPYSIGN:
-      case WASM_OPCODE_F32_MIN:
-      case WASM_OPCODE_F32_MAX:
-      case WASM_OPCODE_F64_ADD:
-      case WASM_OPCODE_F64_SUB:
-      case WASM_OPCODE_F64_MUL:
-      case WASM_OPCODE_F64_DIV:
-      case WASM_OPCODE_F64_COPYSIGN:
-      case WASM_OPCODE_F64_MIN:
-      case WASM_OPCODE_F64_MAX:
+      case Expression::kBinary:
         return VisitBinop(expr, expr->binop, expr->exprs[0].get(),
                           expr->exprs[1].get());
-      case WASM_OPCODE_I32_EQ:
-      case WASM_OPCODE_I32_NE:
-      case WASM_OPCODE_I32_SLT:
-      case WASM_OPCODE_I32_SLE:
-      case WASM_OPCODE_I32_ULT:
-      case WASM_OPCODE_I32_ULE:
-      case WASM_OPCODE_I32_SGT:
-      case WASM_OPCODE_I32_UGT:
-      case WASM_OPCODE_I32_SGE:
-      case WASM_OPCODE_I32_UGE:
-      case WASM_OPCODE_I64_EQ:
-      case WASM_OPCODE_I64_NE:
-      case WASM_OPCODE_I64_SLT:
-      case WASM_OPCODE_I64_SLE:
-      case WASM_OPCODE_I64_ULT:
-      case WASM_OPCODE_I64_ULE:
-      case WASM_OPCODE_I64_SGT:
-      case WASM_OPCODE_I64_UGT:
-      case WASM_OPCODE_I64_SGE:
-      case WASM_OPCODE_I64_UGE:
-      case WASM_OPCODE_F32_EQ:
-      case WASM_OPCODE_F32_NE:
-      case WASM_OPCODE_F32_LT:
-      case WASM_OPCODE_F32_LE:
-      case WASM_OPCODE_F32_GT:
-      case WASM_OPCODE_F32_GE:
-      case WASM_OPCODE_F64_EQ:
-      case WASM_OPCODE_F64_NE:
-      case WASM_OPCODE_F64_LT:
-      case WASM_OPCODE_F64_LE:
-      case WASM_OPCODE_F64_GT:
-      case WASM_OPCODE_F64_GE:
+      case Expression::kCompare:
         return VisitCompare(expr, expr->compare_type, expr->relop,
                             expr->exprs[0].get(), expr->exprs[1].get());
       default:
