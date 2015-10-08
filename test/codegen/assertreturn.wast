@@ -12,8 +12,8 @@
 (assert_return (invoke "foo") (i32.const 0))
 ;; CHECK: define void @AssertReturn()
 ;; CHECK: call i32 @Invoke
-;; CHECK: %1 = icmp eq i32 %0, 0
-;; CHECK: br i1 %1, label %AssertSuccess, label %AssertFail
+;; CHECK: %assert_check = icmp eq i32 %0, 0
+;; CHECK: br i1 %assert_check, label %AssertSuccess, label %AssertFail
 ;; CHECK: AssertSuccess:
 ;; CHECK: ret void
 ;; CHECK: AssertFail:

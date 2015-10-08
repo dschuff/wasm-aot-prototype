@@ -10,11 +10,11 @@
     (i64.eq (get_local 2) (get_local 3))
 ;; CHECK: icmp eq i64 %get_local9, %get_local10
     (f32.eq (get_local 4) (get_local 5))
-;; CHECK: fcmp oeq float %get_local11, %get_local12
+;; CHECK: fcmp oeq float %get_local12, %get_local13
     (f64.eq (get_local 6) (get_local 7))
-;; CHECK: fcmp oeq double %get_local13, %get_local14
+;; CHECK: fcmp oeq double %get_local15, %get_local16
     (i32.ne (get_local 0) (get_local 1))
-;; CHECK: icmp ne i32 %get_local15, %get_local16
+;; CHECK: icmp ne i32 %get_local18, %get_local19
     (i64.ne (get_local 2) (get_local 3))
 ;; CHECK: icmp ne i64
     (f32.ne (get_local 4) (get_local 5))

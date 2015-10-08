@@ -16,6 +16,7 @@
 // Should I just give up and do 'using namespace llvm' like everything in LLVM?
 using llvm::BasicBlock;
 using llvm::BranchInst;
+using llvm::cast;
 using llvm::CmpInst;
 using llvm::Constant;
 using llvm::ConstantInt;
@@ -254,12 +255,13 @@ static Value* CreateCompare(Type* type,
                             wasm::CompareOperator relop,
                             IRBuilder<>* irb,
                             Value* lhs,
-                            Value* rhs) {
+                            Value* rhs,
+                            llvm::StringRef name) {
   Value* cmp_result;
   if (type->isIntOrIntVectorTy()) {
-    cmp_result = irb->CreateICmp(GetIntPredicate(relop), lhs, rhs);
+    cmp_result = irb->CreateICmp(GetIntPredicate(relop), lhs, rhs, name);
   } else if (lhs->getType()->isFloatTy() || lhs->getType()->isDoubleTy()) {
-    cmp_result = irb->CreateFCmp(GetFPPredicate(relop), lhs, rhs);
+    cmp_result = irb->CreateFCmp(GetFPPredicate(relop), lhs, rhs, name);
   } else {
     assert(false);
   }
@@ -274,8 +276,7 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
   // TODO: convert to i32
   Value* cmp_result = CreateCompare(
       Type::getInt32Ty(ctx_), wasm::kNE, &irb, VisitExpression(condition),
-      ConstantInt::get(Type::getInt32Ty(ctx_), 0));
-  cmp_result->setName("if_cmp");
+      ConstantInt::get(Type::getInt32Ty(ctx_), 0), "if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
   auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
@@ -432,13 +433,52 @@ static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
   }
 }
 
+static Value* VisitShift(Instruction::BinaryOps opcode,
+                         Value* lhs,
+                         Value* rhs,
+                         IRBuilder<>* irb) {
+  auto* op_ty = cast<llvm::IntegerType>(lhs->getType());
+  unsigned op_width = op_ty->getIntegerBitWidth();
+  Value* shiftop_check =
+      CreateCompare(op_ty, wasm::CompareOperator::kGeU, irb, rhs,
+                    ConstantInt::get(op_ty, op_width), "shamt_check");
+
+  if (opcode == Instruction::BinaryOps::AShr) {
+    // If the shift amount is >= the type size, the result must be 0 or -1. This
+    // is equivalent to shift of type size - 1 bits.
+    Value* shift_amt = irb->CreateSelect(
+        shiftop_check, ConstantInt::get(op_ty, op_width - 1), rhs, "shamt");
+    return irb->CreateBinOp(opcode, lhs, shift_amt, "shift_expr");
+  } else {
+    // If the shift amount is >= the type size, the result must be 0. To avoid a
+    // branch, execute the shift and select on the shift amount. LLVM langref
+    // says that the *result* of the shift is undefined if the rhs is too large,
+    // which I *think* means we're ok (i.e. bogus value but no nasal demons).
+    // Practically I don't know of any architecture where it would trap or
+    // anything strange.
+    Value* shift_result = irb->CreateBinOp(opcode, lhs, rhs, "shift_result");
+    return irb->CreateSelect(shiftop_check, ConstantInt::get(op_ty, 0),
+                             shift_result, "shift_expr");
+  }
+}
+
 Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
                                wasm::BinaryOperator binop,
                                wasm::Expression* lhs,
                                wasm::Expression* rhs) {
-  IRBuilder<> irb(current_bb_);
   Instruction::BinaryOps opcode = GetBinopOpcode(expr->expr_type, binop);
-  return irb.CreateBinOp(opcode, VisitExpression(lhs), VisitExpression(rhs));
+  Value* lhs_value = VisitExpression(lhs);
+  Value* rhs_value = VisitExpression(rhs);
+  IRBuilder<> irb(current_bb_);
+  switch (binop) {
+    case wasm::kShl:
+    case wasm::kShrU:
+    case wasm::kShrS:
+      return VisitShift(opcode, lhs_value, rhs_value, &irb);
+    default:
+      break;
+  }
+  return irb.CreateBinOp(opcode, lhs_value, rhs_value);
 }
 
 Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
@@ -448,7 +488,8 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
                                  wasm::Expression* rhs) {
   IRBuilder<> irb(current_bb_);
   return CreateCompare(getLLVMType(compare_type), relop, &irb,
-                       VisitExpression(lhs), VisitExpression(rhs));
+                       VisitExpression(lhs), VisitExpression(rhs),
+                       "compare_epxr");
 }
 
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
@@ -504,7 +545,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
 
   assert(result->getType() == expected_result->getType());
   Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb, result,
-                                    expected_result);
+                                    expected_result, "assert_check");
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);

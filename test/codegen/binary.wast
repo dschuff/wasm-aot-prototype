@@ -67,16 +67,28 @@
     (i64.xor (get_local 2) (get_local 3))
 ;; CHECK: xor i64
     (i32.shl (get_local 0) (get_local 1))
-;; CHECK: shl i32
+;; CHECK: %shamt_check = icmp uge i32 %get_local{{.*}}, 32
+;; CHECK: %shift_result = shl i32 %get_local{{.*}}, %get_local
+;; CHECK: select i1 %shamt_check, i32 0, i32 %shift_result
     (i64.shl (get_local 2) (get_local 3))
-;; CHECK: shl i64
+;; CHECK: %shamt_check{{.*}} = icmp uge i64 %get_local{{.*}}, 64
+;; CHECK: %shift_result{{.*}} = shl i64 %get_local{{.*}}, %get_local
+;; CHECK: select i1 %shamt_check{{.*}}, i64 0, i64 %shift_result
     (i32.shr_u (get_local 0) (get_local 1))
-;; CHECK: lshr i32
+;; CHECK: %shamt_check{{.*}} = icmp uge i32 %get_local{{.*}}, 32
+;; CHECK: %shift_result{{.*}} = lshr i32 %get_local{{.*}}, %get_local
+;; CHECK: select i1 %shamt_check{{.*}}, i32 0, i32 %shift_result
     (i64.shr_u (get_local 2) (get_local 3))
-;; CHECK: lshr i64
+;; CHECK: %shamt_check{{.*}} = icmp uge i64 %get_local{{.*}}, 64
+;; CHECK: %shift_result{{.*}} = lshr i64 %get_local{{.*}}, %get_local
+;; CHECK: select i1 %shamt_check{{.*}}, i64 0, i64 %shift_result
     (i32.shr_s (get_local 0) (get_local 1))
-;; CHECK: ashr i32
+;; CHECK: %shamt_check{{.*}} = icmp uge i32 %get_local{{.*}}, 32
+;; CHECK: %shamt = select i1 %shamt_check{{.*}}, i32 31, i32 %get_local
+;; CHECK: %shift_expr{{.*}} = ashr i32 %get_local{{.*}}, %shamt
     (i64.shr_s (get_local 2) (get_local 3))
-;; CHECK: ashr i64
+;; CHECK: %shamt_check{{.*}} = icmp uge i64 %get_local{{.*}}, 64
+;; CHECK: %shamt{{.*}} = select i1 %shamt_check{{.*}}, i64 63, i64 %get_local
+;; CHECK: %shift_expr{{.*}} = ashr i64 %get_local{{.*}}, %shamt
     (f32.copysign (get_local 4) (get_local 5))
     (f64.copysign (get_local 6) (get_local 7))))
