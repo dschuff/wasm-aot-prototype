@@ -22,6 +22,7 @@ using llvm::ConstantInt;
 using llvm::ConstantFP;
 using llvm::Function;
 using llvm::FunctionType;
+using llvm::Instruction;
 using llvm::IRBuilder;
 using llvm::isa;
 using llvm::Module;
@@ -121,6 +122,15 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
   return f;
 }
 
+static Value* PromoteI1(Value* operand,
+                        Type* to_type,
+                        IRBuilder<>* irb,
+                        llvm::LLVMContext& context) {
+  if (operand && operand->getType() == Type::getInt1Ty(context))
+    return irb->CreateZExt(operand, to_type);
+  return operand;
+}
+
 void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   auto* f = GetFunction(func, Function::InternalLinkage);
   current_func_ = f;
@@ -161,8 +171,8 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
       irb_end.CreateRetVoid();
     } else {
       assert(func.body.size());
-      last_value->dump();
-      irb_end.CreateRet(last_value);
+      irb_end.CreateRet(
+          PromoteI1(last_value, getLLVMType(func.result_type), &irb_end, ctx_));
     }
   }
   current_func_ = nullptr;
@@ -342,7 +352,9 @@ Value* WAOTVisitor::VisitReturn(
   Value* retval = nullptr;
   if (value->size())
     retval = VisitExpression(value->front().get());
-  return llvm::ReturnInst::Create(ctx_, retval, current_bb_);
+  IRBuilder<> irb(current_bb_);
+  return irb.CreateRet(
+      PromoteI1(retval, current_func_->getReturnType(), &irb, ctx_));
 }
 
 Value* WAOTVisitor::VisitGetLocal(wasm::Expression* expr, wasm::Variable* var) {
@@ -377,6 +389,56 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
     default:
       assert(false);
   }
+}
+
+static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
+                                             wasm::BinaryOperator binop) {
+  switch (binop) {
+    case wasm::kAdd:
+      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Add
+                                      : Instruction::BinaryOps::FAdd;
+    case wasm::kSub:
+      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Sub
+                                      : Instruction::BinaryOps::FSub;
+    case wasm::kMul:
+      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Mul
+                                      : Instruction::BinaryOps::FMul;
+    case wasm::kDivS:
+      return Instruction::BinaryOps::SDiv;
+    case wasm::kDivU:
+      return Instruction::BinaryOps::UDiv;
+    case wasm::kRemS:
+      return Instruction::BinaryOps::SRem;
+    case wasm::kRemU:
+      return Instruction::BinaryOps::URem;
+    case wasm::kAnd:
+      return Instruction::BinaryOps::And;
+    case wasm::kOr:
+      return Instruction::BinaryOps::Or;
+    case wasm::kXor:
+      return Instruction::BinaryOps::Xor;
+    case wasm::kShl:
+      return Instruction::BinaryOps::Shl;
+    case wasm::kShrU:
+      return Instruction::BinaryOps::LShr;
+    case wasm::kShrS:
+      return Instruction::BinaryOps::AShr;
+    case wasm::kDiv:
+      return Instruction::BinaryOps::FDiv;
+    case wasm::kCopySign:
+    case wasm::kMin:
+    case wasm::kMax:
+      return Instruction::BinaryOps::FAdd;  // FIXME
+  }
+}
+
+Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
+                               wasm::BinaryOperator binop,
+                               wasm::Expression* lhs,
+                               wasm::Expression* rhs) {
+  IRBuilder<> irb(current_bb_);
+  Instruction::BinaryOps opcode = GetBinopOpcode(expr->expr_type, binop);
+  return irb.CreateBinOp(opcode, VisitExpression(lhs), VisitExpression(rhs));
 }
 
 Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,

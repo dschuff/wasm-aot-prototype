@@ -67,5 +67,12 @@
 ;; CHECK: icmp uge i64
     (f32.ge (get_local 4) (get_local 5))
 ;; CHECK: fcmp oge float
-    (f64.ge (get_local 6) (get_local 7))))
+    (f64.ge (get_local 6) (get_local 7)))
 ;; CHECK: fcmp oge double
+ (func (result i32) (return (i32.eq (i32.const 0) (i32.const 1))))
+;; CHECK: ret i32 0
+ (func (result i32) (param i32) (param i32)
+   (i32.eq (get_local 0) (get_local 1)))
+;; CHECK: zext
+;; CHECK: ret i32
+)

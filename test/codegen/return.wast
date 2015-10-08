@@ -17,6 +17,9 @@
 (func (result i32) (i32.const 1))
 ;; CHECK: define internal i32
 ;; ret i32 1
+(func )
+;; CHECK: define internal void
+;; CHECK: ret void
 (func (result i32) (call 1))
 ;; CHECK: define internal i32
 ;; CHECK: %0 = call i32 @1
