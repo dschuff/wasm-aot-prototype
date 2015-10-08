@@ -240,6 +240,82 @@ void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
   Insert(expr);
 }
 
+static Type UnopType(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_CLZ:
+    case WASM_OPCODE_I32_CTZ:
+    case WASM_OPCODE_I32_POPCNT:
+      return Type::kI32;
+    case WASM_OPCODE_I64_CLZ:
+    case WASM_OPCODE_I64_CTZ:
+    case WASM_OPCODE_I64_POPCNT:
+      return Type::kI64;
+    case WASM_OPCODE_F32_NEG:
+    case WASM_OPCODE_F32_ABS:
+    case WASM_OPCODE_F32_CEIL:
+    case WASM_OPCODE_F32_FLOOR:
+    case WASM_OPCODE_F32_TRUNC:
+    case WASM_OPCODE_F32_NEAREST:
+    case WASM_OPCODE_F32_SQRT:
+      return Type::kF32;
+    case WASM_OPCODE_F64_NEG:
+    case WASM_OPCODE_F64_ABS:
+    case WASM_OPCODE_F64_CEIL:
+    case WASM_OPCODE_F64_FLOOR:
+    case WASM_OPCODE_F64_TRUNC:
+    case WASM_OPCODE_F64_NEAREST:
+    case WASM_OPCODE_F64_SQRT:
+      return Type::kF64;
+    default:
+      fprintf(stderr, "opcode %x\n", opcode);
+      assert(false && "Unexpected opcode in UnopType");
+  }
+}
+
+static UnaryOperator UnopOperator(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_CLZ:
+    case WASM_OPCODE_I64_CLZ:
+      return UnaryOperator::kClz;
+    case WASM_OPCODE_I32_CTZ:
+    case WASM_OPCODE_I64_CTZ:
+      return UnaryOperator::kCtz;
+    case WASM_OPCODE_I32_POPCNT:
+    case WASM_OPCODE_I64_POPCNT:
+      return UnaryOperator::kPopcnt;
+    case WASM_OPCODE_F32_NEG:
+    case WASM_OPCODE_F64_NEG:
+      return UnaryOperator::kNeg;
+    case WASM_OPCODE_F32_ABS:
+    case WASM_OPCODE_F64_ABS:
+      return UnaryOperator::kAbs;
+    case WASM_OPCODE_F32_CEIL:
+    case WASM_OPCODE_F64_CEIL:
+      return UnaryOperator::kCeil;
+    case WASM_OPCODE_F32_FLOOR:
+    case WASM_OPCODE_F64_FLOOR:
+      return UnaryOperator::kFloor;
+    case WASM_OPCODE_F32_TRUNC:
+    case WASM_OPCODE_F64_TRUNC:
+      return UnaryOperator::kTrunc;
+    case WASM_OPCODE_F32_NEAREST:
+    case WASM_OPCODE_F64_NEAREST:
+      return UnaryOperator::kNearest;
+    case WASM_OPCODE_F32_SQRT:
+    case WASM_OPCODE_F64_SQRT:
+      return UnaryOperator::kSqrt;
+    default:
+      assert(false && "Unexpected opcode in UnopOperator");
+  }
+}
+
+void Parser::before_unary(WasmOpcode opcode) {
+  auto* expr = new Expression(opcode);
+  expr->expr_type = UnopType(opcode);
+  expr->unop = UnopOperator(opcode);
+  InsertAndPush(expr, 1);
+}
+
 static Type BinopType(WasmOpcode opcode) {
   switch (opcode) {
     case WASM_OPCODE_I32_ADD:

@@ -78,6 +78,27 @@ public:
       case WASM_OPCODE_F32_CONST:
       case WASM_OPCODE_F64_CONST:
         return VisitConst(expr, &expr->literal);
+      case WASM_OPCODE_I32_CLZ:
+      case WASM_OPCODE_I32_CTZ:
+      case WASM_OPCODE_I32_POPCNT:
+      case WASM_OPCODE_I64_CLZ:
+      case WASM_OPCODE_I64_CTZ:
+      case WASM_OPCODE_I64_POPCNT:
+      case WASM_OPCODE_F32_NEG:
+      case WASM_OPCODE_F32_ABS:
+      case WASM_OPCODE_F32_CEIL:
+      case WASM_OPCODE_F32_FLOOR:
+      case WASM_OPCODE_F32_TRUNC:
+      case WASM_OPCODE_F32_NEAREST:
+      case WASM_OPCODE_F32_SQRT:
+      case WASM_OPCODE_F64_NEG:
+      case WASM_OPCODE_F64_ABS:
+      case WASM_OPCODE_F64_CEIL:
+      case WASM_OPCODE_F64_FLOOR:
+      case WASM_OPCODE_F64_TRUNC:
+      case WASM_OPCODE_F64_NEAREST:
+      case WASM_OPCODE_F64_SQRT:
+        return VisitUnop(expr, expr->unop, expr->exprs.front().get());
       case WASM_OPCODE_I32_ADD:
       case WASM_OPCODE_I32_SUB:
       case WASM_OPCODE_I32_MUL:
@@ -201,6 +222,12 @@ public:
     return ExprVal();
   }
   virtual ExprVal VisitConst(Expression* expr, Literal* l) { return ExprVal(); }
+  virtual ExprVal VisitUnop(Expression* expr,
+                            UnaryOperator unop,
+                            Expression* operand) {
+    VisitExpression(operand);
+    return ExprVal();
+  }
   virtual ExprVal VisitBinop(Expression* epxr,
                              BinaryOperator binop,
                              Expression* lhs,

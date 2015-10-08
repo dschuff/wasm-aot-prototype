@@ -26,6 +26,7 @@ namespace wasm {
   CALLBACK(after_return, void, WasmType)     \
   CALLBACK(after_get_local, void, int)       \
   CALLBACK(before_set_local, void, int)      \
+  CALLBACK(before_unary, void, WasmOpcode)   \
   CALLBACK(before_binary, void, WasmOpcode)  \
   CALLBACK(before_compare, void, WasmOpcode) \
   CALLBACK(before_module, void, WasmModule*) \

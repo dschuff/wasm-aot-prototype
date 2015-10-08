@@ -40,6 +40,9 @@ protected:
                      Variable* var,
                      Expression* value) override;
   void VisitConst(Expression* expr, Literal* l) override;
+  void VisitUnop(Expression* expr,
+                 UnaryOperator unop,
+                 Expression* operand) override;
   void VisitBinop(Expression* epxr,
                   BinaryOperator binop,
                   Expression* lhs,

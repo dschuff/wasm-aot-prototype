@@ -213,6 +213,41 @@ void AstDumper::VisitConst(Expression* expr, Literal* l) {
   }
 }
 
+static const char* UnopName(UnaryOperator unop) {
+  switch (unop) {
+    case kClz:
+      return "clz";
+    case kCtz:
+      return "ctz";
+    case kPopcnt:
+      return "popcnt";
+    case kNeg:
+      return "neg";
+    case kAbs:
+      return "abs";
+    case kCeil:
+      return "ceil";
+    case kFloor:
+      return "floor";
+    case kTrunc:
+      return "trunc";
+    case kNearest:
+      return "nearest";
+    case kSqrt:
+      return "sqrt";
+    default:
+      assert(false);
+  }
+}
+
+void AstDumper::VisitUnop(Expression* expr,
+                          UnaryOperator unop,
+                          Expression* operand) {
+  printf("(%s.%s ", TypeName(expr->expr_type), UnopName(unop));
+  VisitExpression(operand);
+  printf(")\n");
+}
+
 static const char* BinopName(BinaryOperator binop) {
   switch (binop) {
     case kAdd:

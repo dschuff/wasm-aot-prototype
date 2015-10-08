@@ -32,3 +32,4 @@ out/
 test/*/Output
 *.orig
 *.rej
+core
