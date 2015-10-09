@@ -16,7 +16,9 @@ runtime library and the platform's standard C library. It is developed on Linux
 but should (most likely?) work on Mac OS as well.
 
 WAOT is intended to be an experimental platform for non-browser, non-Javascript
-uses of WebAssembly and inform its design.
+uses of WebAssembly and inform its design. It's still in an early stage. I have
+thus far avoided the temptation to run the LLVM optimizers or look at the
+generated code.
 
 Components
 ----------
@@ -75,3 +77,7 @@ License and Contributing
 Contributions are welcome, and should follow the same guidelines as the
 `WebAssembly design <https://github.com/WebAssembly/design/blob/master/Contributing.md>`_.
 The license can be found in the `<LICENSE>`_ file.
+This repository also includes tests derived from the
+`sexpr-wasm-prototype <https://github.com/WebAssembly/sexpr-wasm-prototype>`_
+and `spec <https://github.com/WebAssembly/spec>`_ repositories, which would covered
+by those licenses (spoiler alert: they are the same license).
