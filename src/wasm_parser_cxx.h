@@ -13,12 +13,13 @@
 
 namespace wasm {
 
-#define EACH_CALLBACK0                     \
-  CALLBACK(after_nop, void)                \
-  CALLBACK(before_block, WasmParserCookie) \
-  CALLBACK(before_if, WasmParserCookie)    \
-  CALLBACK(before_return, void)            \
-  CALLBACK(before_assert_return, WasmParserCookie)
+#define EACH_CALLBACK0                             \
+  CALLBACK(after_nop, void)                        \
+  CALLBACK(before_block, WasmParserCookie)         \
+  CALLBACK(before_if, WasmParserCookie)            \
+  CALLBACK(before_return, void)                    \
+  CALLBACK(before_assert_return, WasmParserCookie) \
+  CALLBACK(before_assert_trap, void)
 
 #define EACH_CALLBACK1                       \
   CALLBACK(before_call, void, int)           \

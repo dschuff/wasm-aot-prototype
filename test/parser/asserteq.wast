@@ -21,3 +21,6 @@
   (f32.const 11))
 
 (assert_return (invoke "foo") (block (i32.const 1)(nop)(i32.const 2)))
+
+(assert_trap (invoke "foo") "foo")
+(assert_trap (invoke "bar" (f32.const 1)) "bar")

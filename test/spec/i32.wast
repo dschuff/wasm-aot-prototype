@@ -81,8 +81,8 @@
 (assert_return (invoke "mul" (i32.const 0x7fffffff) (i32.const -1)) (i32.const 0x80000001))
 (assert_return (invoke "mul" (i32.const 0x01234567) (i32.const 0x76543210)) (i32.const 0x358e7470))
 
-;;(assert_trap (invoke "div_s" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
-;;(assert_trap (invoke "div_s" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "div_s" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "div_s" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
 ;;(assert_trap (invoke "div_s" (i32.const 0x80000000) (i32.const -1)) "runtime: integer overflow")
 (assert_return (invoke "div_s" (i32.const 1) (i32.const 1)) (i32.const 1))
 (assert_return (invoke "div_s" (i32.const 0) (i32.const 1)) (i32.const 0))
@@ -100,8 +100,8 @@
 (assert_return (invoke "div_s" (i32.const 11) (i32.const 5)) (i32.const 2))
 (assert_return (invoke "div_s" (i32.const 17) (i32.const 7)) (i32.const 2))
 
-;;(assert_trap (invoke "div_u" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
-;;(assert_trap (invoke "div_u" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "div_u" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "div_u" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
 (assert_return (invoke "div_u" (i32.const 1) (i32.const 1)) (i32.const 1))
 (assert_return (invoke "div_u" (i32.const 0) (i32.const 1)) (i32.const 0))
 (assert_return (invoke "div_u" (i32.const -1) (i32.const -1)) (i32.const 1))
@@ -117,8 +117,8 @@
 (assert_return (invoke "div_u" (i32.const 11) (i32.const 5)) (i32.const 2))
 (assert_return (invoke "div_u" (i32.const 17) (i32.const 7)) (i32.const 2))
 
-;;(assert_trap (invoke "rem_s" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
-;;(assert_trap (invoke "rem_s" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "rem_s" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "rem_s" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
 (assert_return (invoke "rem_s" (i32.const 0x7fffffff) (i32.const -1)) (i32.const 0))
 (assert_return (invoke "rem_s" (i32.const 1) (i32.const 1)) (i32.const 0))
 (assert_return (invoke "rem_s" (i32.const 0) (i32.const 1)) (i32.const 0))
@@ -137,8 +137,8 @@
 (assert_return (invoke "rem_s" (i32.const 11) (i32.const 5)) (i32.const 1))
 (assert_return (invoke "rem_s" (i32.const 17) (i32.const 7)) (i32.const 3))
 
-;;(assert_trap (invoke "rem_u" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
-;;(assert_trap (invoke "rem_u" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "rem_u" (i32.const 1) (i32.const 0)) "runtime: integer divide by zero")
+(assert_trap (invoke "rem_u" (i32.const 0) (i32.const 0)) "runtime: integer divide by zero")
 (assert_return (invoke "rem_u" (i32.const 1) (i32.const 1)) (i32.const 0))
 (assert_return (invoke "rem_u" (i32.const 0) (i32.const 1)) (i32.const 0))
 (assert_return (invoke "rem_u" (i32.const -1) (i32.const -1)) (i32.const 0))

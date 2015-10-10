@@ -670,6 +670,7 @@ WasmParserCookie Parser::before_invoke(const char* invoke_name,
   }
   assert(exports_by_name_.count(std::string(invoke_name)));
   expr->callee = exports_by_name_.find(std::string(invoke_name))->second;
+  expr->type = expr->callee->function->result_type;
   assert(last_module->functions[invoke_function_index].get() ==
          expr->callee->function);
   PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
@@ -701,6 +702,14 @@ void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   TypeChecker checker = {};
   checker.VisitExpression(expr->exprs.front().get());
   checker.Visit(expr);
+}
+
+void Parser::before_assert_trap() {
+  assert(modules.size() && !module);
+  Module* last_module = modules.back().get();
+  test_script.emplace_back(
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertTrap));
+  current_assert_return_ = test_script.back().get();
 }
 
 }  // namespace wasm

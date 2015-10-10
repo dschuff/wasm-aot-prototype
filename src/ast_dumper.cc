@@ -364,4 +364,11 @@ void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
   printf(")\n");
 }
 
+void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
+                                TestScriptExpr* invoke_arg) {
+  printf("(assert_trap ");
+  Visit(invoke_arg);
+  printf(" \"[string ignored by sexpr-wasm parser]\")\n");
+}
+
 } // namespace wasm

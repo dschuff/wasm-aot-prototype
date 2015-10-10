@@ -1,4 +1,5 @@
 #include "waot_visitor.h"
+#include "wart_trap.h"
 #include "wasm.h"
 
 #include "llvm/ADT/SmallVector.h"
@@ -503,6 +504,36 @@ static Value* VisitShift(Instruction::BinaryOps opcode,
   }
 }
 
+static Constant* GetTrapFunction(Module* module) {
+  SmallVector<Type*, 1> params;
+  params.push_back(Type::getInt32Ty(module->getContext()));
+  return module->getOrInsertFunction(
+      "__wasm_trap",
+      FunctionType::get(Type::getVoidTy(module->getContext()), params, false));
+}
+
+Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
+                                Value* lhs,
+                                Value* rhs,
+                                IRBuilder<>* current_irb) {
+  Value* cmp_result =
+      CreateCompare(rhs->getType(), wasm::kEq, current_irb, rhs,
+                    ConstantInt::get(rhs->getType(), 0), "divzero_check");
+  auto* next_bb = BasicBlock::Create(ctx_, "div.next", current_func_);
+  auto* trap_bb = BasicBlock::Create(ctx_, "div.trap", current_func_);
+  current_irb->CreateCondBr(cmp_result, trap_bb, next_bb);
+  IRBuilder<> trap_irb(trap_bb);
+  SmallVector<Value*, 1> args;
+  args.push_back(
+      ConstantInt::get(Type::getInt32Ty(ctx_), wart::kIntegerDivideByZero));
+  trap_irb.CreateCall(GetTrapFunction(module_), args);
+  trap_irb.CreateUnreachable();
+
+  current_bb_ = next_bb;
+  IRBuilder<> next_irb(next_bb);
+  return next_irb.CreateBinOp(opcode, lhs, rhs);
+}
+
 Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
                                wasm::BinaryOperator binop,
                                wasm::Expression* lhs,
@@ -516,6 +547,11 @@ Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
     case wasm::kShrU:
     case wasm::kShrS:
       return VisitShift(opcode, lhs_value, rhs_value, &irb);
+    case wasm::kDivS:
+    case wasm::kDivU:
+    case wasm::kRemS:
+    case wasm::kRemU:
+      return VisitDivide(opcode, lhs_value, rhs_value, &irb);
     default:
       break;
   }
@@ -536,7 +572,13 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
                                 wasm::Export* callee,
                                 wasm::UniquePtrVector<wasm::Expression>* args) {
-  auto* ret_type = getLLVMType(callee->function->result_type);
+  // Generate a function @Invoke which calls the invoke's callee (and
+  // evaluates its arguments which are wasm exprs). By default it returns the
+  // result of the call, but if the invoke's type has been set to void, (e.g.
+  // by AssertTrap) we discard it. Return the generated function.
+  // @Invoke takes no arguments and returns void or the return type of the
+  // callee.
+  auto* ret_type = getLLVMType(expr->type);
   auto* f = Function::Create(
       FunctionType::get(ret_type, SmallVector<Type*, 1>(), false),
       Function::ExternalLinkage, "Invoke", module_);
@@ -559,21 +601,28 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
 }
 
 Constant* WAOTVisitor::getAssertFailFunc(wasm::Type ty) {
-  SmallVector<Type*, 1> params;
+  SmallVector<Type*, 3> params;
   params.push_back(Type::getInt32Ty(ctx_));
   params.push_back(getLLVMType(ty));
   params.push_back(getLLVMType(ty));
   return module_->getOrInsertFunction(
-      std::string("__assert_fail_") + TypeName(ty),
+      std::string("__wasm_assert_fail_") + TypeName(ty),
       FunctionType::get(Type::getVoidTy(ctx_), params, false));
 }
 
 Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
                                       wasm::TestScriptExpr* invoke,
                                       wasm::Expression* expected) {
-  auto* f = Function::Create(
-      FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
-      Function::ExternalLinkage, "AssertReturn", module_);
+  // Generate a function @AssertReturn which calls the @Invoke function (which
+  // was returned by VisitInvoke), evaluates the expectation expression,
+  // compares the results, and calls a runtime function if they do not match.
+  // @AssertReturn has no arguments and returns void. There is one assertion
+  // failure handler __wasm_assert_fail_<type> for each wasm type, which
+  // returns void and takes the assertion number and expected and actual result
+  // values.
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage, "AssertReturn", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   current_func_ = f;
@@ -593,9 +642,9 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
 
   BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
   IRBuilder<> fail_irb(fail_bb);
-  // Call a runtime function, passing it the current assert_return, the type,
+  // Call a runtime function, passing it the current assertion number, the type,
   // and the expected and actual values.
-  SmallVector<Value*, 1> args;
+  SmallVector<Value*, 3> args;
   args.push_back(
       ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_return_));
   args.push_back(expected_result);
@@ -605,5 +654,35 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
 
+  return f;
+}
+
+Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
+                                    wasm::TestScriptExpr* invoke) {
+  auto* f = Function::Create(
+      FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
+      Function::ExternalLinkage, "AssertTrap", module_);
+  BasicBlock::Create(ctx_, "entry", f);
+  auto* bb = &f->getEntryBlock();
+  current_func_ = f;
+  current_bb_ = bb;
+  Type* i32_ty = Type::getInt32Ty(ctx_);
+
+  // Set the invoke's type so VisitInvoke will return a void function
+  invoke->type = wasm::Type::kVoid;
+  Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
+  IRBuilder<> irb(bb);
+
+  // Call a runtime function which sets up a trap handler and calls the invoke.
+  FunctionType* assert_trap_func_type = FunctionType::get(
+      Type::getVoidTy(ctx_), {i32_ty, invoke_func->getType()}, false);
+  auto* assert_trap_func =
+      module_->getOrInsertFunction("__wasm_assert_trap", assert_trap_func_type);
+  irb.CreateCall(
+      assert_trap_func,
+      {ConstantInt::get(i32_ty, ++current_assert_trap_), invoke_func});
+
+  irb.CreateRetVoid();
+  current_bb_ = nullptr;
   return f;
 }

@@ -75,11 +75,11 @@ $(PARSER_SRC)/wasm-keywords.h: $(PARSER_SRC)/wasm-keywords.gperf
 RUNTIME_CC = $(CC)
 RUNTIME_CFLAGS = $(CFLAGS) -Wno-unused-function
 
-RUNTIME_SRCS = stdio.c wasm_main.c assert.c
+RUNTIME_SRCS = stdio.c wasm_main.c assert.c trap.c
 RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS))
 
 $(OUT_DIR)/%.o: host/%.c
-	$(RUNTIME_CC) $(RUNTIME_CFLAGS) -c -o $@ $<
+	$(RUNTIME_CC) $(RUNTIME_CFLAGS) -Isrc -c -o $@ $<
 
 $(OUT_DIR)/libwart.a: $(RUNTIME_OBJS)
 	ar rcs $@ $(RUNTIME_OBJS)

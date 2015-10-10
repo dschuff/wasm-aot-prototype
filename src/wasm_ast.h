@@ -232,8 +232,8 @@ class TestScriptExpr {
   Module* module;
   Opcode opcode;
   Export* callee;                          // Invoke
-  Type type;                               // AssertReturn
-  std::unique_ptr<TestScriptExpr> invoke;  // AssertReturn
+  Type type;                               // AssertReturn, Invoke
+  std::unique_ptr<TestScriptExpr> invoke;  // AssertReturn, AssertTrap
   UniquePtrVector<Expression> exprs;       // Invoke args, AR expectation
 };
 

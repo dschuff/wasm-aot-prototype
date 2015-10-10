@@ -3,6 +3,7 @@
 #include "wasm_ast.h"
 
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
 
@@ -69,12 +70,18 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitAssertReturn(wasm::TestScriptExpr* expr,
                                  wasm::TestScriptExpr* arg,
                                  wasm::Expression* expected) override;
+  llvm::Value* VisitAssertTrap(wasm::TestScriptExpr* expr,
+                               wasm::TestScriptExpr* invoke) override;
 
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,
                               llvm::Function::LinkageTypes linkage);
   llvm::Type* getLLVMType(wasm::Type ty);
   llvm::Constant* getAssertFailFunc(wasm::Type ty);
+  llvm::Value* VisitDivide(llvm::Instruction::BinaryOps opcode,
+                           llvm::Value* lhs,
+                           llvm::Value* rhs,
+                           llvm::IRBuilder<>* current_irb);
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
 
@@ -83,4 +90,5 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   std::vector<llvm::Value*> current_locals_;
   llvm::BasicBlock* current_bb_ = nullptr;
   int current_assert_return_ = 0;
+  int current_assert_trap_ = 0;
 };
