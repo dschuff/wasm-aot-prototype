@@ -35,10 +35,11 @@ namespace wasm {
   CALLBACK(before_assert_return_nan, WasmParserCookie, WasmSourceLocation) \
   CALLBACK(before_assert_trap, void, WasmSourceLocation)
 
-#define EACH_CALLBACK2                                        \
-  CALLBACK(error, void, WasmSourceLocation, const char*)      \
-  CALLBACK(before_function, void, WasmModule*, WasmFunction*) \
-  CALLBACK(after_assert_return, void, WasmType, WasmParserCookie)
+#define EACH_CALLBACK2                                            \
+  CALLBACK(error, void, WasmSourceLocation, const char*)          \
+  CALLBACK(before_function, void, WasmModule*, WasmFunction*)     \
+  CALLBACK(after_assert_return, void, WasmType, WasmParserCookie) \
+  CALLBACK(after_assert_return_nan, void, WasmType, WasmParserCookie)
 
 #define EACH_CALLBACK3                                                       \
   CALLBACK(after_block, void, WasmType, int, WasmParserCookie)               \

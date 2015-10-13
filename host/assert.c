@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -46,5 +47,25 @@ void __wasm_assert_trap_fail(int32_t line_num) {
   fprintf(stderr,
           "Trap Assertion failure in assert_trap on line %d: no trap raised\n",
           line_num);
+  exit_status = 1;
+}
+
+void __wasm_assert_return_nan_f32(int32_t line_num, float value) {
+  if (isnan(value))
+    return;
+  fprintf(stderr,
+          "Assertion failure in assert_return_nan on line %d: expected NaN, "
+          "got %f\n",
+          line_num, value);
+  exit_status = 1;
+}
+
+void __wasm_assert_return_nan_f64(int32_t line_num, double value) {
+  if (isnan(value))
+    return;
+  fprintf(stderr,
+          "Assertion failure in assert_return_nan on line %d: expected NaN, "
+          "got %lf\n",
+          line_num, value);
   exit_status = 1;
 }

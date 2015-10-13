@@ -699,7 +699,6 @@ WasmParserCookie Parser::before_assert_return_nan(WasmSourceLocation loc) {
   test_script.emplace_back(
       new TestScriptExpr(last_module, TestScriptExpr::kAssertReturnNaN, loc));
   current_assert_return_ = test_script.back().get();
-  ResetInsertionPoint(&current_assert_return_->exprs, 0);
   return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
 
@@ -712,6 +711,14 @@ void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   expr->exprs.front()->expected_type = ty;
   TypeChecker checker = {};
   checker.VisitExpression(expr->exprs.front().get());
+  checker.Visit(expr);
+}
+
+void Parser::after_assert_return_nan(WasmType ty, WasmParserCookie cookie) {
+  auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
+  expr->type = ty;
+  expr->invoke->type = ty;
+  TypeChecker checker = {};
   checker.Visit(expr);
 }
 

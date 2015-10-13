@@ -73,21 +73,6 @@ static std::string Mangle(const std::string& module,
   return std::string("." + module + "." + function);
 }
 
-// RAII class to set current_bb_ and restore it on return.
-class BBStacker {
- public:
-  BBStacker(BasicBlock** current_bb_ptr, BasicBlock* new_value) {
-    current_bb_ = current_bb_ptr;
-    last_value_ = *current_bb_ptr;
-    *current_bb_ptr = new_value;
-  }
-  ~BBStacker() { *current_bb_ = last_value_; }
-
- private:
-  BasicBlock** current_bb_;
-  BasicBlock* last_value_;
-};
-
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
   for (auto& imp : mod.imports)
@@ -140,7 +125,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   assert(current_bb_ == nullptr);
-  BBStacker bbs(&current_bb_, bb);
+  current_bb_ = bb;
 
   IRBuilder<> irb(bb);
 
@@ -179,6 +164,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
   current_func_ = nullptr;
   current_locals_.clear();
+  current_bb_ = nullptr;
 }
 
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {
@@ -585,8 +571,7 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
-  BBStacker bbs(&current_bb_, bb);
-
+  current_bb_ = bb;
   current_func_ = f;
   Value* call = VisitCall(nullptr, false, callee->function,
                           callee->function->index_in_module, args);
@@ -597,6 +582,7 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   } else {
     irb.CreateRet(call);
   }
+  current_bb_ = nullptr;
   return f;
 }
 
@@ -625,12 +611,13 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
                        Function::ExternalLinkage, "AssertReturn", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
+  current_bb_ = bb;
   current_func_ = f;
-  BBStacker bbs(&current_bb_, bb);
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
   IRBuilder<> irb(bb);
   Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
+  // TODO: simplify this, now that only const exprs will be allowed?
   Value* expected_result = VisitExpression(expected);
 
   assert(result->getType() == expected_result->getType());
@@ -642,7 +629,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
 
   BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
   IRBuilder<> fail_irb(fail_bb);
-  // Call a runtime function, passing it the current assertion number, the type,
+  // Call a runtime function, passing it the assertion line number, the type,
   // and the expected and actual values.
   SmallVector<Value*, 3> args;
   args.push_back(
@@ -654,6 +641,34 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
 
+  current_bb_ = nullptr;
+  return f;
+}
+
+Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
+                                         wasm::TestScriptExpr* invoke) {
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage, "AssertReturnNaN", module_);
+  BasicBlock::Create(ctx_, "entry", f);
+  auto* bb = &f->getEntryBlock();
+  current_bb_ = bb;
+  current_func_ = f;
+  Type* i32_ty = Type::getInt32Ty(ctx_);
+  Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
+
+  IRBuilder<> irb(bb);
+  Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
+  // For assert_return_nan the runtime function also does the check, and does
+  // the appropriate thing on failure.
+  Constant* assert_func = module_->getOrInsertFunction(
+      std::string("__wasm_assert_return_nan_") + TypeName(expr->type),
+      FunctionType::get(Type::getVoidTy(ctx_),
+                        {i32_ty, getLLVMType(expr->type)}, false));
+  irb.CreateCall(assert_func,
+                 {ConstantInt::get(i32_ty, expr->source_loc.line), result});
+  irb.CreateRetVoid();
+  current_bb_ = nullptr;
   return f;
 }
 
