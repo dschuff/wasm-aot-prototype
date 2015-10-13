@@ -15,9 +15,9 @@
   (func $bar (param f32) (result f32) (f32.const 1.0))
   (export "bar" $bar))
 
-;; CHECK: asserteq.wast:19
+;; CHECK: assertreturn.wast:19
 (assert_return (invoke "foo") (i32.const 0))
-;; CHECK: asserteq.wast:21
+;; CHECK: assertreturn.wast:21
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
 ;; ok to use more complex exprs
 (assert_return
