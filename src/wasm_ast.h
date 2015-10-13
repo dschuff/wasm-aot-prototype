@@ -15,7 +15,7 @@ class Module;
 template <typename T>
 using UniquePtrVector = std::vector<std::unique_ptr<T>>;
 
-static_assert(WASM_NUM_TYPES == 5, "wasm::Type enum needs to be adjusted");
+static_assert(WASM_TYPE_ALL == 15, "wasm::Type enum needs to be adjusted");
 // Type is basically just an enum, but implicitly convertible from WasmType.
 // It also includes an "unknown" state used during construction/type fixup.
 class Type {
@@ -26,12 +26,12 @@ class Type {
     kI64 = WASM_TYPE_I64,
     kF32 = WASM_TYPE_F32,
     kF64 = WASM_TYPE_F64,
-    kAny = WASM_NUM_TYPES,  // TODO: Is this useful? could just void
+    kAny = WASM_TYPE_ALL,  // TODO: Is this useful? could just void
     kUnknown,
   } Type_;
   Type(Type_ t) : value_(t) {}
   Type(WasmType t) : value_(static_cast<Type_>(t)) {
-    assert(t < WASM_NUM_TYPES && "Bad Type initializer");
+    assert(t < WASM_TYPE_ALL && "Bad Type initializer");
   }
   operator Type_() const { return value_; }
   explicit operator WasmType() const { return static_cast<WasmType>(value_); }

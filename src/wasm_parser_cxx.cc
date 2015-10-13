@@ -141,7 +141,7 @@ void Parser::after_nop() {
   Insert(expr);
 }
 
-WasmParserCookie Parser::before_block() {
+WasmParserCookie Parser::before_block(int with_label) {
   auto* expr = new Expression(Expression::kBlock);
   expr->expr_type = current_type_;
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
@@ -658,7 +658,8 @@ void Parser::after_export(WasmModule* m,
                            module->exports.back().get());
 }
 
-WasmParserCookie Parser::before_invoke(const char* invoke_name,
+WasmParserCookie Parser::before_invoke(WasmSourceLocation loc,
+                                       const char* invoke_name,
                                        int invoke_function_index) {
   assert(modules.size());
   Module* last_module = modules.back().get();
@@ -682,7 +683,7 @@ void Parser::after_invoke(WasmParserCookie cookie) {
   checker.Visit(reinterpret_cast<TestScriptExpr*>(cookie));
 }
 
-WasmParserCookie Parser::before_assert_return() {
+WasmParserCookie Parser::before_assert_return(WasmSourceLocation loc) {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
   test_script.emplace_back(
@@ -704,7 +705,7 @@ void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   checker.Visit(expr);
 }
 
-void Parser::before_assert_trap() {
+void Parser::before_assert_trap(WasmSourceLocation loc) {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
   test_script.emplace_back(

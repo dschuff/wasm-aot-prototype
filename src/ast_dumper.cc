@@ -104,7 +104,7 @@ static void dump_var_list(T&& begin, T&& end, const char* name) {
 void AstDumper::VisitFunction(const Function& func) {
   printf("  (func ");
   if (func.local_name.size())
-    printf("%s", func.local_name.c_str());
+    printf("%s ", func.local_name.c_str());
 
   dump_var_list(func.args.begin(), func.args.end(), "param");
   dump_result(func);
