@@ -663,7 +663,7 @@ WasmParserCookie Parser::before_invoke(WasmSourceLocation loc,
                                        int invoke_function_index) {
   assert(modules.size());
   Module* last_module = modules.back().get();
-  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke);
+  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke, loc);
   if (current_assert_return_) {
     current_assert_return_->invoke.reset(expr);
   } else {
@@ -687,7 +687,7 @@ WasmParserCookie Parser::before_assert_return(WasmSourceLocation loc) {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
   test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturn));
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturn, loc));
   current_assert_return_ = test_script.back().get();
   ResetInsertionPoint(&current_assert_return_->exprs, 1);
   return reinterpret_cast<WasmParserCookie>(test_script.back().get());
@@ -709,7 +709,7 @@ void Parser::before_assert_trap(WasmSourceLocation loc) {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
   test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertTrap));
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertTrap, loc));
   current_assert_return_ = test_script.back().get();
 }
 

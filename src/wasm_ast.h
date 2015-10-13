@@ -212,6 +212,18 @@ class Module {
   std::string name;
 };
 
+class SourceLocation {
+ public:
+  SourceLocation(const WasmSourceLocation& loc)
+      : filename(loc.source->filename), line(loc.line), col(loc.col) {}
+  // For now there's only ever one file per run, but it's simpler to keep the
+  // filename here.  If there gets to be SourceLocs for every expr, we probably
+  // want to dedup the filename info.
+  std::string filename = "";
+  int line = 0;
+  int col = 0;
+};
+
 // For spec repo test scripts. The spec test script operations are basically
 // expressions but have no wasm opcodes and they exist outside modules, so at
 // the top level they have their own classes, which contain Expressions.  Each
@@ -226,11 +238,12 @@ class TestScriptExpr {
     kAssertReturnNaN,
     kAssertTrap
   } Opcode;
-  TestScriptExpr(Module* mod, Opcode op)
-      : module(mod), opcode(op), type(Type::kUnknown) {}
+  TestScriptExpr(Module* mod, Opcode op, const WasmSourceLocation loc)
+      : module(mod), opcode(op), source_loc(loc), type(Type::kUnknown) {}
 
   Module* module;
   Opcode opcode;
+  SourceLocation source_loc;
   Export* callee;                          // Invoke
   Type type;                               // AssertReturn, Invoke
   std::unique_ptr<TestScriptExpr> invoke;  // AssertReturn, AssertTrap

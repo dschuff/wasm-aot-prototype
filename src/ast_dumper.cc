@@ -348,6 +348,10 @@ void AstDumper::VisitCompare(Expression* expr,
 void AstDumper::VisitInvoke(TestScriptExpr* expr,
                             Export* callee,
                             UniquePtrVector<Expression>* args) {
+  // We could print the source loc info for invokes too, but that would require
+  // putting a newline in the middle of assert statements or keeping track of
+  // whether an invoke is inside an assert or not, so more trouble than it's
+  // worth.
   printf("(invoke \"%s\" ", callee->name.c_str());
   for (auto& e : *args) {
     VisitExpression(e.get());
@@ -358,6 +362,8 @@ void AstDumper::VisitInvoke(TestScriptExpr* expr,
 void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
                                   TestScriptExpr* invoke_arg,
                                   Expression* expected) {
+  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
+         expr->source_loc.line);
   printf("(assert_return ");
   Visit(invoke_arg);
   VisitExpression(expected);
@@ -366,6 +372,8 @@ void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
 
 void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
                                 TestScriptExpr* invoke_arg) {
+  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
+         expr->source_loc.line);
   printf("(assert_trap ");
   Visit(invoke_arg);
   printf(" \"[string ignored by sexpr-wasm parser]\")\n");
