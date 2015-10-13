@@ -59,6 +59,8 @@ protected:
   void VisitAssertReturn(TestScriptExpr* expr,
                          TestScriptExpr* invoke_arg,
                          Expression* expected) override;
+  void VisitAssertReturnNaN(TestScriptExpr* expr,
+                            TestScriptExpr* invoke_arg) override;
   void VisitAssertTrap(TestScriptExpr* expr,
                        TestScriptExpr* invoke_arg) override;
 

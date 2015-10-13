@@ -370,6 +370,15 @@ void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
   printf(")\n");
 }
 
+void AstDumper::VisitAssertReturnNaN(TestScriptExpr* expr,
+                                     TestScriptExpr* invoke_arg) {
+  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
+         expr->source_loc.line);
+  printf("(assert_return_nan ");
+  Visit(invoke_arg);
+  printf(")\n");
+}
+
 void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
                                 TestScriptExpr* invoke_arg) {
   printf(";; %s:%d\n", expr->source_loc.filename.c_str(),

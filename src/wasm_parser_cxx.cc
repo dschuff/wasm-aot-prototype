@@ -693,6 +693,16 @@ WasmParserCookie Parser::before_assert_return(WasmSourceLocation loc) {
   return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
 
+WasmParserCookie Parser::before_assert_return_nan(WasmSourceLocation loc) {
+  assert(modules.size() && !module);
+  Module* last_module = modules.back().get();
+  test_script.emplace_back(
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturnNaN, loc));
+  current_assert_return_ = test_script.back().get();
+  ResetInsertionPoint(&current_assert_return_->exprs, 0);
+  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
+}
+
 void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
   // The parser has already checked the types. We just need to propagate the

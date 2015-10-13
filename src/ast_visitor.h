@@ -160,6 +160,8 @@ public:
       case TestScriptExpr::kAssertReturn:
         return VisitAssertReturn(expr, expr->invoke.get(),
                                  expr->exprs[0].get());
+      case TestScriptExpr::kAssertReturnNaN:
+        return VisitAssertReturnNaN(expr, expr->invoke.get());
       case TestScriptExpr::kAssertTrap:
         return VisitAssertTrap(expr, expr->invoke.get());
       default:
@@ -178,6 +180,11 @@ public:
                                     Expression* expected) {
     Visit(arg);
     VisitExpression(expected);
+    return ExprVal();
+  }
+  virtual ExprVal VisitAssertReturnNaN(TestScriptExpr* expr,
+                                       TestScriptExpr* arg) {
+    Visit(arg);
     return ExprVal();
   }
   virtual ExprVal VisitAssertTrap(TestScriptExpr* expr, TestScriptExpr* arg) {

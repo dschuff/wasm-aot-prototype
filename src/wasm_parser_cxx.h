@@ -18,20 +18,21 @@ namespace wasm {
   CALLBACK(before_if, WasmParserCookie) \
   CALLBACK(before_return, void)
 
-#define EACH_CALLBACK1                                                 \
-  CALLBACK(before_block, WasmParserCookie, int)                        \
-  CALLBACK(before_call, void, int)                                     \
-  CALLBACK(before_call_import, void, int)                              \
-  CALLBACK(after_return, void, WasmType)                               \
-  CALLBACK(after_get_local, void, int)                                 \
-  CALLBACK(before_set_local, void, int)                                \
-  CALLBACK(before_unary, void, WasmOpcode)                             \
-  CALLBACK(before_binary, void, WasmOpcode)                            \
-  CALLBACK(before_compare, void, WasmOpcode)                           \
-  CALLBACK(before_module, void, WasmModule*)                           \
-  CALLBACK(after_module, void, WasmModule*)                            \
-  CALLBACK(after_invoke, void, WasmParserCookie)                       \
-  CALLBACK(before_assert_return, WasmParserCookie, WasmSourceLocation) \
+#define EACH_CALLBACK1                                                     \
+  CALLBACK(before_block, WasmParserCookie, int)                            \
+  CALLBACK(before_call, void, int)                                         \
+  CALLBACK(before_call_import, void, int)                                  \
+  CALLBACK(after_return, void, WasmType)                                   \
+  CALLBACK(after_get_local, void, int)                                     \
+  CALLBACK(before_set_local, void, int)                                    \
+  CALLBACK(before_unary, void, WasmOpcode)                                 \
+  CALLBACK(before_binary, void, WasmOpcode)                                \
+  CALLBACK(before_compare, void, WasmOpcode)                               \
+  CALLBACK(before_module, void, WasmModule*)                               \
+  CALLBACK(after_module, void, WasmModule*)                                \
+  CALLBACK(after_invoke, void, WasmParserCookie)                           \
+  CALLBACK(before_assert_return, WasmParserCookie, WasmSourceLocation)     \
+  CALLBACK(before_assert_return_nan, WasmParserCookie, WasmSourceLocation) \
   CALLBACK(before_assert_trap, void, WasmSourceLocation)
 
 #define EACH_CALLBACK2                                        \
