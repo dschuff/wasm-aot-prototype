@@ -90,7 +90,7 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
   if (func.result_type != wasm::Type::kVoid) {
     ret_type = getLLVMType(func.result_type);
   }
-  SmallVector<Type*, 4> arg_types;
+  SmallVector<Type*, 8> arg_types;
   for (auto& arg : func.args) {
     arg_types.push_back(getLLVMType(arg->type));
   }
@@ -491,11 +491,10 @@ static Value* VisitShift(Instruction::BinaryOps opcode,
 }
 
 static Constant* GetTrapFunction(Module* module) {
-  SmallVector<Type*, 1> params;
-  params.push_back(Type::getInt32Ty(module->getContext()));
   return module->getOrInsertFunction(
       "__wasm_trap",
-      FunctionType::get(Type::getVoidTy(module->getContext()), params, false));
+      FunctionType::get(Type::getVoidTy(module->getContext()),
+                        {Type::getInt32Ty(module->getContext())}, false));
 }
 
 Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
@@ -509,10 +508,9 @@ Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
   auto* trap_bb = BasicBlock::Create(ctx_, "div.trap", current_func_);
   current_irb->CreateCondBr(cmp_result, trap_bb, next_bb);
   IRBuilder<> trap_irb(trap_bb);
-  SmallVector<Value*, 1> args;
-  args.push_back(
-      ConstantInt::get(Type::getInt32Ty(ctx_), wart::kIntegerDivideByZero));
-  trap_irb.CreateCall(GetTrapFunction(module_), args);
+  trap_irb.CreateCall(
+      GetTrapFunction(module_),
+      {ConstantInt::get(Type::getInt32Ty(ctx_), wart::kIntegerDivideByZero)});
   trap_irb.CreateUnreachable();
 
   current_bb_ = next_bb;
@@ -565,9 +563,8 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   // @Invoke takes no arguments and returns void or the return type of the
   // callee.
   auto* ret_type = getLLVMType(expr->type);
-  auto* f = Function::Create(
-      FunctionType::get(ret_type, SmallVector<Type*, 1>(), false),
-      Function::ExternalLinkage, "Invoke", module_);
+  auto* f = Function::Create(FunctionType::get(ret_type, {}, false),
+                             Function::ExternalLinkage, "Invoke", module_);
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
@@ -584,16 +581,6 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   }
   current_bb_ = nullptr;
   return f;
-}
-
-Constant* WAOTVisitor::getAssertFailFunc(wasm::Type ty) {
-  SmallVector<Type*, 3> params;
-  params.push_back(Type::getInt32Ty(ctx_));
-  params.push_back(getLLVMType(ty));
-  params.push_back(getLLVMType(ty));
-  return module_->getOrInsertFunction(
-      std::string("__wasm_assert_fail_") + TypeName(ty),
-      FunctionType::get(Type::getVoidTy(ctx_), params, false));
 }
 
 Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
@@ -616,7 +603,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
   IRBuilder<> irb(bb);
-  Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
+  Value* result = irb.CreateCall(invoke_func, {});
   // TODO: simplify this, now that only const exprs will be allowed?
   Value* expected_result = VisitExpression(expected);
 
@@ -631,12 +618,16 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   IRBuilder<> fail_irb(fail_bb);
   // Call a runtime function, passing it the assertion line number, the type,
   // and the expected and actual values.
-  SmallVector<Value*, 3> args;
-  args.push_back(
-      ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line));
-  args.push_back(expected_result);
-  args.push_back(result);
-  fail_irb.CreateCall(getAssertFailFunc(expected->expr_type), args);
+  fail_irb.CreateCall(
+      module_->getOrInsertFunction(
+          std::string("__wasm_assert_fail_") + TypeName(expected->expr_type),
+          FunctionType::get(
+              Type::getVoidTy(ctx_),
+              {Type::getInt32Ty(ctx_), getLLVMType(expected->expr_type),
+               getLLVMType(expected->expr_type)},
+              false)),
+      {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
+       expected_result, result});
 
   fail_irb.CreateRetVoid();
   irb.CreateCondBr(cmp_result, success_bb, fail_bb);
@@ -658,7 +649,7 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
   IRBuilder<> irb(bb);
-  Value* result = irb.CreateCall(invoke_func, SmallVector<Value*, 1>());
+  Value* result = irb.CreateCall(invoke_func, {});
   // For assert_return_nan the runtime function also does the check, and does
   // the appropriate thing on failure.
   Constant* assert_func = module_->getOrInsertFunction(
@@ -674,9 +665,9 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
 
 Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
                                     wasm::TestScriptExpr* invoke) {
-  auto* f = Function::Create(
-      FunctionType::get(Type::getVoidTy(ctx_), SmallVector<Type*, 1>(), false),
-      Function::ExternalLinkage, "AssertTrap", module_);
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage, "AssertTrap", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   current_func_ = f;
@@ -686,8 +677,8 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
   // Set the invoke's type so VisitInvoke will return a void function
   invoke->type = wasm::Type::kVoid;
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
-  IRBuilder<> irb(bb);
 
+  IRBuilder<> irb(bb);
   // Call a runtime function which sets up a trap handler and calls the invoke.
   FunctionType* assert_trap_func_type = FunctionType::get(
       Type::getVoidTy(ctx_), {i32_ty, invoke_func->getType()}, false);
