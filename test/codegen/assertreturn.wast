@@ -17,7 +17,7 @@
 ;; CHECK: AssertSuccess:
 ;; CHECK: ret void
 ;; CHECK: AssertFail:
-;; CHECK: call void @__wasm_assert_fail_i32(i32 1, i32 0, i32 %0)
+;; CHECK: call void @__wasm_assert_fail_i32(i32 12, i32 0, i32 %0)
 ;; CHECK: define i32 @Invoke
 ;; CHECK: call i32 @"$foo"()
 
@@ -26,7 +26,7 @@
 ;; CHECK: call float @Invoke
 ;; CHECK: fcmp oeq float %0, 0.000000e+00
 ;; CHECK: AssertFail:
-;; CHECK: call void @__wasm_assert_fail_f32(i32 2, float 0.000000e+00, float %0)
+;; CHECK: call void @__wasm_assert_fail_f32(i32 24, float 0.000000e+00, float %0)
 ;; CHECK: define float @Invoke
 ;; CHECK: call float @"$bar"(float 0.000000e+00
 

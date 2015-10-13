@@ -89,6 +89,4 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Function* current_func_ = nullptr;
   std::vector<llvm::Value*> current_locals_;
   llvm::BasicBlock* current_bb_ = nullptr;
-  int current_assert_return_ = 0;
-  int current_assert_trap_ = 0;
 };

@@ -17,16 +17,16 @@
 
 (assert_trap (invoke "foo") "foo")
 ;; CHECK: define void @AssertTrap()
-;; CHECK: call void @__wasm_assert_trap(i32 1, void ()* @Invoke
+;; CHECK: call void @__wasm_assert_trap(i32 18, void ()* @Invoke
 ;; @Invoke should have void return instead of i32 and no args
 ;; CHECK: define void @Invoke()
 (assert_trap (invoke "bar" (f32.const 1)) "bar")
 ;; CHECK: define void @AssertTrap.1()
-;; CHECK: call void @__wasm_assert_trap(i32 2, void ()* @Invoke
+;; CHECK: call void @__wasm_assert_trap(i32 23, void ()* @Invoke
 ;; @Invoke should have void return and no args
 ;; CHECK: define void @Invoke.2()
 (assert_trap (invoke "voidret" (block (f64.const 1)(f64.const 2))) "voidret")
 ;; CHECK: define void @AssertTrap.3()
-;; CHECK: call void @__wasm_assert_trap(i32 3, void ()* @Invoke
+;; CHECK: call void @__wasm_assert_trap(i32 28, void ()* @Invoke
 ;; @Invoke should have void return and no args
 ;; CHECK: define void @Invoke.4()

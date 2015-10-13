@@ -646,7 +646,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   // and the expected and actual values.
   SmallVector<Value*, 3> args;
   args.push_back(
-      ConstantInt::get(Type::getInt32Ty(ctx_), ++current_assert_return_));
+      ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line));
   args.push_back(expected_result);
   args.push_back(result);
   fail_irb.CreateCall(getAssertFailFunc(expected->expr_type), args);
@@ -680,7 +680,7 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
       module_->getOrInsertFunction("__wasm_assert_trap", assert_trap_func_type);
   irb.CreateCall(
       assert_trap_func,
-      {ConstantInt::get(i32_ty, ++current_assert_trap_), invoke_func});
+      {ConstantInt::get(i32_ty, expr->source_loc.line), invoke_func});
 
   irb.CreateRetVoid();
   current_bb_ = nullptr;

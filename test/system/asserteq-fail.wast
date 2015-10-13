@@ -17,17 +17,17 @@
 
 ;; Compares to 2, gets 1.
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 2))
-;; CHECK: failure in assert_return expression 2: expected 2.000000, got 1
+;; CHECK: failure in assert_return on line 19: expected 2.000000, got 1
 
 (assert_return (invoke "bar" (f32.const 3)) (f32.const 6))
-;; CHECK: failure in assert_return expression 3: expected 6.000000, got 1
+;; CHECK: failure in assert_return on line 22: expected 6.000000, got 1
 
 (assert_return (invoke "baz" (i64.const 123456789)) (i64.const 123456789))
 ;; Should succeed
 (assert_return (invoke "baz" (i64.const 123456789)) (i64.const 1234567890))
-;; CHECK: failure in assert_return expression 5: expected 1234567890, got 123456789
+;; CHECK: failure in assert_return on line 27: expected 1234567890, got 123456789
 
 (assert_return (invoke "quux" (f64.const 0.123456789)) (f64.const 0.123456789))
 ;; Should succeed
 (assert_return (invoke "quux" (f64.const 0x1.123456789p-7)) (f64.const 0x1.091a2b3c48p-6))
-;; CHECK: failure in assert_return expression 7: expected 0x1.091a2b3c48p-6, got 0x1.123456789p-7
+;; CHECK: failure in assert_return on line 32: expected 0x1.091a2b3c48p-6, got 0x1.123456789p-7
