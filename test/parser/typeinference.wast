@@ -66,6 +66,9 @@
 ;; CHECK: [i64->i64](get_local 0
 (func $foo (result f64) (param f64) (f64.const 2))
 (export "foo" $foo) ;; param f64
+
+(func (i64.extend_u/i32 (i32.const 0)))
+;; CHECK: i64.extend_u/i32 [i32->i32](i32.const 0
 )
 ;; invoke
 (invoke "foo" (f64.const 1.0))
@@ -77,4 +80,10 @@
 ;; CHECK: [f64->f64](block
 ;; CHECK: [void->i32](i32.const
 ;; CHECK: [void->void](nop
+;; CHECK: [f64->f64](f64.const
+
+(assert_return_nan (invoke "foo" (f64.const 5)))
+;; CHECK: [f64->f64](f64.const
+
+(assert_trap (invoke "foo" (f64.add (f64.const 4)(f64.const 5))) "ignored")
 ;; CHECK: [f64->f64](f64.const

@@ -345,6 +345,47 @@ void AstDumper::VisitCompare(Expression* expr,
   printf(")\n");
 }
 
+static const char* ConversionOpName(ConversionOperator cvt) {
+  switch (cvt) {
+    case kExtendSInt32:
+      return "extend_s";
+    case kExtendUInt32:
+      return "extend_u";
+    case kWrapInt64:
+      return "wrap";
+    case kTruncSFloat32:
+    case kTruncSFloat64:
+      return "trunc_s";
+    case kTruncUFloat32:
+    case kTruncUFloat64:
+      return "trunc_u";
+    case kReinterpretFloat:
+    case kReinterpretInt:
+      return "reinterpret";
+    case kConvertSInt32:
+    case kConvertSInt64:
+      return "convert_s";
+    case kConvertUInt32:
+    case kConvertUInt64:
+      return "convert_u";
+    case kPromoteFloat32:
+      return "promote";
+    case kDemoteFloat64:
+      return "demote";
+    default:
+      assert(false && "Unexpected operator in ConversionOpName");
+  }
+}
+
+void AstDumper::VisitConversion(Expression* expr,
+                                ConversionOperator cvt,
+                                Expression* operand) {
+  printf("(%s.%s/%s ", TypeName(expr->expr_type), ConversionOpName(cvt),
+         TypeName(expr->operand_type));
+  VisitExpression(operand);
+  printf(")\n");
+}
+
 void AstDumper::VisitInvoke(TestScriptExpr* expr,
                             Export* callee,
                             UniquePtrVector<Expression>* args) {

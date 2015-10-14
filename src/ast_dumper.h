@@ -52,6 +52,9 @@ protected:
                     CompareOperator relop,
                     Expression* lhs,
                     Expression* rhs) override;
+  void VisitConversion(Expression* expr,
+                       ConversionOperator cvt,
+                       Expression* operand) override;
 
   void VisitInvoke(TestScriptExpr* expr,
                    Export* callee,

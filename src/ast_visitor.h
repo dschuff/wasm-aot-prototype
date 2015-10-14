@@ -82,6 +82,8 @@ public:
       case Expression::kCompare:
         return VisitCompare(expr, expr->compare_type, expr->relop,
                             expr->exprs[0].get(), expr->exprs[1].get());
+      case Expression::kConvert:
+        return VisitConversion(expr, expr->cvt, expr->exprs.front().get());
       default:
         assert(false);
     }
@@ -150,6 +152,12 @@ public:
                                Expression* rhs) {
     VisitExpression(lhs);
     VisitExpression(rhs);
+    return ExprVal();
+  }
+  virtual ExprVal VisitConversion(Expression* expr,
+                                  ConversionOperator cvt,
+                                  Expression* operand) {
+    VisitExpression(operand);
     return ExprVal();
   }
 

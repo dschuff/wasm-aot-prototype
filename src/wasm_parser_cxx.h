@@ -28,6 +28,7 @@ namespace wasm {
   CALLBACK(before_unary, void, WasmOpcode)                                 \
   CALLBACK(before_binary, void, WasmOpcode)                                \
   CALLBACK(before_compare, void, WasmOpcode)                               \
+  CALLBACK(before_convert, void, WasmOpcode)                               \
   CALLBACK(before_module, void, WasmModule*)                               \
   CALLBACK(after_module, void, WasmModule*)                                \
   CALLBACK(after_invoke, void, WasmParserCookie)                           \

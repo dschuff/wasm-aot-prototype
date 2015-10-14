@@ -106,6 +106,12 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     rhs->expected_type = compare_type;
     VisitExpression(rhs);
   }
+  void VisitConversion(wasm::Expression* expr,
+                       wasm::ConversionOperator cvt,
+                       wasm::Expression* operand) override {
+    operand->expected_type = expr->operand_type;
+    VisitExpression(operand);
+  }
   void VisitInvoke(wasm::TestScriptExpr* expr,
                    wasm::Export* callee,
                    wasm::UniquePtrVector<wasm::Expression>* args) override {
@@ -488,7 +494,7 @@ static Type CompareType(WasmOpcode opcode) {
   }
 }
 
-static CompareOperator CompareOperator(WasmOpcode opcode) {
+static CompareOperator CmpOperator(WasmOpcode opcode) {
   switch (opcode) {
     case WASM_OPCODE_I32_EQ:
     case WASM_OPCODE_I64_EQ:
@@ -545,8 +551,127 @@ void Parser::before_compare(WasmOpcode opcode) {
   auto* expr = new Expression(Expression::kCompare);
   expr->expr_type = Type::kI32;
   expr->compare_type = CompareType(opcode);
-  expr->relop = CompareOperator(opcode);
+  expr->relop = CmpOperator(opcode);
   InsertAndPush(expr, 2);
+}
+
+static Type ConversionResultType(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_SCONVERT_F32:
+    case WASM_OPCODE_I32_SCONVERT_F64:
+    case WASM_OPCODE_I32_UCONVERT_F32:
+    case WASM_OPCODE_I32_UCONVERT_F64:
+    case WASM_OPCODE_I32_CONVERT_I64:
+    case WASM_OPCODE_I32_REINTERPRET_F32:
+      return Type::kI32;
+    case WASM_OPCODE_I64_SCONVERT_F32:
+    case WASM_OPCODE_I64_SCONVERT_F64:
+    case WASM_OPCODE_I64_UCONVERT_F32:
+    case WASM_OPCODE_I64_UCONVERT_F64:
+    case WASM_OPCODE_I64_SCONVERT_I32:
+    case WASM_OPCODE_I64_UCONVERT_I32:
+    case WASM_OPCODE_I64_REINTERPRET_F64:
+      return Type::kI64;
+    case WASM_OPCODE_F32_SCONVERT_I32:
+    case WASM_OPCODE_F32_UCONVERT_I32:
+    case WASM_OPCODE_F32_SCONVERT_I64:
+    case WASM_OPCODE_F32_UCONVERT_I64:
+    case WASM_OPCODE_F32_CONVERT_F64:
+    case WASM_OPCODE_F32_REINTERPRET_I32:
+      return Type::kF32;
+    case WASM_OPCODE_F64_SCONVERT_I32:
+    case WASM_OPCODE_F64_UCONVERT_I32:
+    case WASM_OPCODE_F64_SCONVERT_I64:
+    case WASM_OPCODE_F64_UCONVERT_I64:
+    case WASM_OPCODE_F64_CONVERT_F32:
+    case WASM_OPCODE_F64_REINTERPRET_I64:
+      return Type::kF64;
+    default:
+      assert(false && "Unexpected opcode in before_convert");
+  }
+}
+
+static ConversionOperator ConvOperator(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_SCONVERT_F32:
+    case WASM_OPCODE_I64_SCONVERT_F32:
+      return kTruncSFloat32;
+    case WASM_OPCODE_I32_SCONVERT_F64:
+    case WASM_OPCODE_I64_SCONVERT_F64:
+      return kTruncSFloat64;
+    case WASM_OPCODE_I32_UCONVERT_F32:
+    case WASM_OPCODE_I64_UCONVERT_F32:
+      return kTruncUFloat32;
+    case WASM_OPCODE_I32_UCONVERT_F64:
+    case WASM_OPCODE_I64_UCONVERT_F64:
+      return kTruncUFloat64;
+    case WASM_OPCODE_I32_REINTERPRET_F32:
+    case WASM_OPCODE_I64_REINTERPRET_F64:
+      return kReinterpretFloat;
+    case WASM_OPCODE_I32_CONVERT_I64:
+      return kWrapInt64;
+    case WASM_OPCODE_I64_SCONVERT_I32:
+      return kExtendSInt32;
+    case WASM_OPCODE_I64_UCONVERT_I32:
+      return kExtendUInt32;
+    case WASM_OPCODE_F32_SCONVERT_I32:
+    case WASM_OPCODE_F64_SCONVERT_I32:
+      return kConvertSInt32;
+    case WASM_OPCODE_F32_UCONVERT_I32:
+    case WASM_OPCODE_F64_UCONVERT_I32:
+      return kConvertUInt32;
+    case WASM_OPCODE_F32_SCONVERT_I64:
+    case WASM_OPCODE_F64_SCONVERT_I64:
+      return kConvertSInt64;
+    case WASM_OPCODE_F32_UCONVERT_I64:
+    case WASM_OPCODE_F64_UCONVERT_I64:
+      return kConvertUInt64;
+    case WASM_OPCODE_F32_CONVERT_F64:
+      return kDemoteFloat64;
+    case WASM_OPCODE_F32_REINTERPRET_I32:
+    case WASM_OPCODE_F64_REINTERPRET_I64:
+      return kReinterpretInt;
+    case WASM_OPCODE_F64_CONVERT_F32:
+      return kPromoteFloat32;
+    default:
+      assert(false && "Unexpected opcode in before_convert");
+  }
+}
+
+static Type ConversionOperandType(Type result_type, ConversionOperator cvt) {
+  switch (cvt) {
+    case kExtendSInt32:
+    case kExtendUInt32:
+    case kConvertSInt32:
+    case kConvertUInt32:
+      return Type::kI32;
+    case kConvertSInt64:
+    case kConvertUInt64:
+    case kWrapInt64:
+      return Type::kI64;
+    case kReinterpretInt:
+      return result_type == Type::kF32 ? Type::kI32 : Type::kI64;
+    case kTruncSFloat32:
+    case kTruncUFloat32:
+    case kPromoteFloat32:
+      return Type::kF32;
+    case kTruncSFloat64:
+    case kTruncUFloat64:
+    case kDemoteFloat64:
+      return Type::kF64;
+    case kReinterpretFloat:
+      return result_type == Type::kI32 ? Type::kF32 : Type::kF64;
+    default:
+      assert(false && "Unexpected operator in before_convert");
+  }
+}
+
+void Parser::before_convert(WasmOpcode opcode) {
+  auto* expr = new Expression(Expression::kConvert);
+  expr->expr_type = ConversionResultType(opcode);
+  expr->cvt = ConvOperator(opcode);
+  expr->operand_type = ConversionOperandType(expr->expr_type, expr->cvt);
+  InsertAndPush(expr, 1);
 }
 
 void Parser::before_function(WasmModule* m, WasmFunction* f) {

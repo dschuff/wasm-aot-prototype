@@ -97,6 +97,26 @@ enum CompareOperator {
   kGe,
 };
 
+enum ConversionOperator {
+  // Int
+  kExtendSInt32,
+  kExtendUInt32,
+  kWrapInt64,
+  kTruncSFloat32,
+  kTruncUFloat32,
+  kTruncSFloat64,
+  kTruncUFloat64,
+  kReinterpretFloat,
+  // FP
+  kConvertSInt32,
+  kConvertUInt32,
+  kConvertSInt64,
+  kConvertUInt64,
+  kPromoteFloat32,
+  kDemoteFloat64,
+  kReinterpretInt,
+};
+
 class Literal {
  public:
   Type type = Type::kUnknown;
@@ -134,6 +154,7 @@ class Expression {
     kUnary,
     kBinary,
     kCompare,
+    kConvert,
   };
   Expression(ExpressionKind k) : kind(k) {}
   // Common
@@ -155,7 +176,12 @@ class Expression {
   // Compare
   Type compare_type = Type::kUnknown;
   CompareOperator relop;
-  // Common (block, call args, return/set_local vals, compare operands)
+  // Convert
+  ConversionOperator cvt;
+  //   Technically redundant with cvt, but handy to have.
+  Type operand_type = Type::kUnknown;
+  // Common (block, call args, return/set_local vals, compare operands,
+  // conversion operand)
   UniquePtrVector<Expression> exprs;
 };
 
