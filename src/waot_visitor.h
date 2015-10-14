@@ -84,6 +84,13 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                            llvm::Value* lhs,
                            llvm::Value* rhs,
                            llvm::IRBuilder<>* current_irb);
+  llvm::Constant* GetBinaryOpCallee(wasm::Type wasm_ty,
+                                    wasm::BinaryOperator binop);
+  llvm::Value* VisitCallBinop(wasm::Type wasm_ty,
+                              wasm::BinaryOperator binop,
+                              llvm::Value* lhs,
+                              llvm::Value* rhs,
+                              llvm::IRBuilder<>* current_irb);
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
 

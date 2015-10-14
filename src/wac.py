@@ -60,11 +60,11 @@ def Main(argv):
     if options.spec_test_script:
       wat_flags.append('-spec-test-script')
     log_call([os.path.join(runtime_libdir, 'wat')] + wat_flags)
-    log_call(['llc', ll_temp, '-filetype=obj', '-o', o_temp])
+    log_call(['llc', ll_temp, '-O0', '-filetype=obj', '-o', o_temp])
     objs.append(o_temp)
 
   log_call(['gcc', '-o', options.output] + objs +
-           ['-L'+runtime_libdir, '-l'+RUNTIME_LIB])
+           ['-L'+runtime_libdir, '-l'+RUNTIME_LIB, '-lm'])
 
 if __name__ == '__main__':
   sys.exit(Main(sys.argv[1:]))

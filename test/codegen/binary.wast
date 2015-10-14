@@ -50,10 +50,13 @@
     (i64.rem_u (get_local 2) (get_local 3))
 ;; CHECK: urem i64
     (f32.min (get_local 4) (get_local 5))
-;; TODO: implement min/max
+;; CHECK: call float @__wasm_float_min_f32(float %get_local{{.*}}, float %get_local{{.*}})
     (f64.min (get_local 6) (get_local 7))
+;; CHECK: call double @__wasm_float_min_f64(double %get_local{{.*}}, double %get_local{{.*}})
     (f32.max (get_local 4) (get_local 5))
+;; CHECK: call float @__wasm_float_max_f32(float %get_local{{.*}}, float %get_local{{.*}})
     (f64.max (get_local 6) (get_local 7))
+;; CHECK: call double @__wasm_float_max_f64(double %get_local{{.*}}, double %get_local{{.*}})
     (i32.and (get_local 0) (get_local 1))
 ;; CHECK: and i32
     (i64.and (get_local 2) (get_local 3))
@@ -91,4 +94,7 @@
 ;; CHECK: %shamt{{.*}} = select i1 %shamt_check{{.*}}, i64 63, i64 %get_local
 ;; CHECK: %shift_expr{{.*}} = ashr i64 %get_local{{.*}}, %shamt
     (f32.copysign (get_local 4) (get_local 5))
-    (f64.copysign (get_local 6) (get_local 7))))
+;; CHECK: call float @llvm.copysign.f32(float %get_local{{.*}}, float %get_local{{.*}})
+    (f64.copysign (get_local 6) (get_local 7)))
+;; CHECK: call double @llvm.copysign.f64(double %get_local{{.*}}, double %get_local{{.*}})
+)

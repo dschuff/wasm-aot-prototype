@@ -18,9 +18,9 @@
     (i64.ne (get_local 2) (get_local 3))
 ;; CHECK: icmp ne i64
     (f32.ne (get_local 4) (get_local 5))
-;; CHECK: fcmp one float
+;; CHECK: fcmp une float
     (f64.ne (get_local 6) (get_local 7))
-;; CHECK: fcmp one double
+;; CHECK: fcmp une double
     (i32.lt_s (get_local 0) (get_local 1))
 ;; CHECK: icmp slt i32
     (i64.lt_s (get_local 2) (get_local 3))

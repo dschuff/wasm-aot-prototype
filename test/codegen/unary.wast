@@ -1,8 +1,10 @@
 ;; RUN: wat -S %s | FileCheck %s
 (module
-  (func
-;;    (f32.neg (f32.const 0))
-;;    (f64.neg (f64.const 0))
+  (func (param f32) (param f64)
+    (f32.neg (get_local 0))
+;; CHECK: fsub float -0.000000e+00, %get_local
+    (f64.neg (get_local 1))
+;; CHECK: fsub double -0.000000e+00, %get_local
     (f32.abs (f32.const 0))
 ;; CHECK: call float @llvm.fabs.f32
     (f64.abs (f64.const 0))
@@ -36,6 +38,6 @@
     (f64.trunc (f64.const 0))
 ;; CHECK: call double @llvm.trunc.f64
     (f32.nearest (f32.const 0))
-;; CHECK: call float @llvm.round.f32
+;; CHECK: call float @llvm.rint.f32
     (f64.nearest (f64.const 0))))
-;; CHECK: call double @llvm.round.f64
+;; CHECK: call double @llvm.rint.f64

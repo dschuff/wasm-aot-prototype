@@ -68,6 +68,14 @@ static const char* TypeName(wasm::Type t) {
   }
 }
 
+static std::string RuntimeFuncName(const char* name) {
+  return std::string("__wasm_") + name;
+}
+
+static std::string RuntimeFuncName(const char* name, wasm::Type ty) {
+  return RuntimeFuncName(name) + "_" + TypeName(ty);
+}
+
 static std::string Mangle(const std::string& module,
                           const std::string& function) {
   return std::string("." + module + "." + function);
@@ -224,7 +232,7 @@ static CmpInst::Predicate GetFPPredicate(wasm::CompareOperator relop) {
     case wasm::kEq:
       return CmpInst::FCMP_OEQ;
     case wasm::kNE:
-      return CmpInst::FCMP_ONE;
+      return CmpInst::FCMP_UNE;
     case wasm::kLt:
       return CmpInst::FCMP_OLT;
     case wasm::kLe:
@@ -396,7 +404,7 @@ static const llvm::Intrinsic::ID GetUnaryOpIntrinsic(wasm::UnaryOperator unop) {
     case wasm::kTrunc:
       return llvm::Intrinsic::trunc;
     case wasm::kNearest:
-      return llvm::Intrinsic::round;
+      return llvm::Intrinsic::rint;
     case wasm::kSqrt:
       return llvm::Intrinsic::sqrt;
     default:
@@ -410,6 +418,11 @@ Value* WAOTVisitor::VisitUnop(wasm::Expression* expr,
   assert(operand->expr_type == expr->expr_type);
   Value* op = VisitExpression(operand);
   IRBuilder<> irb(current_bb_);
+  // FNeg is represented as fsub float -0.0, %val
+  if (unop == wasm::kNeg) {
+    return irb.CreateFSub(ConstantFP::get(getLLVMType(expr->expr_type), -0.0),
+                          op);
+  }
   Function* intrin = llvm::Intrinsic::getDeclaration(
       module_, GetUnaryOpIntrinsic(unop), getLLVMType(expr->expr_type));
   SmallVector<Value*, 2> args;
@@ -454,10 +467,8 @@ static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
       return Instruction::BinaryOps::AShr;
     case wasm::kDiv:
       return Instruction::BinaryOps::FDiv;
-    case wasm::kCopySign:
-    case wasm::kMin:
-    case wasm::kMax:
-      return Instruction::BinaryOps::FAdd;  // FIXME
+    default:
+      return Instruction::BinaryOps::BinaryOpsEnd;
   }
 }
 
@@ -492,7 +503,7 @@ static Value* VisitShift(Instruction::BinaryOps opcode,
 
 static Constant* GetTrapFunction(Module* module) {
   return module->getOrInsertFunction(
-      "__wasm_trap",
+      RuntimeFuncName("trap"),
       FunctionType::get(Type::getVoidTy(module->getContext()),
                         {Type::getInt32Ty(module->getContext())}, false));
 }
@@ -518,6 +529,35 @@ Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
   return next_irb.CreateBinOp(opcode, lhs, rhs);
 }
 
+Constant* WAOTVisitor::GetBinaryOpCallee(wasm::Type wasm_ty,
+                                         wasm::BinaryOperator binop) {
+  Type* expr_ty = getLLVMType(wasm_ty);
+  switch (binop) {
+    case wasm::kCopySign:
+      return llvm::Intrinsic::getDeclaration(module_, llvm::Intrinsic::copysign,
+                                             expr_ty);
+    case wasm::kMin:
+      return module_->getOrInsertFunction(
+          RuntimeFuncName("float_min", wasm_ty),
+          FunctionType::get(expr_ty, {expr_ty, expr_ty}, false));
+    case wasm::kMax:
+      return module_->getOrInsertFunction(
+          RuntimeFuncName("float_max", wasm_ty),
+          FunctionType::get(expr_ty, {expr_ty, expr_ty}, false));
+    default:
+      llvm_unreachable("Unexpected operator in GetBinaryOpIntrinsic");
+  }
+}
+
+Value* WAOTVisitor::VisitCallBinop(wasm::Type wasm_ty,
+                                   wasm::BinaryOperator binop,
+                                   Value* lhs,
+                                   Value* rhs,
+                                   IRBuilder<>* current_irb) {
+  Constant* callee = GetBinaryOpCallee(wasm_ty, binop);
+  return current_irb->CreateCall(callee, {lhs, rhs});
+}
+
 Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
                                wasm::BinaryOperator binop,
                                wasm::Expression* lhs,
@@ -536,6 +576,10 @@ Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
     case wasm::kRemS:
     case wasm::kRemU:
       return VisitDivide(opcode, lhs_value, rhs_value, &irb);
+    case wasm::kCopySign:
+    case wasm::kMin:
+    case wasm::kMax:
+      return VisitCallBinop(expr->expr_type, binop, lhs_value, rhs_value, &irb);
     default:
       break;
   }
@@ -547,9 +591,10 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
                                  wasm::CompareOperator relop,
                                  wasm::Expression* lhs,
                                  wasm::Expression* rhs) {
+  Value* lhs_val = VisitExpression(lhs);
+  Value* rhs_val = VisitExpression(rhs);
   IRBuilder<> irb(current_bb_);
-  return CreateCompare(getLLVMType(compare_type), relop, &irb,
-                       VisitExpression(lhs), VisitExpression(rhs),
+  return CreateCompare(getLLVMType(compare_type), relop, &irb, lhs_val, rhs_val,
                        "compare_epxr");
 }
 
@@ -620,7 +665,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   // and the expected and actual values.
   fail_irb.CreateCall(
       module_->getOrInsertFunction(
-          std::string("__wasm_assert_fail_") + TypeName(expected->expr_type),
+          RuntimeFuncName("assert_fail", expected->expr_type),
           FunctionType::get(
               Type::getVoidTy(ctx_),
               {Type::getInt32Ty(ctx_), getLLVMType(expected->expr_type),
@@ -653,7 +698,7 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   // For assert_return_nan the runtime function also does the check, and does
   // the appropriate thing on failure.
   Constant* assert_func = module_->getOrInsertFunction(
-      std::string("__wasm_assert_return_nan_") + TypeName(expr->type),
+      RuntimeFuncName("assert_return_nan", expr->type),
       FunctionType::get(Type::getVoidTy(ctx_),
                         {i32_ty, getLLVMType(expr->type)}, false));
   irb.CreateCall(assert_func,
@@ -682,8 +727,8 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
   // Call a runtime function which sets up a trap handler and calls the invoke.
   FunctionType* assert_trap_func_type = FunctionType::get(
       Type::getVoidTy(ctx_), {i32_ty, invoke_func->getType()}, false);
-  auto* assert_trap_func =
-      module_->getOrInsertFunction("__wasm_assert_trap", assert_trap_func_type);
+  auto* assert_trap_func = module_->getOrInsertFunction(
+      RuntimeFuncName("assert_trap"), assert_trap_func_type);
   irb.CreateCall(
       assert_trap_func,
       {ConstantInt::get(i32_ty, expr->source_loc.line), invoke_func});
