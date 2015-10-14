@@ -1,4 +1,5 @@
 #include "waot_visitor.h"
+#include "ast_dumper.h"
 #include "wart_trap.h"
 #include "wasm.h"
 
@@ -596,6 +597,44 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
   IRBuilder<> irb(current_bb_);
   return CreateCompare(getLLVMType(compare_type), relop, &irb, lhs_val, rhs_val,
                        "compare_epxr");
+}
+
+Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
+                                    wasm::ConversionOperator cvt,
+                                    wasm::Expression* operand) {
+  Value* operand_val = VisitExpression(operand);
+  IRBuilder<> irb(current_bb_);
+  Type* result_ty = getLLVMType(expr->expr_type);
+  const char* name = wasm::ConversionOpName(cvt);
+  switch (cvt) {
+    case wasm::kExtendSInt32:
+      return irb.CreateSExt(operand_val, result_ty, name);
+    case wasm::kExtendUInt32:
+      return irb.CreateZExt(operand_val, result_ty, name);
+    case wasm::kWrapInt64:
+      return irb.CreateTrunc(operand_val, result_ty, name);
+    case wasm::kTruncSFloat32:
+    case wasm::kTruncSFloat64:
+      return irb.CreateFPToSI(operand_val, result_ty, name);
+    case wasm::kTruncUFloat32:
+    case wasm::kTruncUFloat64:
+      return irb.CreateFPToUI(operand_val, result_ty, name);
+    case wasm::kReinterpretFloat:
+    case wasm::kReinterpretInt:
+      return irb.CreateBitCast(operand_val, result_ty, name);
+    case wasm::kConvertSInt32:
+    case wasm::kConvertSInt64:
+      return irb.CreateSIToFP(operand_val, result_ty, name);
+    case wasm::kConvertUInt32:
+    case wasm::kConvertUInt64:
+      return irb.CreateUIToFP(operand_val, result_ty, name);
+    case wasm::kPromoteFloat32:
+      return irb.CreateFPExt(operand_val, result_ty, name);
+    case wasm::kDemoteFloat64:
+      return irb.CreateFPTrunc(operand_val, result_ty, name);
+    default:
+      llvm_unreachable("Unexpected operator in VisitConversion");
+  }
 }
 
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,

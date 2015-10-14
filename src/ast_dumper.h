@@ -74,5 +74,6 @@ protected:
 };
 
 void DumpExpr(Expression* expr, bool dump_types);
+const char* ConversionOpName(ConversionOperator cvt);
 }
 #endif // AST_DUMPER_H

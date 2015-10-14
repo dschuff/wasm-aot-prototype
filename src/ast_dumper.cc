@@ -345,7 +345,7 @@ void AstDumper::VisitCompare(Expression* expr,
   printf(")\n");
 }
 
-static const char* ConversionOpName(ConversionOperator cvt) {
+const char* ConversionOpName(ConversionOperator cvt) {
   switch (cvt) {
     case kExtendSInt32:
       return "extend_s";
