@@ -88,6 +88,10 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitDivide(llvm::Instruction::BinaryOps opcode,
                            llvm::Value* lhs,
                            llvm::Value* rhs);
+  void TrapIfNaN(llvm::Value* operand);
+  void ToIntRangeCheck(llvm::Value* operand,
+                       llvm::Type* dest_type,
+                       bool is_signed);
   llvm::Constant* GetBinaryOpCallee(wasm::Type wasm_ty,
                                     wasm::BinaryOperator binop);
   llvm::Value* VisitCallBinop(wasm::Type wasm_ty,

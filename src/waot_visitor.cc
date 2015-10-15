@@ -585,6 +585,51 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
                        rhs_val, "compare_epxr");
 }
 
+void WAOTVisitor::TrapIfNaN(Value* lhs) {
+  Value* cmp = irb_.CreateFCmp(CmpInst::FCMP_ORD, lhs, lhs, "nan_check");
+  auto* next_bb = BasicBlock::Create(ctx_, "conv.next", current_func_);
+  auto* trap_bb = BasicBlock::Create(ctx_, "conv.trap", current_func_);
+  irb_.CreateCondBr(cmp, next_bb, trap_bb);
+  irb_.SetInsertPoint(trap_bb);
+  irb_.CreateCall(GetTrapFunction(module_),
+                  {ConstantInt::get(Type::getInt32Ty(ctx_),
+                                    wart::kInvalidConversionToInteger)});
+  irb_.CreateUnreachable();
+  irb_.SetInsertPoint(next_bb);
+}
+
+void WAOTVisitor::ToIntRangeCheck(Value* operand,
+                                  Type* dest_type,
+                                  bool is_signed) {
+  double maxval, minval;
+  CmpInst::Predicate min_pred = CmpInst::FCMP_ULT;
+  minval = llvm::APInt::getSignedMinValue(dest_type->getIntegerBitWidth())
+               .signedRoundToDouble();
+  maxval = -minval;
+  if (!is_signed) {
+    maxval = -minval * 2.0;
+    minval = -1.0;
+    min_pred = CmpInst::FCMP_ULE;
+  }
+
+  Value* cmp1 =
+      irb_.CreateFCmp(CmpInst::FCMP_UGE, operand,
+                      ConstantFP::get(operand->getType(), maxval), "ovf_upper");
+  Value* cmp2 =
+      irb_.CreateFCmp(min_pred, operand,
+                      ConstantFP::get(operand->getType(), minval), "ovf_lower");
+  Value* should_trap = irb_.CreateOr(cmp1, cmp2, "overflow_check");
+  auto* next_bb = BasicBlock::Create(ctx_, "conv.next", current_func_);
+  auto* trap_bb = BasicBlock::Create(ctx_, "conv.trap", current_func_);
+  irb_.CreateCondBr(should_trap, trap_bb, next_bb);
+  irb_.SetInsertPoint(trap_bb);
+  irb_.CreateCall(
+      GetTrapFunction(module_),
+      {ConstantInt::get(irb_.getInt32Ty(), wart::kIntegerOverflow)});
+  irb_.CreateUnreachable();
+  irb_.SetInsertPoint(next_bb);
+}
+
 Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
                                     wasm::ConversionOperator cvt,
                                     wasm::Expression* operand) {
@@ -600,9 +645,13 @@ Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
       return irb_.CreateTrunc(operand_val, result_ty, name);
     case wasm::kTruncSFloat32:
     case wasm::kTruncSFloat64:
+      TrapIfNaN(operand_val);
+      ToIntRangeCheck(operand_val, result_ty, true);
       return irb_.CreateFPToSI(operand_val, result_ty, name);
     case wasm::kTruncUFloat32:
     case wasm::kTruncUFloat64:
+      TrapIfNaN(operand_val);
+      ToIntRangeCheck(operand_val, result_ty, false);
       return irb_.CreateFPToUI(operand_val, result_ty, name);
     case wasm::kReinterpretFloat:
     case wasm::kReinterpretInt:
