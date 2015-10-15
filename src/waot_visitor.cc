@@ -133,15 +133,12 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
 
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
-  assert(current_bb_ == nullptr);
-  current_bb_ = bb;
-
-  IRBuilder<> irb(bb);
+  irb_.SetInsertPoint(bb);
 
   unsigned i = 0;
   for (auto& local : func.locals) {
     current_locals_.push_back(
-        irb.CreateAlloca(getLLVMType(local->type), nullptr));
+        irb_.CreateAlloca(getLLVMType(local->type), nullptr));
     if (!local->local_name.empty()) {
       current_locals_.back()->setName(local->local_name.c_str());
     } else if (i < func.args.size()) {
@@ -153,7 +150,7 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
   }
   i = 0;
   for (auto& arg : f->args()) {
-    irb.CreateStore(&arg, current_locals_[i++]);
+    irb_.CreateStore(&arg, current_locals_[i++]);
   }
 
   Value* last_value = nullptr;
@@ -161,19 +158,18 @@ void WAOTVisitor::VisitFunction(const wasm::Function& func) {
     last_value = VisitExpression(expr.get());
   }
   // Handle implicit return of the last expression
-  if (!current_bb_->getTerminator()) {
-    IRBuilder<> irb_end(current_bb_);
+  auto* current_bb = irb_.GetInsertBlock();
+  if (!current_bb->getTerminator()) {
     if (func.result_type == wasm::Type::kVoid) {
-      irb_end.CreateRetVoid();
+      irb_.CreateRetVoid();
     } else {
       assert(func.body.size());
-      irb_end.CreateRet(
-          PromoteI1(last_value, getLLVMType(func.result_type), &irb_end, ctx_));
+      irb_.CreateRet(
+          PromoteI1(last_value, getLLVMType(func.result_type), &irb_, ctx_));
     }
   }
   current_func_ = nullptr;
   current_locals_.clear();
-  current_bb_ = nullptr;
 }
 
 void WAOTVisitor::VisitImport(const wasm::Import& imp) {
@@ -268,47 +264,45 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
                             wasm::Expression* condition,
                             wasm::Expression* then,
                             wasm::Expression* els) {
-  IRBuilder<> irb(current_bb_);
   // TODO: convert to i32
   Value* cmp_result = CreateCompare(
-      Type::getInt32Ty(ctx_), wasm::kNE, &irb, VisitExpression(condition),
+      Type::getInt32Ty(ctx_), wasm::kNE, &irb_, VisitExpression(condition),
       ConstantInt::get(Type::getInt32Ty(ctx_), 0), "if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
   auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
   auto* end_bb = BasicBlock::Create(ctx_, "if.end", current_func_);
-  irb.CreateCondBr(cmp_result, then_bb, else_bb);
-
-  current_bb_ = then_bb;
+  irb_.CreateCondBr(cmp_result, then_bb, else_bb);
+  irb_.SetInsertPoint(then_bb);
   Value* then_expr = VisitExpression(then);
   if (then_expr && isa<TerminatorInst>(then_expr)) {
     assert(isa<ReturnInst>(then_expr));
   } else {
-    BranchInst::Create(end_bb, current_bb_);
+    irb_.CreateBr(end_bb);
   }
-  then_bb = current_bb_;
+  then_bb = irb_.GetInsertBlock();
 
   Value* else_expr = nullptr;
-  current_bb_ = else_bb;
+  irb_.SetInsertPoint(else_bb);
   if (els) {
     else_expr = VisitExpression(els);
     if (else_expr && isa<TerminatorInst>(else_expr)) {
       assert(isa<ReturnInst>(else_expr));
     } else {
-      BranchInst::Create(end_bb, current_bb_);
+      irb_.CreateBr(end_bb);
     }
   } else {
-    BranchInst::Create(end_bb, current_bb_);
+    irb_.CreateBr(end_bb);
   }
-  else_bb = current_bb_;
+  else_bb = irb_.GetInsertBlock();
 
   Value* ret = nullptr;
   if (expr->expected_type != wasm::Type::kVoid) {
     Type* expr_type = getLLVMType(expr->expected_type);
-    IRBuilder<> end_irb(end_bb);
+    irb_.SetInsertPoint(end_bb);
     if (!isa<TerminatorInst>(then_expr) ||
         (else_expr && !isa<TerminatorInst>(else_expr))) {
-      auto* phi = end_irb.CreatePHI(expr_type, 2, "if.result");
+      auto* phi = irb_.CreatePHI(expr_type, 2, "if.result");
       if (then_expr && !isa<TerminatorInst>(then_expr)) {
         phi->addIncoming(then_expr, then_bb);
       } else {
@@ -321,10 +315,10 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
       }
       ret = phi;
     } else {
-      end_irb.CreateUnreachable();
+      irb_.CreateUnreachable();
     }
   }
-  current_bb_ = end_bb;
+  irb_.SetInsertPoint(end_bb);
 
   return ret;
 }
@@ -334,13 +328,11 @@ Value* WAOTVisitor::VisitCall(wasm::Expression* expr,
                               wasm::Callable* callee,
                               int callee_index,
                               wasm::UniquePtrVector<wasm::Expression>* args) {
-  assert(current_bb_);
   SmallVector<Value*, 8> arg_values;
   for (auto& arg : *args) {
     arg_values.push_back(VisitExpression(arg.get()));
   }
-  IRBuilder<> irb(current_bb_);
-  return irb.CreateCall(functions_[callee], arg_values);
+  return irb_.CreateCall(functions_[callee], arg_values);
 }
 
 Value* WAOTVisitor::VisitReturn(
@@ -349,24 +341,21 @@ Value* WAOTVisitor::VisitReturn(
   Value* retval = nullptr;
   if (value->size())
     retval = VisitExpression(value->front().get());
-  IRBuilder<> irb(current_bb_);
-  return irb.CreateRet(
-      PromoteI1(retval, current_func_->getReturnType(), &irb, ctx_));
+  return irb_.CreateRet(
+      PromoteI1(retval, current_func_->getReturnType(), &irb_, ctx_));
 }
 
 Value* WAOTVisitor::VisitGetLocal(wasm::Expression* expr, wasm::Variable* var) {
-  IRBuilder<> irb(current_bb_);
   auto* load_addr = current_locals_[var->index];
-  return irb.CreateLoad(getLLVMType(var->type), load_addr, "get_local");
+  return irb_.CreateLoad(getLLVMType(var->type), load_addr, "get_local");
 }
 
 Value* WAOTVisitor::VisitSetLocal(wasm::Expression* expr,
                                   wasm::Variable* var,
                                   wasm::Expression* value) {
   Value* store_addr = current_locals_[var->index];
-  IRBuilder<> irb(current_bb_);
   auto* store_value = VisitExpression(value);
-  return irb.CreateStore(store_value, store_addr);
+  return irb_.CreateStore(store_value, store_addr);
 }
 
 Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
@@ -418,11 +407,10 @@ Value* WAOTVisitor::VisitUnop(wasm::Expression* expr,
                               wasm::Expression* operand) {
   assert(operand->expr_type == expr->expr_type);
   Value* op = VisitExpression(operand);
-  IRBuilder<> irb(current_bb_);
   // FNeg is represented as fsub float -0.0, %val
   if (unop == wasm::kNeg) {
-    return irb.CreateFSub(ConstantFP::get(getLLVMType(expr->expr_type), -0.0),
-                          op);
+    return irb_.CreateFSub(ConstantFP::get(getLLVMType(expr->expr_type), -0.0),
+                           op);
   }
   Function* intrin = llvm::Intrinsic::getDeclaration(
       module_, GetUnaryOpIntrinsic(unop), getLLVMType(expr->expr_type));
@@ -431,7 +419,7 @@ Value* WAOTVisitor::VisitUnop(wasm::Expression* expr,
   // For Clt/Ctz, we want 0 to produce a defined result.
   if (unop == wasm::kClz || unop == wasm::kCtz)
     args.push_back(ConstantInt::getFalse(Type::getInt1Ty(ctx_)));
-  return irb.CreateCall(intrin, args, "unop_expr");
+  return irb_.CreateCall(intrin, args, "unop_expr");
 }
 
 static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
@@ -511,23 +499,21 @@ static Constant* GetTrapFunction(Module* module) {
 
 Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
                                 Value* lhs,
-                                Value* rhs,
-                                IRBuilder<>* current_irb) {
+                                Value* rhs) {
   Value* cmp_result =
-      CreateCompare(rhs->getType(), wasm::kEq, current_irb, rhs,
+      CreateCompare(rhs->getType(), wasm::kEq, &irb_, rhs,
                     ConstantInt::get(rhs->getType(), 0), "divzero_check");
   auto* next_bb = BasicBlock::Create(ctx_, "div.next", current_func_);
   auto* trap_bb = BasicBlock::Create(ctx_, "div.trap", current_func_);
-  current_irb->CreateCondBr(cmp_result, trap_bb, next_bb);
-  IRBuilder<> trap_irb(trap_bb);
-  trap_irb.CreateCall(
+  irb_.CreateCondBr(cmp_result, trap_bb, next_bb);
+  irb_.SetInsertPoint(trap_bb);
+  irb_.CreateCall(
       GetTrapFunction(module_),
       {ConstantInt::get(Type::getInt32Ty(ctx_), wart::kIntegerDivideByZero)});
-  trap_irb.CreateUnreachable();
+  irb_.CreateUnreachable();
 
-  current_bb_ = next_bb;
-  IRBuilder<> next_irb(next_bb);
-  return next_irb.CreateBinOp(opcode, lhs, rhs);
+  irb_.SetInsertPoint(next_bb);
+  return irb_.CreateBinOp(opcode, lhs, rhs);
 }
 
 Constant* WAOTVisitor::GetBinaryOpCallee(wasm::Type wasm_ty,
@@ -566,25 +552,25 @@ Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
   Instruction::BinaryOps opcode = GetBinopOpcode(expr->expr_type, binop);
   Value* lhs_value = VisitExpression(lhs);
   Value* rhs_value = VisitExpression(rhs);
-  IRBuilder<> irb(current_bb_);
   switch (binop) {
     case wasm::kShl:
     case wasm::kShrU:
     case wasm::kShrS:
-      return VisitShift(opcode, lhs_value, rhs_value, &irb);
+      return VisitShift(opcode, lhs_value, rhs_value, &irb_);
     case wasm::kDivS:
     case wasm::kDivU:
     case wasm::kRemS:
     case wasm::kRemU:
-      return VisitDivide(opcode, lhs_value, rhs_value, &irb);
+      return VisitDivide(opcode, lhs_value, rhs_value);
     case wasm::kCopySign:
     case wasm::kMin:
     case wasm::kMax:
-      return VisitCallBinop(expr->expr_type, binop, lhs_value, rhs_value, &irb);
+      return VisitCallBinop(expr->expr_type, binop, lhs_value, rhs_value,
+                            &irb_);
     default:
       break;
   }
-  return irb.CreateBinOp(opcode, lhs_value, rhs_value);
+  return irb_.CreateBinOp(opcode, lhs_value, rhs_value);
 }
 
 Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
@@ -594,44 +580,42 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
                                  wasm::Expression* rhs) {
   Value* lhs_val = VisitExpression(lhs);
   Value* rhs_val = VisitExpression(rhs);
-  IRBuilder<> irb(current_bb_);
-  return CreateCompare(getLLVMType(compare_type), relop, &irb, lhs_val, rhs_val,
-                       "compare_epxr");
+  return CreateCompare(getLLVMType(compare_type), relop, &irb_, lhs_val,
+                       rhs_val, "compare_epxr");
 }
 
 Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
                                     wasm::ConversionOperator cvt,
                                     wasm::Expression* operand) {
   Value* operand_val = VisitExpression(operand);
-  IRBuilder<> irb(current_bb_);
   Type* result_ty = getLLVMType(expr->expr_type);
   const char* name = wasm::ConversionOpName(cvt);
   switch (cvt) {
     case wasm::kExtendSInt32:
-      return irb.CreateSExt(operand_val, result_ty, name);
+      return irb_.CreateSExt(operand_val, result_ty, name);
     case wasm::kExtendUInt32:
-      return irb.CreateZExt(operand_val, result_ty, name);
+      return irb_.CreateZExt(operand_val, result_ty, name);
     case wasm::kWrapInt64:
-      return irb.CreateTrunc(operand_val, result_ty, name);
+      return irb_.CreateTrunc(operand_val, result_ty, name);
     case wasm::kTruncSFloat32:
     case wasm::kTruncSFloat64:
-      return irb.CreateFPToSI(operand_val, result_ty, name);
+      return irb_.CreateFPToSI(operand_val, result_ty, name);
     case wasm::kTruncUFloat32:
     case wasm::kTruncUFloat64:
-      return irb.CreateFPToUI(operand_val, result_ty, name);
+      return irb_.CreateFPToUI(operand_val, result_ty, name);
     case wasm::kReinterpretFloat:
     case wasm::kReinterpretInt:
-      return irb.CreateBitCast(operand_val, result_ty, name);
+      return irb_.CreateBitCast(operand_val, result_ty, name);
     case wasm::kConvertSInt32:
     case wasm::kConvertSInt64:
-      return irb.CreateSIToFP(operand_val, result_ty, name);
+      return irb_.CreateSIToFP(operand_val, result_ty, name);
     case wasm::kConvertUInt32:
     case wasm::kConvertUInt64:
-      return irb.CreateUIToFP(operand_val, result_ty, name);
+      return irb_.CreateUIToFP(operand_val, result_ty, name);
     case wasm::kPromoteFloat32:
-      return irb.CreateFPExt(operand_val, result_ty, name);
+      return irb_.CreateFPExt(operand_val, result_ty, name);
     case wasm::kDemoteFloat64:
-      return irb.CreateFPTrunc(operand_val, result_ty, name);
+      return irb_.CreateFPTrunc(operand_val, result_ty, name);
     default:
       llvm_unreachable("Unexpected operator in VisitConversion");
   }
@@ -652,18 +636,17 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
-  current_bb_ = bb;
+  irb_.SetInsertPoint(bb);
   current_func_ = f;
   Value* call = VisitCall(nullptr, false, callee->function,
                           callee->function->index_in_module, args);
 
-  IRBuilder<> irb(bb);
+  irb_.SetInsertPoint(bb);
   if (ret_type->isVoidTy()) {
-    irb.CreateRetVoid();
+    irb_.CreateRetVoid();
   } else {
-    irb.CreateRet(call);
+    irb_.CreateRet(call);
   }
-  current_bb_ = nullptr;
   return f;
 }
 
@@ -682,27 +665,29 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
                        Function::ExternalLinkage, "AssertReturn", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
-  current_bb_ = bb;
+  irb_.SetInsertPoint(bb);
   current_func_ = f;
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
-  IRBuilder<> irb(bb);
-  Value* result = irb.CreateCall(invoke_func, {});
+  irb_.SetInsertPoint(bb);
+  Value* result = irb_.CreateCall(invoke_func, {});
   // TODO: simplify this, now that only const exprs will be allowed?
   Value* expected_result = VisitExpression(expected);
 
   assert(result->getType() == expected_result->getType());
-  Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb, result,
+  Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb_, result,
                                     expected_result, "assert_check");
 
   BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
   llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
 
   BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
-  IRBuilder<> fail_irb(fail_bb);
+  irb_.CreateCondBr(cmp_result, success_bb, fail_bb);
+  irb_.SetInsertPoint(fail_bb);
+
   // Call a runtime function, passing it the assertion line number, the type,
   // and the expected and actual values.
-  fail_irb.CreateCall(
+  irb_.CreateCall(
       module_->getOrInsertFunction(
           RuntimeFuncName("assert_fail", expected->expr_type),
           FunctionType::get(
@@ -713,10 +698,7 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
       {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
        expected_result, result});
 
-  fail_irb.CreateRetVoid();
-  irb.CreateCondBr(cmp_result, success_bb, fail_bb);
-
-  current_bb_ = nullptr;
+  irb_.CreateRetVoid();
   return f;
 }
 
@@ -727,23 +709,22 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                        Function::ExternalLinkage, "AssertReturnNaN", module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
-  current_bb_ = bb;
+  irb_.SetInsertPoint(bb);
   current_func_ = f;
   Type* i32_ty = Type::getInt32Ty(ctx_);
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
-  IRBuilder<> irb(bb);
-  Value* result = irb.CreateCall(invoke_func, {});
+  irb_.SetInsertPoint(bb);
+  Value* result = irb_.CreateCall(invoke_func, {});
   // For assert_return_nan the runtime function also does the check, and does
   // the appropriate thing on failure.
   Constant* assert_func = module_->getOrInsertFunction(
       RuntimeFuncName("assert_return_nan", expr->type),
       FunctionType::get(Type::getVoidTy(ctx_),
                         {i32_ty, getLLVMType(expr->type)}, false));
-  irb.CreateCall(assert_func,
-                 {ConstantInt::get(i32_ty, expr->source_loc.line), result});
-  irb.CreateRetVoid();
-  current_bb_ = nullptr;
+  irb_.CreateCall(assert_func,
+                  {ConstantInt::get(i32_ty, expr->source_loc.line), result});
+  irb_.CreateRetVoid();
   return f;
 }
 
@@ -755,24 +736,23 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   current_func_ = f;
-  current_bb_ = bb;
+  irb_.SetInsertPoint(bb);
   Type* i32_ty = Type::getInt32Ty(ctx_);
 
   // Set the invoke's type so VisitInvoke will return a void function
   invoke->type = wasm::Type::kVoid;
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
-  IRBuilder<> irb(bb);
+  irb_.SetInsertPoint(bb);
   // Call a runtime function which sets up a trap handler and calls the invoke.
   FunctionType* assert_trap_func_type = FunctionType::get(
       Type::getVoidTy(ctx_), {i32_ty, invoke_func->getType()}, false);
   auto* assert_trap_func = module_->getOrInsertFunction(
       RuntimeFuncName("assert_trap"), assert_trap_func_type);
-  irb.CreateCall(
+  irb_.CreateCall(
       assert_trap_func,
       {ConstantInt::get(i32_ty, expr->source_loc.line), invoke_func});
 
-  irb.CreateRetVoid();
-  current_bb_ = nullptr;
+  irb_.CreateRetVoid();
   return f;
 }

@@ -19,7 +19,9 @@ class FunctionInfo;
 class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
  public:
   WAOTVisitor(llvm::Module* llvm_module)
-      : module_(llvm_module), ctx_(llvm_module->getContext()) {}
+      : module_(llvm_module),
+        ctx_(llvm_module->getContext()),
+        irb_(llvm_module->getContext()) {}
 
  protected:
   llvm::Module* VisitModule(const wasm::Module& mod) override;
@@ -85,8 +87,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Constant* getAssertFailFunc(wasm::Type ty);
   llvm::Value* VisitDivide(llvm::Instruction::BinaryOps opcode,
                            llvm::Value* lhs,
-                           llvm::Value* rhs,
-                           llvm::IRBuilder<>* current_irb);
+                           llvm::Value* rhs);
   llvm::Constant* GetBinaryOpCallee(wasm::Type wasm_ty,
                                     wasm::BinaryOperator binop);
   llvm::Value* VisitCallBinop(wasm::Type wasm_ty,
@@ -100,5 +101,5 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
   llvm::Function* current_func_ = nullptr;
   std::vector<llvm::Value*> current_locals_;
-  llvm::BasicBlock* current_bb_ = nullptr;
+  llvm::IRBuilder<> irb_;
 };
