@@ -814,16 +814,7 @@ WasmParserCookie Parser::before_assert_return(WasmSourceLocation loc) {
   test_script.emplace_back(
       new TestScriptExpr(last_module, TestScriptExpr::kAssertReturn, loc));
   current_assert_return_ = test_script.back().get();
-  ResetInsertionPoint(&current_assert_return_->exprs, 1);
-  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
-}
-
-WasmParserCookie Parser::before_assert_return_nan(WasmSourceLocation loc) {
-  assert(modules.size() && !module);
-  Module* last_module = modules.back().get();
-  test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturnNaN, loc));
-  current_assert_return_ = test_script.back().get();
+  ResetInsertionPoint(&current_assert_return_->exprs, kUnknownExpectedExprs);
   return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
 
@@ -833,10 +824,25 @@ void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   // expectations down to the expectation expr tree.
   expr->type = ty;
   expr->invoke->type = ty;
-  expr->exprs.front()->expected_type = ty;
   TypeChecker checker = {};
-  checker.VisitExpression(expr->exprs.front().get());
+  if (expr->exprs.size()) {
+    assert(ty != WASM_TYPE_VOID);
+    expr->exprs.front()->expected_type = ty;
+    checker.VisitExpression(expr->exprs.front().get());
+  } else {
+    assert(ty == WASM_TYPE_VOID);
+  }
   checker.Visit(expr);
+  PopInsertionPoint();
+}
+
+WasmParserCookie Parser::before_assert_return_nan(WasmSourceLocation loc) {
+  assert(modules.size() && !module);
+  Module* last_module = modules.back().get();
+  test_script.emplace_back(
+      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturnNaN, loc));
+  current_assert_return_ = test_script.back().get();
+  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
 }
 
 void Parser::after_assert_return_nan(WasmType ty, WasmParserCookie cookie) {

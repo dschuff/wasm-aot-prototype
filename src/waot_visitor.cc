@@ -710,9 +710,10 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   return f;
 }
 
-Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
-                                      wasm::TestScriptExpr* invoke,
-                                      wasm::Expression* expected) {
+Value* WAOTVisitor::VisitAssertReturn(
+    wasm::TestScriptExpr* expr,
+    wasm::TestScriptExpr* invoke,
+    wasm::UniquePtrVector<wasm::Expression>* expected) {
   // Generate a function @AssertReturn which calls the @Invoke function (which
   // was returned by VisitInvoke), evaluates the expectation expression,
   // compares the results, and calls a runtime function if they do not match.
@@ -733,32 +734,32 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   irb_.SetInsertPoint(bb);
   Value* result = irb_.CreateCall(invoke_func, {});
   // TODO: simplify this, now that only const exprs will be allowed?
-  Value* expected_result = VisitExpression(expected);
+  if (expected->size()) {
+    Value* expected_result = VisitExpression(expected->front().get());
 
-  assert(result->getType() == expected_result->getType());
-  Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb_, result,
-                                    expected_result, "assert_check");
+    assert(result->getType() == expected_result->getType());
+    Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb_,
+                                      result, expected_result, "assert_check");
 
-  BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
-  llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
+    BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
+    llvm::ReturnInst::Create(ctx_, nullptr, success_bb);
 
-  BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
-  irb_.CreateCondBr(cmp_result, success_bb, fail_bb);
-  irb_.SetInsertPoint(fail_bb);
+    BasicBlock* fail_bb = BasicBlock::Create(ctx_, "AssertFail", f);
+    irb_.CreateCondBr(cmp_result, success_bb, fail_bb);
+    irb_.SetInsertPoint(fail_bb);
 
-  // Call a runtime function, passing it the assertion line number, the type,
-  // and the expected and actual values.
-  irb_.CreateCall(
-      module_->getOrInsertFunction(
-          RuntimeFuncName("assert_fail", expected->expr_type),
-          FunctionType::get(
-              Type::getVoidTy(ctx_),
-              {Type::getInt32Ty(ctx_), getLLVMType(expected->expr_type),
-               getLLVMType(expected->expr_type)},
-              false)),
-      {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
-       expected_result, result});
-
+    // Call a runtime function, passing it the assertion line number, the type,
+    // and the expected and actual values.
+    Type* expected_type = getLLVMType(expected->front()->expr_type);
+    irb_.CreateCall(
+        module_->getOrInsertFunction(
+            RuntimeFuncName("assert_fail", expected->front()->expr_type),
+            FunctionType::get(
+                Type::getVoidTy(ctx_),
+                {Type::getInt32Ty(ctx_), expected_type, expected_type}, false)),
+        {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
+         expected_result, result});
+  }
   irb_.CreateRetVoid();
   return f;
 }

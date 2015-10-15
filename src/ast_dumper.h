@@ -61,7 +61,7 @@ protected:
                    UniquePtrVector<Expression>* args) override;
   void VisitAssertReturn(TestScriptExpr* expr,
                          TestScriptExpr* invoke_arg,
-                         Expression* expected) override;
+                         UniquePtrVector<Expression>* expected) override;
   void VisitAssertReturnNaN(TestScriptExpr* expr,
                             TestScriptExpr* invoke_arg) override;
   void VisitAssertTrap(TestScriptExpr* expr,

@@ -402,12 +402,13 @@ void AstDumper::VisitInvoke(TestScriptExpr* expr,
 
 void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
                                   TestScriptExpr* invoke_arg,
-                                  Expression* expected) {
+                                  UniquePtrVector<Expression>* expected) {
   printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
          expr->source_loc.line);
   printf("(assert_return ");
   Visit(invoke_arg);
-  VisitExpression(expected);
+  if (expected->size())
+    VisitExpression(expected->front().get());
   printf(")\n");
 }
 

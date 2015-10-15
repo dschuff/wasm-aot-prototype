@@ -166,8 +166,7 @@ public:
       case TestScriptExpr::kInvoke:
         return VisitInvoke(expr, expr->callee, &expr->exprs);
       case TestScriptExpr::kAssertReturn:
-        return VisitAssertReturn(expr, expr->invoke.get(),
-                                 expr->exprs[0].get());
+        return VisitAssertReturn(expr, expr->invoke.get(), &expr->exprs);
       case TestScriptExpr::kAssertReturnNaN:
         return VisitAssertReturnNaN(expr, expr->invoke.get());
       case TestScriptExpr::kAssertTrap:
@@ -185,9 +184,11 @@ public:
   }
   virtual ExprVal VisitAssertReturn(TestScriptExpr* expr,
                                     TestScriptExpr* arg,
-                                    Expression* expected) {
+                                    UniquePtrVector<Expression>* expected) {
     Visit(arg);
-    VisitExpression(expected);
+    assert(expected->size() <= 1);
+    if (expected->size())
+      VisitExpression(expected->front().get());
     return ExprVal();
   }
   virtual ExprVal VisitAssertReturnNaN(TestScriptExpr* expr,
