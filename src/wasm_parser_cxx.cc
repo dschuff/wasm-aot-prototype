@@ -738,12 +738,13 @@ void Parser::before_module(WasmModule* m) {
 
   for (size_t i = 0; i < m->imports.size; ++i) {
     const WasmImport& parser_import = m->imports.data[i];
-    module->imports.emplace_back(new Import(parser_import.result_type,
+    module->imports.emplace_back(new Import(parser_import.signature.result_type,
                                             parser_import.module_name,
                                             parser_import.func_name));
     Import* imp = module->imports.back().get();
-    for (size_t j = 0; j < parser_import.args.size; ++j) {
-      imp->locals.emplace_back(new Variable(parser_import.args.data[j].type));
+    for (size_t j = 0; j < parser_import.signature.args.size; ++j) {
+      imp->locals.emplace_back(
+          new Variable(parser_import.signature.args.data[j].type));
       imp->args.push_back(imp->locals.back().get());
     }
   }

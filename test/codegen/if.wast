@@ -10,7 +10,7 @@
 ;; CHECK: if.end:
 ;; CHECK: ret void
 
- (func (result i32) (param i32)
+ (func (param i32) (result i32)
     (if (get_local 0)
       (return (i32.const 2))
       (return (i32.const 3))))
@@ -29,7 +29,7 @@
  ;; (if (i32.const 2)
  ;;   (return (i32.const 1)) (i32.const 3)))
 
- (func (result i64) (param i64) (param i64) (return
+ (func (param i64) (param i64) (result i64) (return
   (if (i32.const 1) (get_local 0)(get_local 1))))
 ;; CHECK: br i1 true, label %if.then, label %if.else
 ;; CHECK: if.then:
@@ -41,7 +41,7 @@
 ;; CHECK-NEXT: ret i64 %if.result
 
 
- (func (result f32) (param f32) (param f32)
+ (func (param f32) (param f32) (result f32)
   (block
    (i64.const 2)
    (nop)
@@ -64,7 +64,7 @@
  )
 
 
- (func (result i64) (param i32) (param i32)
+ (func (param i32) (param i32) (result i64)
   (if (get_local 0)
 ;; CHECK: %get_local = load i32, i32* %arg
 ;; CHECK: %if_cmp = icmp ne i32 %get_local, 0

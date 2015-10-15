@@ -8,7 +8,7 @@
  (func (param i32) (get_local 0))
  (func (param i64) (local i32) (get_local 0) (get_local 1))
  (func (param i64) (local i32) (get_local 1) (get_local 0))
- (func (result f32) (param i64) (local i32)
+ (func (param i64) (result f32) (local i32)
   (get_local 0)
   (get_local 1)
   (f32.const 1.0))

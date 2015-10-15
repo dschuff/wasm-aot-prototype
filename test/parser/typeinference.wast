@@ -27,7 +27,7 @@
  )
 
 ;; check that type is passed through blocks/implicit blocks
- (func (result i64) (param f64) (param i32)
+ (func (param f64) (param i32) (result i64)
        (local f32) (local i64) (local f64) (local i32)
   (get_local 0)
 ;; CHECK: [void->f64](get_local 0)
@@ -46,7 +46,7 @@
  )
 
 ;; check polymorphic return
-(func (result f32)(param f32)(return (get_local 0)))
+(func(param f32) (result f32) (return (get_local 0)))
 ;; CHECK: [f32->(any)](return
 ;; CHECK: [f32->f32](get_local
 
@@ -64,7 +64,7 @@
 (func (local i64) (call_import 0 (get_local 0)))
 ;; CHECK: [void->f32](call_import
 ;; CHECK: [i64->i64](get_local 0
-(func $foo (result f64) (param f64) (f64.const 2))
+(func $foo (param f64) (result f64) (f64.const 2))
 (export "foo" $foo) ;; param f64
 
 (func (i64.extend_u/i32 (i32.const 0)))
