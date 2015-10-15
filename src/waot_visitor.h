@@ -86,9 +86,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                               llvm::Function::LinkageTypes linkage);
   llvm::Type* getLLVMType(wasm::Type ty);
   llvm::Constant* getAssertFailFunc(wasm::Type ty);
-  llvm::Value* VisitDivide(llvm::Instruction::BinaryOps opcode,
-                           llvm::Value* lhs,
-                           llvm::Value* rhs);
+  llvm::Value* VisitIDiv(llvm::Instruction::BinaryOps opcode,
+                         llvm::Value* lhs,
+                         llvm::Value* rhs);
   void TrapIfNaN(llvm::Value* operand);
   void ToIntRangeCheck(llvm::Value* operand,
                        llvm::Type* dest_type,

@@ -265,10 +265,9 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
                             wasm::Expression* condition,
                             wasm::Expression* then,
                             wasm::Expression* els) {
-  // TODO: convert to i32
-  Value* cmp_result = CreateCompare(
-      Type::getInt32Ty(ctx_), wasm::kNE, &irb_, VisitExpression(condition),
-      ConstantInt::get(Type::getInt32Ty(ctx_), 0), "if_cmp");
+  Value* cmp_result =
+      irb_.CreateICmpNE(VisitExpression(condition),
+                        ConstantInt::get(irb_.getInt32Ty(), 0), "if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
   auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
@@ -469,8 +468,7 @@ static Value* VisitShift(Instruction::BinaryOps opcode,
   auto* op_ty = cast<llvm::IntegerType>(lhs->getType());
   unsigned op_width = op_ty->getIntegerBitWidth();
   Value* shiftop_check =
-      CreateCompare(op_ty, wasm::CompareOperator::kGeU, irb, rhs,
-                    ConstantInt::get(op_ty, op_width), "shamt_check");
+      irb->CreateICmpUGE(rhs, ConstantInt::get(op_ty, op_width), "shamt_check");
 
   if (opcode == Instruction::BinaryOps::AShr) {
     // If the shift amount is >= the type size, the result must be 0 or -1. This
@@ -498,12 +496,11 @@ static Constant* GetTrapFunction(Module* module) {
                         {Type::getInt32Ty(module->getContext())}, false));
 }
 
-Value* WAOTVisitor::VisitDivide(Instruction::BinaryOps opcode,
-                                Value* lhs,
-                                Value* rhs) {
-  Value* cmp_result =
-      CreateCompare(rhs->getType(), wasm::kEq, &irb_, rhs,
-                    ConstantInt::get(rhs->getType(), 0), "divzero_check");
+Value* WAOTVisitor::VisitIDiv(Instruction::BinaryOps opcode,
+                              Value* lhs,
+                              Value* rhs) {
+  Value* cmp_result = irb_.CreateICmpEQ(
+      rhs, ConstantInt::get(rhs->getType(), 0), "divzero_check");
   auto* next_bb = BasicBlock::Create(ctx_, "div.next", current_func_);
   auto* trap_bb = BasicBlock::Create(ctx_, "div.trap", current_func_);
   irb_.CreateCondBr(cmp_result, trap_bb, next_bb);
@@ -562,7 +559,7 @@ Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
     case wasm::kDivU:
     case wasm::kRemS:
     case wasm::kRemU:
-      return VisitDivide(opcode, lhs_value, rhs_value);
+      return VisitIDiv(opcode, lhs_value, rhs_value);
     case wasm::kCopySign:
     case wasm::kMin:
     case wasm::kMax:
@@ -736,10 +733,16 @@ Value* WAOTVisitor::VisitAssertReturn(
   // TODO: simplify this, now that only const exprs will be allowed?
   if (expected->size()) {
     Value* expected_result = VisitExpression(expected->front().get());
-
     assert(result->getType() == expected_result->getType());
-    Value* cmp_result = CreateCompare(result->getType(), wasm::kEq, &irb_,
-                                      result, expected_result, "assert_check");
+    Value* casted_expectation = irb_.CreateBitCast(
+        expected_result,
+        irb_.getIntNTy(expected_result->getType()->getPrimitiveSizeInBits()),
+        "expected_result_int");
+    Value* casted_result = irb_.CreateBitCast(
+        result, casted_expectation->getType(), "invoke_result_int");
+
+    Value* cmp_result =
+        irb_.CreateICmpEQ(casted_result, casted_expectation, "assert_check");
 
     BasicBlock* success_bb = BasicBlock::Create(ctx_, "AssertSuccess", f);
     llvm::ReturnInst::Create(ctx_, nullptr, success_bb);

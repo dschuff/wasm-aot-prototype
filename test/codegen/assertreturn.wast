@@ -27,7 +27,8 @@
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
 ;; CHECK: define void @AssertReturn_27()
 ;; CHECK: call float @Invoke
-;; CHECK: fcmp oeq float %0, 0.000000e+00
+;; CHECK: bitcast float %0 to i32
+;; CHECK: icmp eq i32 %invoke_result_int, 0
 ;; CHECK: AssertFail:
 ;; CHECK: call void @__wasm_assert_fail_f32(i32 27, float 0.000000e+00, float %0)
 ;; CHECK: define float @Invoke
@@ -40,16 +41,16 @@
   (f32.const 11))
 
 (assert_return (invoke "baz"))
-;; CHECK: define void @AssertReturn_42()
-;; CHECK: call void @Invoke_42()
+;; CHECK: define void @AssertReturn_43()
+;; CHECK: call void @Invoke_43()
 ;; CHECK-NEXT: ret void
 
 ;; Check for main function that calls all the assertreturns
 ;; CHECK: define i32 @main()
 ;; CHECK: call void @AssertReturn_15()
 ;; CHECK: call void @AssertReturn_27()
-;; CHECK: call void @AssertReturn_37()
-;; CHECK: call void @AssertReturn_42()
+;; CHECK: call void @AssertReturn_38()
+;; CHECK: call void @AssertReturn_43()
 ;; CHECK: [[STATUS:%.*]] = load i32, i32* @exit_status
 ;; CHECK: ret i32 [[STATUS]]
 
