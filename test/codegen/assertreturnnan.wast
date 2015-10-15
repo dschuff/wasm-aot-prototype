@@ -10,11 +10,11 @@
 )
 
 (assert_return_nan (invoke "add" (f32.const -0x0p+0) (f32.const -nan)))
-;; CHECK: define void @AssertReturnNaN
-;; CHECK: %0 = call float @Invoke
+;; CHECK: define void @AssertReturnNaN_12()
+;; CHECK: %0 = call float @Invoke_12
 ;; CHECK: call void @__wasm_assert_return_nan_f32(i32 12, float %0)
 
 (assert_return_nan (invoke "ret_f64" ))
-;; CHECK: define void @AssertReturnNaN.1
-;; CHECK: %0 = call double @Invoke.2
+;; CHECK: define void @AssertReturnNaN_17()
+;; CHECK: %0 = call double @Invoke_17
 ;; CHECK: call void @__wasm_assert_return_nan_f64(i32 17, double %0)

@@ -12,6 +12,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
 
@@ -621,6 +622,15 @@ Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
   }
 }
 
+
+std::string NumberedName(llvm::StringRef name, int number) {
+  std::string name_str;
+  llvm::raw_string_ostream name_stream(name_str);
+  name_stream << name << "_" << number;
+  name_stream.flush();
+  return name_str;
+}
+
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
                                 wasm::Export* callee,
                                 wasm::UniquePtrVector<wasm::Expression>* args) {
@@ -632,7 +642,8 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   // callee.
   auto* ret_type = getLLVMType(expr->type);
   auto* f = Function::Create(FunctionType::get(ret_type, {}, false),
-                             Function::ExternalLinkage, "Invoke", module_);
+                             Function::ExternalLinkage,
+                             NumberedName("Invoke", expr->source_loc.line), module_);
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
@@ -660,9 +671,10 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
   // failure handler __wasm_assert_fail_<type> for each wasm type, which
   // returns void and takes the assertion number and expected and actual result
   // values.
-  auto* f =
-      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-                       Function::ExternalLinkage, "AssertReturn", module_);
+  auto* f = Function::Create(
+      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+      Function::ExternalLinkage,
+      NumberedName("AssertReturn", expr->source_loc.line), module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
@@ -704,9 +716,10 @@ Value* WAOTVisitor::VisitAssertReturn(wasm::TestScriptExpr* expr,
 
 Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                                          wasm::TestScriptExpr* invoke) {
-  auto* f =
-      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-                       Function::ExternalLinkage, "AssertReturnNaN", module_);
+  auto* f = Function::Create(
+      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+      Function::ExternalLinkage,
+      NumberedName("AssertReturnNaN", expr->source_loc.line), module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
@@ -730,9 +743,10 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
 
 Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
                                     wasm::TestScriptExpr* invoke) {
-  auto* f =
-      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-                       Function::ExternalLinkage, "AssertTrap", module_);
+  auto* f = Function::Create(
+      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+      Function::ExternalLinkage,
+      NumberedName("AssertTrap", expr->source_loc.line), module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   current_func_ = f;

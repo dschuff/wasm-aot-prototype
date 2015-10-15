@@ -3,6 +3,10 @@
 #include <setjmp.h>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef DEBUG_TRAPS
+/* This is a GNU extension, but useful for debugging */
+#include <execinfo.h>
+#endif
 
 #include "wart_trap.h"
 
@@ -34,7 +38,12 @@ void __wasm_trap(int value) {
      backtrace. */
   if (!__wasm_trap_handler_installed) {
     fprintf(stderr, "Trap executed: %s\n", GetTrapName(value));
+#ifdef DEBUG_TRAPS
+    void* bt_buf[4096];
+    backtrace_symbols_fd(bt_buf, backtrace(bt_buf, 4096), 2);
+#else
     abort();
+#endif
   }
   longjmp(__wasm_trap_env, value);
 }

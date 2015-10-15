@@ -10,7 +10,7 @@
   (export "bar" $bar))
 
 (assert_return (invoke "foo") (i32.const 0))
-;; CHECK: define void @AssertReturn()
+;; CHECK: define void @AssertReturn_12()
 ;; CHECK: call i32 @Invoke
 ;; CHECK: %assert_check = icmp eq i32 %0, 0
 ;; CHECK: br i1 %assert_check, label %AssertSuccess, label %AssertFail
@@ -22,7 +22,7 @@
 ;; CHECK: call i32 @"$foo"()
 
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
-;; CHECK: define void @AssertReturn.1
+;; CHECK: define void @AssertReturn_24()
 ;; CHECK: call float @Invoke
 ;; CHECK: fcmp oeq float %0, 0.000000e+00
 ;; CHECK: AssertFail:
@@ -38,9 +38,9 @@
 
 ;; Check for main function that calls all the asserteqs
 ;; CHECK: define i32 @main()
-;; CHECK: call void @AssertReturn()
-;; CHECK: call void @AssertReturn.1()
-;; CHECK: call void @AssertReturn
+;; CHECK: call void @AssertReturn_12()
+;; CHECK: call void @AssertReturn_24()
+;; CHECK: call void @AssertReturn_34()
 ;; CHECK: [[STATUS:%.*]] = load i32, i32* @exit_status
 ;; CHECK: ret i32 [[STATUS]]
 

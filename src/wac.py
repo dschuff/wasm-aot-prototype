@@ -64,7 +64,7 @@ def Main(argv):
     objs.append(o_temp)
 
   log_call(['gcc', '-o', options.output] + objs +
-           ['-L'+runtime_libdir, '-l'+RUNTIME_LIB, '-lm'])
+           ['-L'+runtime_libdir, '-l'+RUNTIME_LIB, '-lm', '-rdynamic'])
 
 if __name__ == '__main__':
   sys.exit(Main(sys.argv[1:]))
