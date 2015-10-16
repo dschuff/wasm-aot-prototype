@@ -43,7 +43,7 @@
 (assert_return (invoke "baz"))
 ;; CHECK: define void @AssertReturn_43()
 ;; CHECK: call void @Invoke_43()
-;; CHECK-NEXT: ret void
+;; CHECK: ret void
 
 ;; Check for main function that calls all the assertreturns
 ;; CHECK: define i32 @main()

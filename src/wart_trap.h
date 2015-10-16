@@ -12,8 +12,15 @@ enum TrapType {
   kIntegerDivideByZero,
   kInvalidConversionToInteger,
   kMemoryBounds,
-  kMemoryAddress,
+  kMemorySizeOverflow,
+  kInvalidArgument,
+  // Internal errors
+  kOutOfMemory,
+  kUnknownInternalError,
 };
+
+void __wasm_trap(enum TrapType trap_type);
+void __wasm_report_error(char* fmt, ...);
 
 #ifdef __cplusplus
 }  // namespace wart

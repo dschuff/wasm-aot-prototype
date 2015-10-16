@@ -100,6 +100,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                               llvm::Value* lhs,
                               llvm::Value* rhs,
                               llvm::IRBuilder<>* current_irb);
+
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
 

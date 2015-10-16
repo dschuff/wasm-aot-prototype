@@ -707,6 +707,23 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   return f;
 }
 
+static void SetUpMemory(IRBuilder<>* irb, Module* module, size_t size) {
+  irb->CreateCall(
+      module->getOrInsertFunction(
+          RuntimeFuncName("allocate_memory"),
+          // TODO: use a DataLayout and make this a proper size_t
+          FunctionType::get(irb->getVoidTy(), {irb->getInt64Ty()}, false)),
+      {irb->getInt64(size)});
+}
+
+static void TearDownMemory(IRBuilder<>* irb, Module* module) {
+  irb->CreateCall(module->getOrInsertFunction(
+                      RuntimeFuncName("free_memory"),
+                      // TODO: use a DataLayout and make this a proper size_t
+                      FunctionType::get(irb->getVoidTy(), {}, false)),
+                  {});
+}
+
 Value* WAOTVisitor::VisitAssertReturn(
     wasm::TestScriptExpr* expr,
     wasm::TestScriptExpr* invoke,
@@ -726,6 +743,10 @@ Value* WAOTVisitor::VisitAssertReturn(
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
   current_func_ = f;
+
+  // Set up the module's memory, if any, for each assert.
+  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
+
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
   irb_.SetInsertPoint(bb);
@@ -763,6 +784,9 @@ Value* WAOTVisitor::VisitAssertReturn(
         {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
          expected_result, result});
   }
+
+  // Tear down the module's memory.
+  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   return f;
 }
@@ -777,6 +801,9 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
   current_func_ = f;
+
+  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
+
   Type* i32_ty = Type::getInt32Ty(ctx_);
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
@@ -790,6 +817,7 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                         {i32_ty, getLLVMType(expr->type)}, false));
   irb_.CreateCall(assert_func,
                   {ConstantInt::get(i32_ty, expr->source_loc.line), result});
+  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   return f;
 }
@@ -806,6 +834,7 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
   irb_.SetInsertPoint(bb);
   Type* i32_ty = Type::getInt32Ty(ctx_);
 
+  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
   // Set the invoke's type so VisitInvoke will return a void function
   invoke->type = wasm::Type::kVoid;
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
@@ -820,6 +849,7 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
       assert_trap_func,
       {ConstantInt::get(i32_ty, expr->source_loc.line), invoke_func});
 
+  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   return f;
 }

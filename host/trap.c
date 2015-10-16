@@ -1,6 +1,7 @@
 /* The first trap implementation attempts to avoid relying on the OS or hardware
    exceptions. Future implementations will use more tricks. */
 #include <setjmp.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #ifdef DEBUG_TRAPS
@@ -26,18 +27,24 @@ static const char* GetTrapName(enum TrapType type) {
       return "runtime: invalid conversion to integer";
     case kMemoryBounds:
       return "runtime: out of bounds memory access";
-    case kMemoryAddress:
-      return "runtime: illegal address value";
+    case kMemorySizeOverflow:
+      return "runtime: memory size overflow";
+    case kInvalidArgument:
+      return "runtime: invalid argument";
+    case kOutOfMemory:
+      return "runtime: out of memory";
+    case kUnknownInternalError:
+      return "runtime: unknown internal error";
     default:
       return "(unknown trap)";
   }
 }
 
-void __wasm_trap(int value) {
+void __wasm_trap(enum TrapType value) {
   /* If we don't have a trap handler installed, trap directly so we get a useful
      backtrace. */
   if (!__wasm_trap_handler_installed) {
-    fprintf(stderr, "Trap executed: %s\n", GetTrapName(value));
+    __wasm_report_error("Trap executed: %s\n", GetTrapName(value));
 #ifdef DEBUG_TRAPS
     void* bt_buf[4096];
     backtrace_symbols_fd(bt_buf, backtrace(bt_buf, 4096), 2);
@@ -61,4 +68,11 @@ void __wasm_assert_trap(int32_t assert_num, invoke_fn fn) {
     __wasm_assert_trap_fail(assert_num);
   }
   __wasm_trap_handler_installed = 0;
+}
+
+void __wasm_report_error(char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(stderr, fmt, ap);
+  va_end(ap);
 }
