@@ -708,20 +708,29 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
 }
 
 static void SetUpMemory(IRBuilder<>* irb, Module* module, size_t size) {
+  const auto& DL(module->getDataLayout());
+  auto* membase = cast<llvm::GlobalVariable>(
+      module->getOrInsertGlobal(".module_membase", irb->getInt8PtrTy()));
+  membase->setInitializer(llvm::ConstantPointerNull::get(
+      cast<llvm::PointerType>(membase->getValueType())));
   irb->CreateCall(
       module->getOrInsertFunction(
           RuntimeFuncName("allocate_memory"),
-          // TODO: use a DataLayout and make this a proper size_t
-          FunctionType::get(irb->getVoidTy(), {irb->getInt64Ty()}, false)),
-      {irb->getInt64(size)});
+          // Assume size_t is the same size as void*
+          FunctionType::get(irb->getVoidTy(),
+                            {irb->getInt8PtrTy()->getPointerTo(),
+                             DL.getIntPtrType(module->getContext())},
+                            false)),
+      {membase, irb->getIntN(DL.getPointerSizeInBits(), size)});
 }
 
 static void TearDownMemory(IRBuilder<>* irb, Module* module) {
-  irb->CreateCall(module->getOrInsertFunction(
-                      RuntimeFuncName("free_memory"),
-                      // TODO: use a DataLayout and make this a proper size_t
-                      FunctionType::get(irb->getVoidTy(), {}, false)),
-                  {});
+  irb->CreateCall(
+      module->getOrInsertFunction(
+          RuntimeFuncName("free_memory"),
+          FunctionType::get(irb->getVoidTy(),
+                            {irb->getInt8PtrTy()->getPointerTo()}, false)),
+      {module->getOrInsertGlobal(".module_membase", irb->getInt8PtrTy())});
 }
 
 Value* WAOTVisitor::VisitAssertReturn(
@@ -786,6 +795,8 @@ Value* WAOTVisitor::VisitAssertReturn(
   }
 
   // Tear down the module's memory.
+  // TODO: this is on the wrong basic block, but I will shortly move away
+  // from per-assert inits, I think.
   TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   return f;
