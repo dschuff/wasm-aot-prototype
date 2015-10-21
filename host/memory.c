@@ -7,7 +7,7 @@
    __wasm_allocate_memory and tear it down with __wasm_free_memory.
 */
 const size_t kPageSize =
-    16 * 1024;  // NaCl uses 16k, it should work everywhere.
+    64 * 1024;  // NaCl uses 64k, it should work everywhere.
 
 size_t __wasm_page_size() {
   return kPageSize;

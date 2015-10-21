@@ -23,6 +23,10 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
         ctx_(llvm_module->getContext()),
         irb_(llvm_module->getContext()) {}
 
+  llvm::Constant* GetExport(const wasm::Callable* func) {
+    return functions_.at(func);
+  }
+
  protected:
   llvm::Module* VisitModule(const wasm::Module& mod) override;
   void VisitImport(const wasm::Import& imp) override;
