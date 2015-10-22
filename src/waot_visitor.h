@@ -101,6 +101,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Function* GetFunction(const wasm::Callable& func,
                               llvm::Function::LinkageTypes linkage);
   llvm::Type* getLLVMType(wasm::Type ty);
+  llvm::Function* CreateModuleConstructor(const wasm::Module& mod);
   llvm::Constant* getAssertFailFunc(wasm::Type ty);
   llvm::Value* VisitIDiv(llvm::Instruction::BinaryOps opcode,
                          llvm::Value* lhs,

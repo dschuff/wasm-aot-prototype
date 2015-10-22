@@ -2,7 +2,7 @@
 ;; Check that the -spec-test-script flag is required to accept this file.
 ;; RUN: not wat -S %s
 
-;; CHECK: @__wasm_init_array = appending global [7 x void ()*] [void ()* @AssertReturn_19, void ()* @AssertReturn_31, void ()* @AssertReturn_42, void ()* @AssertReturn_47, void ()* @AssertTrap_52, void ()* @AssertTrap_53, void ()* null]
+;; CHECK: @__wasm_init_array = appending global [8 x void ()*] [void ()* @.assertreturn_ctor, void ()* @AssertReturn_19, void ()* @AssertReturn_31, void ()* @AssertReturn_42, void ()* @AssertReturn_47, void ()* @AssertTrap_52, void ()* @AssertTrap_53, void ()* null]
 ;; CHECK: @__wasm_fini_array = appending global [1 x void ()*] zeroinitializer
 
 (module

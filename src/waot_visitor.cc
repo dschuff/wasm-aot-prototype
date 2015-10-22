@@ -83,6 +83,34 @@ static std::string Mangle(const std::string& module,
   return std::string("." + module + "." + function);
 }
 
+Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
+  auto* f = Function::Create(
+      cast<FunctionType>(
+          cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
+      Function::InternalLinkage, std::string("." + mod.name + "_ctor"),
+      module_);
+  BasicBlock::Create(ctx_, "entry", f);
+  irb_.SetInsertPoint(&f->getEntryBlock());
+  const auto& DL(module_->getDataLayout());
+  auto* membase = cast<llvm::GlobalVariable>(
+      module_->getOrInsertGlobal(".module_membase", irb_.getInt8PtrTy()));
+  membase->setInitializer(llvm::ConstantPointerNull::get(
+      cast<llvm::PointerType>(membase->getValueType())));
+  irb_.CreateCall(
+      module_->getOrInsertFunction(
+          RuntimeFuncName("allocate_memory"),
+          // Assume size_t is the same size as void*
+          FunctionType::get(irb_.getVoidTy(),
+                            {irb_.getInt8PtrTy()->getPointerTo(),
+                             DL.getIntPtrType(module_->getContext())},
+                            false)),
+      {membase,
+       irb_.getIntN(DL.getPointerSizeInBits(), mod.initial_memory_size)});
+  irb_.CreateRetVoid();
+  AddInitFunc(f);
+  return f;
+}
+
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
   for (auto& imp : mod.imports)
@@ -91,6 +119,7 @@ Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
     VisitFunction(*func);
   for (auto& exp : mod.exports)
     VisitExport(*exp);
+  CreateModuleConstructor(mod);
   return module_;
 }
 
@@ -711,22 +740,6 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   return f;
 }
 
-static void SetUpMemory(IRBuilder<>* irb, Module* module, size_t size) {
-  const auto& DL(module->getDataLayout());
-  auto* membase = cast<llvm::GlobalVariable>(
-      module->getOrInsertGlobal(".module_membase", irb->getInt8PtrTy()));
-  membase->setInitializer(llvm::ConstantPointerNull::get(
-      cast<llvm::PointerType>(membase->getValueType())));
-  irb->CreateCall(
-      module->getOrInsertFunction(
-          RuntimeFuncName("allocate_memory"),
-          // Assume size_t is the same size as void*
-          FunctionType::get(irb->getVoidTy(),
-                            {irb->getInt8PtrTy()->getPointerTo(),
-                             DL.getIntPtrType(module->getContext())},
-                            false)),
-      {membase, irb->getIntN(DL.getPointerSizeInBits(), size)});
-}
 
 static void TearDownMemory(IRBuilder<>* irb, Module* module) {
   irb->CreateCall(
@@ -757,9 +770,6 @@ Value* WAOTVisitor::VisitAssertReturn(
   irb_.SetInsertPoint(bb);
   assert(current_func_ == nullptr);
   current_func_ = f;
-
-  // Set up the module's memory, if any, for each assert.
-  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
 
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
@@ -821,8 +831,6 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   assert(current_func_ == nullptr);
   current_func_ = f;
 
-  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
-
   Type* i32_ty = Type::getInt32Ty(ctx_);
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
 
@@ -856,7 +864,6 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
   irb_.SetInsertPoint(bb);
   Type* i32_ty = Type::getInt32Ty(ctx_);
 
-  SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
   // Set the invoke's type so VisitInvoke will return a void function
   invoke->type = wasm::Type::kVoid;
   Value* invoke_func = VisitInvoke(invoke, invoke->callee, &invoke->exprs);
