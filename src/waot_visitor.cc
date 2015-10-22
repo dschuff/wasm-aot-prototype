@@ -694,6 +694,7 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
+  Function* previous_func = current_func_;
   current_func_ = f;
   Value* call = VisitCall(nullptr, false, callee->function,
                           callee->function->index_in_module, args);
@@ -704,6 +705,9 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   } else {
     irb_.CreateRet(call);
   }
+  if (!previous_func)
+    AddInitFunc(f);
+  current_func_ = nullptr;
   return f;
 }
 
@@ -751,6 +755,7 @@ Value* WAOTVisitor::VisitAssertReturn(
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
+  assert(current_func_ == nullptr);
   current_func_ = f;
 
   // Set up the module's memory, if any, for each assert.
@@ -799,6 +804,8 @@ Value* WAOTVisitor::VisitAssertReturn(
   // from per-assert inits, I think.
   TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
+  AddInitFunc(f);
+  current_func_ = nullptr;
   return f;
 }
 
@@ -811,6 +818,7 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
+  assert(current_func_ == nullptr);
   current_func_ = f;
 
   SetUpMemory(&irb_, module_, expr->module->initial_memory_size);
@@ -830,6 +838,8 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                   {ConstantInt::get(i32_ty, expr->source_loc.line), result});
   TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
+  AddInitFunc(f);
+  current_func_ = nullptr;
   return f;
 }
 
@@ -841,6 +851,7 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
       NumberedName("AssertTrap", expr->source_loc.line), module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
+  assert(current_func_ == nullptr);
   current_func_ = f;
   irb_.SetInsertPoint(bb);
   Type* i32_ty = Type::getInt32Ty(ctx_);
@@ -862,5 +873,26 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
 
   TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
+  AddInitFunc(f);
+  current_func_ = nullptr;
   return f;
+}
+
+void WAOTVisitor::FinishLLVMModule() {
+  auto* array_delimiter =
+      llvm::ConstantPointerNull::get(cast<llvm::PointerType>(initfini_fn_ty_));
+  init_funcs_.push_back(array_delimiter);
+
+  auto* init_array = new llvm::GlobalVariable(
+      *module_, llvm::ArrayType::get(initfini_fn_ty_, init_funcs_.size()),
+      false, llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
+      "__wasm_init_array");
+  init_array->setInitializer(llvm::ConstantArray::get(
+      cast<llvm::ArrayType>(init_array->getValueType()), init_funcs_));
+  auto* fini_array = new llvm::GlobalVariable(
+      *module_, llvm::ArrayType::get(initfini_fn_ty_, 1), false,
+      llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
+      "__wasm_fini_array");
+  fini_array->setInitializer(llvm::ConstantArray::get(
+      cast<llvm::ArrayType>(fini_array->getValueType()), {array_delimiter}));
 }

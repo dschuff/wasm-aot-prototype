@@ -12,6 +12,7 @@
 namespace llvm {
 class BasicBlock;
 class Function;
+class GlobalVariable;
 }
 
 class FunctionInfo;
@@ -21,11 +22,22 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   WAOTVisitor(llvm::Module* llvm_module)
       : module_(llvm_module),
         ctx_(llvm_module->getContext()),
+        initfini_fn_ty_(llvm::FunctionType::get(
+                            llvm::Type::getVoidTy(llvm_module->getContext()),
+                            {},
+                            false)
+                            ->getPointerTo()),
         irb_(llvm_module->getContext()) {}
 
-  llvm::Constant* GetExport(const wasm::Callable* func) {
-    return functions_.at(func);
+  bool SetEntryExport(const wasm::Callable* func) {
+    llvm::Constant* start = functions_.at(func);
+    if (start->getType() != initfini_fn_ty_) {
+      return false;
+    }
+    AddInitFunc(llvm::cast<llvm::Function>(start));
+    return true;
   }
+  void FinishLLVMModule();
 
  protected:
   llvm::Module* VisitModule(const wasm::Module& mod) override;
@@ -104,9 +116,19 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                               llvm::Value* lhs,
                               llvm::Value* rhs,
                               llvm::IRBuilder<>* current_irb);
+  void AddInitFunc(llvm::Function* f) {
+    init_funcs_.push_back(llvm::ConstantExpr::getBitCast(
+        llvm::cast<llvm::Constant>(f), initfini_fn_ty_));
+  }
 
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
+  // NULL-terminated list of module constructor and assert functions.
+  // TODO: the ini list mechanism currently doesn't handle linking multiple
+  // object files together.
+  llvm::Type* initfini_fn_ty_;
+  std::vector<llvm::Constant*> init_funcs_;
+  std::vector<llvm::Constant*> fini_funcs_;
 
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
   llvm::Function* current_func_ = nullptr;

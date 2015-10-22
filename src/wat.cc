@@ -19,12 +19,7 @@
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/ToolOutputFile.h"
 
-using llvm::cast;
-using llvm::Constant;
 using llvm::errs;
-using llvm::Function;
-using llvm::FunctionType;
-using llvm::Type;
 
 static llvm::cl::opt<std::string> g_input_filename(
     llvm::cl::Positional,
@@ -120,50 +115,26 @@ int main(int argc, char** argv) {
     converter.Visit(*module);
   }
 
-  // TODO: the ini list mechanism currently doesn't handle linking multiple
-  // object files together.
-  Type* initfini_fn_ty =
-      FunctionType::get(Type::getVoidTy(context), {}, false)->getPointerTo();
-  std::vector<llvm::Constant*> assert_funcs;
   if (g_spec_test_script_mode) {
     for (auto& script_expr : parser.test_script) {
       if (g_dump_ast)
         dumper.Visit(script_expr.get());
-      // Add each assert function to the ini list.
-      assert_funcs.push_back(llvm::ConstantExpr::getBitCast(
-          cast<Constant>(converter.Visit(script_expr.get())), initfini_fn_ty));
+      converter.Visit(script_expr.get());
     }
   } else {
     // If there's an export called "_start", add it to the end of the ini list.
     assert(parser.modules.size() == 1);
     for (auto& exp : parser.modules.front()->exports) {
       if (exp->name == "_start") {
-        auto* start = converter.GetExport(exp->function);
-        if (start->getType() != initfini_fn_ty) {
+        if (!converter.SetEntryExport(exp->function)) {
           fprintf(stderr, "error: _start export is not of type void ()*\n");
           exit(1);
         }
-        assert_funcs.push_back(start);
       }
     }
   }
+  converter.FinishLLVMModule();
 
-  auto* array_delimiter =
-      llvm::ConstantPointerNull::get(cast<llvm::PointerType>(initfini_fn_ty));
-  assert_funcs.push_back(array_delimiter);
-
-  auto* init_array = new llvm::GlobalVariable(
-      *llvm_module, llvm::ArrayType::get(initfini_fn_ty, assert_funcs.size()),
-      false, llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
-      "__wasm_init_array");
-  init_array->setInitializer(llvm::ConstantArray::get(
-      cast<llvm::ArrayType>(init_array->getValueType()), assert_funcs));
-  auto* fini_array = new llvm::GlobalVariable(
-      *llvm_module, llvm::ArrayType::get(initfini_fn_ty, 1), false,
-      llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
-      "__wasm_fini_array");
-  fini_array->setInitializer(llvm::ConstantArray::get(
-      cast<llvm::ArrayType>(fini_array->getValueType()), {array_delimiter}));
   mpm.run(*llvm_module);
   output->keep();
 
