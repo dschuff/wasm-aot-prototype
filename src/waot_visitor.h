@@ -102,6 +102,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                               llvm::Function::LinkageTypes linkage);
   llvm::Type* getLLVMType(wasm::Type ty);
   llvm::Function* CreateModuleConstructor(const wasm::Module& mod);
+  llvm::Function* CreateModuleDestructor(const wasm::Module& mod);
   llvm::Constant* getAssertFailFunc(wasm::Type ty);
   llvm::Value* VisitIDiv(llvm::Instruction::BinaryOps opcode,
                          llvm::Value* lhs,
@@ -119,6 +120,10 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                               llvm::IRBuilder<>* current_irb);
   void AddInitFunc(llvm::Function* f) {
     init_funcs_.push_back(llvm::ConstantExpr::getBitCast(
+        llvm::cast<llvm::Constant>(f), initfini_fn_ty_));
+  }
+  void AddFiniFunc(llvm::Function* f) {
+    fini_funcs_.push_back(llvm::ConstantExpr::getBitCast(
         llvm::cast<llvm::Constant>(f), initfini_fn_ty_));
   }
 

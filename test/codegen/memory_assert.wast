@@ -8,14 +8,19 @@
 
 ;; CHECK: define internal void @.memory_assert_ctor() {
 ;; CHECK: call void @__wasm_allocate_memory(i8** @.module_membase, i64 100)
+;; CHECK: define internal void @.memory_assert_dtor() {
+;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
 
-;; CHECK: define internal void @._ctor() {
+;; CHECK: define internal void @.module1_ctor() {
 ;; CHECK: call void @__wasm_allocate_memory(i8** @.module_membase, i64 200)
+;; CHECK: define internal void @.module1_dtor() {
+;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
+
 
 (assert_return (invoke "foo") (i32.const 0))
 
 ;; CHECK: call i32 @Invoke_
-;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
+
 
 (module (memory 200)
   (func $foo (result f32) (f32.const nan))
@@ -26,8 +31,6 @@
 (assert_return_nan (invoke "foo"))
 
 ;; CHECK: call float @Invoke_
-;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
 
 (assert_trap (invoke "foo") "")
 ;; CHECK: call void @__wasm_assert_trap
-;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)

@@ -107,6 +107,17 @@ int main(int argc, char** argv) {
   parser.modules.front()->name = llvm::sys::path::stem(g_input_filename);
   auto llvm_module =
       llvm::make_unique<llvm::Module>(parser.modules.front()->name, context);
+
+  int i = 1;
+  for (auto& mod : parser.modules) {
+    // TODO: switch this to name based on line number
+    std::string name("module");
+    llvm::raw_string_ostream modname(name);
+    modname << i;
+    modname.flush();
+    if (mod->name.empty())
+      mod->name = name;
+  }
   WAOTVisitor converter(llvm_module.get());
   wasm::AstDumper dumper(true);
   for (auto& module : parser.modules) {

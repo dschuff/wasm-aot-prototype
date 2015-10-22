@@ -111,6 +111,25 @@ Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
   return f;
 }
 
+Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
+  auto* f = Function::Create(
+      cast<FunctionType>(
+          cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
+      Function::InternalLinkage, std::string("." + mod.name + "_dtor"),
+      module_);
+  BasicBlock::Create(ctx_, "entry", f);
+  irb_.SetInsertPoint(&f->getEntryBlock());
+  irb_.CreateCall(
+      module_->getOrInsertFunction(
+          RuntimeFuncName("free_memory"),
+          FunctionType::get(irb_.getVoidTy(),
+                            {irb_.getInt8PtrTy()->getPointerTo()}, false)),
+      {module_->getOrInsertGlobal(".module_membase", irb_.getInt8PtrTy())});
+  irb_.CreateRetVoid();
+  AddFiniFunc(f);
+  return f;
+}
+
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
   for (auto& imp : mod.imports)
@@ -120,6 +139,7 @@ Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   for (auto& exp : mod.exports)
     VisitExport(*exp);
   CreateModuleConstructor(mod);
+  CreateModuleDestructor(mod);
   return module_;
 }
 
@@ -741,15 +761,6 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
 }
 
 
-static void TearDownMemory(IRBuilder<>* irb, Module* module) {
-  irb->CreateCall(
-      module->getOrInsertFunction(
-          RuntimeFuncName("free_memory"),
-          FunctionType::get(irb->getVoidTy(),
-                            {irb->getInt8PtrTy()->getPointerTo()}, false)),
-      {module->getOrInsertGlobal(".module_membase", irb->getInt8PtrTy())});
-}
-
 Value* WAOTVisitor::VisitAssertReturn(
     wasm::TestScriptExpr* expr,
     wasm::TestScriptExpr* invoke,
@@ -809,10 +820,6 @@ Value* WAOTVisitor::VisitAssertReturn(
          expected_result, result});
   }
 
-  // Tear down the module's memory.
-  // TODO: this is on the wrong basic block, but I will shortly move away
-  // from per-assert inits, I think.
-  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   AddInitFunc(f);
   current_func_ = nullptr;
@@ -844,7 +851,6 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                         {i32_ty, getLLVMType(expr->type)}, false));
   irb_.CreateCall(assert_func,
                   {ConstantInt::get(i32_ty, expr->source_loc.line), result});
-  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   AddInitFunc(f);
   current_func_ = nullptr;
@@ -878,7 +884,6 @@ Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
       assert_trap_func,
       {ConstantInt::get(i32_ty, expr->source_loc.line), invoke_func});
 
-  TearDownMemory(&irb_, module_);
   irb_.CreateRetVoid();
   AddInitFunc(f);
   current_func_ = nullptr;
