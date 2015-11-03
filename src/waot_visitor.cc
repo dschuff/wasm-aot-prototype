@@ -83,17 +83,28 @@ static std::string Mangle(const std::string& module,
   return std::string("." + module + "." + function);
 }
 
+static std::string CtorName(const wasm::Module& mod) {
+  return std::string("." + mod.name + "_ctor");
+}
+
+static std::string DtorName(const wasm::Module& mod) {
+  return std::string("." + mod.name + "_dtor");
+}
+
+static std::string MembaseGlobalName(const wasm::Module& mod) {
+  return std::string("." + mod.name + "_membase");
+}
+
 Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
   auto* f = Function::Create(
       cast<FunctionType>(
           cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
-      Function::InternalLinkage, std::string("." + mod.name + "_ctor"),
-      module_);
+      Function::InternalLinkage, CtorName(mod), module_);
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
   const auto& DL(module_->getDataLayout());
   auto* membase = cast<llvm::GlobalVariable>(
-      module_->getOrInsertGlobal(".module_membase", irb_.getInt8PtrTy()));
+      module_->getOrInsertGlobal(MembaseGlobalName(mod), irb_.getInt8PtrTy()));
   membase->setInitializer(llvm::ConstantPointerNull::get(
       cast<llvm::PointerType>(membase->getValueType())));
   irb_.CreateCall(
@@ -115,8 +126,7 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
   auto* f = Function::Create(
       cast<FunctionType>(
           cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
-      Function::InternalLinkage, std::string("." + mod.name + "_dtor"),
-      module_);
+      Function::InternalLinkage, DtorName(mod), module_);
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
   irb_.CreateCall(
@@ -124,7 +134,8 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
           RuntimeFuncName("free_memory"),
           FunctionType::get(irb_.getVoidTy(),
                             {irb_.getInt8PtrTy()->getPointerTo()}, false)),
-      {module_->getOrInsertGlobal(".module_membase", irb_.getInt8PtrTy())});
+      {module_->getOrInsertGlobal(MembaseGlobalName(mod),
+                                  irb_.getInt8PtrTy())});
   irb_.CreateRetVoid();
   AddFiniFunc(f);
   return f;

@@ -7,14 +7,14 @@
 )
 
 ;; CHECK: define internal void @.memory_assert_ctor() {
-;; CHECK: call void @__wasm_allocate_memory(i8** @.module_membase, i64 100)
+;; CHECK: call void @__wasm_allocate_memory(i8** @.memory_assert_membase, i64 100)
 ;; CHECK: define internal void @.memory_assert_dtor() {
-;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
+;; CHECK: call void @__wasm_free_memory(i8** @.memory_assert_membase)
 
 ;; CHECK: define internal void @.module1_ctor() {
-;; CHECK: call void @__wasm_allocate_memory(i8** @.module_membase, i64 200)
+;; CHECK: call void @__wasm_allocate_memory(i8** @.module1_membase, i64 200)
 ;; CHECK: define internal void @.module1_dtor() {
-;; CHECK: call void @__wasm_free_memory(i8** @.module_membase)
+;; CHECK: call void @__wasm_free_memory(i8** @.module1_membase)
 
 
 (assert_return (invoke "foo") (i32.const 0))

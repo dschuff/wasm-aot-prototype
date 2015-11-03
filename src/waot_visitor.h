@@ -15,8 +15,6 @@ class Function;
 class GlobalVariable;
 }
 
-class FunctionInfo;
-
 class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
  public:
   WAOTVisitor(llvm::Module* llvm_module)
