@@ -13,43 +13,41 @@
 
 namespace wasm {
 
-#define EACH_CALLBACK0                  \
-  CALLBACK(after_nop, void)             \
-  CALLBACK(before_if, WasmParserCookie) \
-  CALLBACK(before_return, void)
+#define EACH_CALLBACK0               \
+  CALLBACK(before_module)            \
+  CALLBACK(after_module)             \
+  CALLBACK(before_function)          \
+  CALLBACK(after_nop)                \
+  CALLBACK(before_if)                \
+  CALLBACK(before_return)            \
+  CALLBACK(after_invoke)             \
+  CALLBACK(before_assert_return)     \
+  CALLBACK(before_assert_return_nan) \
+  CALLBACK(before_assert_trap)
 
-#define EACH_CALLBACK1                                                     \
-  CALLBACK(before_block, WasmParserCookie, int)                            \
-  CALLBACK(before_call, void, int)                                         \
-  CALLBACK(before_call_import, void, int)                                  \
-  CALLBACK(after_return, void, WasmType)                                   \
-  CALLBACK(after_get_local, void, int)                                     \
-  CALLBACK(before_set_local, void, int)                                    \
-  CALLBACK(before_unary, void, WasmOpcode)                                 \
-  CALLBACK(before_binary, void, WasmOpcode)                                \
-  CALLBACK(before_compare, void, WasmOpcode)                               \
-  CALLBACK(before_convert, void, WasmOpcode)                               \
-  CALLBACK(before_module, void, WasmModule*)                               \
-  CALLBACK(after_module, void, WasmModule*)                                \
-  CALLBACK(after_invoke, void, WasmParserCookie)                           \
-  CALLBACK(before_assert_return, WasmParserCookie, WasmSourceLocation)     \
-  CALLBACK(before_assert_return_nan, WasmParserCookie, WasmSourceLocation) \
-  CALLBACK(before_assert_trap, void, WasmSourceLocation)
+#define EACH_CALLBACK1                    \
+  CALLBACK(error, const char*)            \
+  CALLBACK(after_function, int)           \
+  CALLBACK(after_export, const char*)     \
+  CALLBACK(before_block, int)             \
+  CALLBACK(before_call, int)              \
+  CALLBACK(before_call_import, int)       \
+  CALLBACK(after_return, WasmType)        \
+  CALLBACK(after_get_local, int)          \
+  CALLBACK(before_set_local, int)         \
+  CALLBACK(before_unary, WasmOpcode)      \
+  CALLBACK(before_binary, WasmOpcode)     \
+  CALLBACK(before_compare, WasmOpcode)    \
+  CALLBACK(before_convert, WasmOpcode)    \
+  CALLBACK(after_assert_return, WasmType) \
+  CALLBACK(after_assert_return_nan, WasmType)
 
-#define EACH_CALLBACK2                                            \
-  CALLBACK(error, void, WasmSourceLocation, const char*)          \
-  CALLBACK(before_function, void, WasmModule*, WasmFunction*)     \
-  CALLBACK(after_assert_return, void, WasmType, WasmParserCookie) \
-  CALLBACK(after_assert_return_nan, void, WasmType, WasmParserCookie)
+#define EACH_CALLBACK2                 \
+  CALLBACK(after_block, WasmType, int) \
+  CALLBACK(after_if, WasmType, int)    \
+  CALLBACK(before_invoke, const char*, int)
 
-#define EACH_CALLBACK3                                                       \
-  CALLBACK(after_block, void, WasmType, int, WasmParserCookie)               \
-  CALLBACK(after_if, void, WasmType, int, WasmParserCookie)                  \
-  CALLBACK(after_const, void, WasmOpcode, WasmType, WasmNumber)              \
-  CALLBACK(after_function, void, WasmModule*, WasmFunction*, int)            \
-  CALLBACK(after_export, void, WasmModule*, WasmFunction*, const char*)      \
-  CALLBACK(before_invoke, WasmParserCookie, WasmSourceLocation, const char*, \
-           int)
+#define EACH_CALLBACK3 CALLBACK(after_const, WasmOpcode, WasmType, WasmNumber)
 
 class Parser {
  public:
@@ -63,7 +61,7 @@ class Parser {
     source_.end = end;
     parser.user_data = this;
 
-#define CALLBACK(name, retty, ...) parser.name = wrapper_##name;
+#define CALLBACK(name, ...) parser.name = wrapper_##name;
     EACH_CALLBACK0
     EACH_CALLBACK1
     EACH_CALLBACK2
@@ -72,15 +70,28 @@ class Parser {
   }
   int Parse(bool spec_script_mode) {
     if (spec_script_mode)
-      return wasm_parse_file(&source_, &parser, WASM_PARSER_TYPE_CHECK_SPEC);
-    return wasm_parse_module(&source_, &parser, WASM_PARSER_TYPE_CHECK_SPEC);
+      return wasm_parse_file(&source_, &parser, &parser_options_);
+    return wasm_parse_module(&source_, &parser, &parser_options_);
+  }
+  void SetCurrentCallbackInfo(WasmParserCallbackInfo* info) {
+    current_callback_info_ = info;
   }
 
   UniquePtrVector<Module> modules;
   UniquePtrVector<TestScriptExpr> test_script;
 
  private:
-#define CALLBACK(name, retty, ...) retty name(__VA_ARGS__);
+  template <typename T>
+  void SetCookie(T value) {
+    current_callback_info_->cookie = reinterpret_cast<WasmParserCookie>(value);
+  }
+  template <typename T>
+  T GetCookie() {
+    assert(current_callback_info_->cookie != 0);
+    return reinterpret_cast<T>(current_callback_info_->cookie);
+  }
+
+#define CALLBACK(name, ...) void name(__VA_ARGS__);
   EACH_CALLBACK0
   EACH_CALLBACK1
   EACH_CALLBACK2
@@ -89,6 +100,8 @@ class Parser {
 
   Module* module = nullptr;
   WasmParserCallbacks parser = {};
+  WasmParserOptions parser_options_ = {0};
+  WasmParserCallbackInfo* current_callback_info_ = nullptr;
   WasmSource source_;
   std::string filename_;
   bool desugar_;
@@ -145,31 +158,40 @@ class Parser {
 // The callbacks unfortunately are split by arity because we need to
 // interleave the va-args (which are the arg types) with arg names, and
 // variadic macros don't have a way to do that.
-#define CALLBACK(name, retty)                  \
-  static retty wrapper_##name(void* user) {    \
-    return static_cast<Parser*>(user)->name(); \
+#define CALLBACK(name)                                       \
+  static void wrapper_##name(WasmParserCallbackInfo* info) { \
+    Parser* p(static_cast<Parser*>(info->user_data));        \
+    p->SetCurrentCallbackInfo(info);                         \
+    return p->name();                                        \
   }
   EACH_CALLBACK0
 #undef CALLBACK
 
-#define CALLBACK(name, retty, arg1ty)                    \
-  static retty wrapper_##name(arg1ty arg1, void* user) { \
-    return static_cast<Parser*>(user)->name(arg1);       \
+#define CALLBACK(name, arg1ty)                                            \
+  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1) { \
+    Parser* p(static_cast<Parser*>(info->user_data));                     \
+    p->SetCurrentCallbackInfo(info);                                      \
+    return p->name(arg1);                                                 \
   }
   EACH_CALLBACK1
 #undef CALLBACK
 
-#define CALLBACK(name, retty, arg1ty, arg2ty)                         \
-  static retty wrapper_##name(arg1ty arg1, arg2ty arg2, void* user) { \
-    return static_cast<Parser*>(user)->name(arg1, arg2);              \
+#define CALLBACK(name, arg1ty, arg2ty)                                  \
+  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
+                             arg2ty arg2) {                             \
+    Parser* p(static_cast<Parser*>(info->user_data));                   \
+    p->SetCurrentCallbackInfo(info);                                    \
+    return p->name(arg1, arg2);                                         \
   }
   EACH_CALLBACK2
 #undef CALLBACK
 
-#define CALLBACK(name, retty, arg1ty, arg2ty, arg3ty)                \
-  static retty wrapper_##name(arg1ty arg1, arg2ty arg2, arg3ty arg3, \
-                              void* user) {                          \
-    return static_cast<Parser*>(user)->name(arg1, arg2, arg3);       \
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty)                          \
+  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
+                             arg2ty arg2, arg3ty arg3) {                \
+    Parser* p(static_cast<Parser*>(info->user_data));                   \
+    p->SetCurrentCallbackInfo(info);                                    \
+    return p->name(arg1, arg2, arg3);                                   \
   }
   EACH_CALLBACK3
 #undef CALLBACK

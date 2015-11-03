@@ -137,7 +137,8 @@ namespace wasm {
 static_assert(sizeof(WasmParserCookie) == sizeof(void*),
               "WasmParserCookie size does not match pointer size");
 
-void Parser::error(WasmSourceLocation loc, const char* msg) {
+void Parser::error(const char* msg) {
+  WasmSourceLocation loc = current_callback_info_->loc;
   fprintf(stderr, "%s:%d:%d: %s", loc.source->filename, loc.line, loc.col, msg);
 }
 
@@ -147,31 +148,31 @@ void Parser::after_nop() {
   Insert(expr);
 }
 
-WasmParserCookie Parser::before_block(int with_label) {
+void Parser::before_block(int with_label) {
   auto* expr = new Expression(Expression::kBlock);
   expr->expr_type = current_type_;
   // TODO:This is ugly. Is block the only thing with an unknown number of exprs?
   InsertAndPush(expr, kUnknownExpectedExprs);
-  return reinterpret_cast<WasmParserCookie>(expr);
+  SetCookie<Expression*>(expr);
 }
 
-void Parser::after_block(WasmType ty, int num_exprs, WasmParserCookie cookie) {
+void Parser::after_block(WasmType ty, int num_exprs) {
   PopInsertionPoint();
-  Expression* block_expr = reinterpret_cast<Expression*>(cookie);
+  Expression* block_expr = GetCookie<Expression*>();
   assert(block_expr->kind == Expression::kBlock);
   block_expr->expr_type = ty;
 }
 
-WasmParserCookie Parser::before_if() {
+void Parser::before_if() {
   auto* expr = new Expression(Expression::kIf);
   expr->expr_type = current_type_;
   InsertAndPush(expr, kUnknownExpectedExprs);
-  return reinterpret_cast<WasmParserCookie>(expr);
+  SetCookie<Expression*>(expr);
 }
 
-void Parser::after_if(WasmType ty, int with_else, WasmParserCookie cookie) {
+void Parser::after_if(WasmType ty, int with_else) {
   PopInsertionPoint();
-  Expression* if_expr = reinterpret_cast<Expression*>(cookie);
+  Expression* if_expr = GetCookie<Expression*>();
   assert(if_expr->kind == Expression::kIf);
   if_expr->expr_type = ty;
   assert(if_expr->exprs.size() == (unsigned)with_else + 2);
@@ -674,17 +675,17 @@ void Parser::before_convert(WasmOpcode opcode) {
   InsertAndPush(expr, 1);
 }
 
-void Parser::before_function(WasmModule* m, WasmFunction* f) {
-  current_func_ = functions_[f];
+void Parser::before_function() {
+  current_func_ = functions_[current_callback_info_->function];
   current_type_ = current_func_->result_type;
   ResetInsertionPoint(&current_func_->body, kUnknownExpectedExprs);
 }
 
-void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
+void Parser::after_function(int num_exprs) {
   /* TODO: move this to a separate pass/prepass?*/
   // Desugar from a top-level list of exprs to an implicit block expr
   if (desugar_) {
-    Function* func = functions_[f];
+    Function* func = functions_[current_callback_info_->function];
     if (func->body.size() > 1) {
       auto* expr = new Expression(Expression::kBlock);
       std::swap(expr->exprs, func->body);
@@ -699,8 +700,9 @@ void Parser::after_function(WasmModule* m, WasmFunction* f, int num_exprs) {
   current_func_ = nullptr;
 }
 
-void Parser::before_module(WasmModule* m) {
+void Parser::before_module() {
   assert(!module);
+  WasmModule* m(current_callback_info_->module);
   modules.emplace_back(new Module());
   exports_by_name_.clear();
   module = modules.back().get();
@@ -768,28 +770,26 @@ void Parser::before_module(WasmModule* m) {
   }
 }
 
-void Parser::after_module(WasmModule* m) {
+void Parser::after_module() {
   TypeChecker checker = {};
   checker.Visit(*module);
   module = nullptr;
 }
 
-void Parser::after_export(WasmModule* m,
-                          WasmFunction* f,
-                          const char* export_name) {
-  Function* func = functions_[f];
+void Parser::after_export(const char* export_name) {
+  Function* func = functions_[current_callback_info_->function];
+  assert(current_callback_info_->function);
   assert(export_name);
   module->exports.emplace_back(new Export(func, export_name, module));
   exports_by_name_.emplace(std::string(export_name),
                            module->exports.back().get());
 }
 
-WasmParserCookie Parser::before_invoke(WasmSourceLocation loc,
-                                       const char* invoke_name,
-                                       int invoke_function_index) {
+void Parser::before_invoke(const char* invoke_name, int invoke_function_index) {
   assert(modules.size());
   Module* last_module = modules.back().get();
-  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke, loc);
+  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke,
+                                  current_callback_info_->loc);
   if (current_assert_return_) {
     current_assert_return_->invoke.reset(expr);
   } else {
@@ -801,26 +801,26 @@ WasmParserCookie Parser::before_invoke(WasmSourceLocation loc,
   assert(last_module->functions[invoke_function_index].get() ==
          expr->callee->function);
   PushInsertionPoint(&expr->exprs, expr->callee->function->args.size());
-  return reinterpret_cast<WasmParserCookie>(expr);
+  SetCookie<TestScriptExpr*>(expr);
 }
 
-void Parser::after_invoke(WasmParserCookie cookie) {
+void Parser::after_invoke() {
   TypeChecker checker = {};
-  checker.Visit(reinterpret_cast<TestScriptExpr*>(cookie));
+  checker.Visit(GetCookie<TestScriptExpr*>());
 }
 
-WasmParserCookie Parser::before_assert_return(WasmSourceLocation loc) {
+void Parser::before_assert_return() {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
-  test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturn, loc));
+  test_script.emplace_back(new TestScriptExpr(
+      last_module, TestScriptExpr::kAssertReturn, current_callback_info_->loc));
   current_assert_return_ = test_script.back().get();
   ResetInsertionPoint(&current_assert_return_->exprs, kUnknownExpectedExprs);
-  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
+  SetCookie<TestScriptExpr*>(test_script.back().get());
 }
 
-void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
-  auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
+void Parser::after_assert_return(WasmType ty) {
+  auto* expr = GetCookie<TestScriptExpr*>();
   // The parser has already checked the types. We just need to propagate the
   // expectations down to the expectation expr tree.
   expr->type = ty;
@@ -837,28 +837,29 @@ void Parser::after_assert_return(WasmType ty, WasmParserCookie cookie) {
   PopInsertionPoint();
 }
 
-WasmParserCookie Parser::before_assert_return_nan(WasmSourceLocation loc) {
+void Parser::before_assert_return_nan() {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
-  test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertReturnNaN, loc));
+  test_script.emplace_back(new TestScriptExpr(last_module,
+                                              TestScriptExpr::kAssertReturnNaN,
+                                              current_callback_info_->loc));
   current_assert_return_ = test_script.back().get();
-  return reinterpret_cast<WasmParserCookie>(test_script.back().get());
+  SetCookie<TestScriptExpr*>(test_script.back().get());
 }
 
-void Parser::after_assert_return_nan(WasmType ty, WasmParserCookie cookie) {
-  auto* expr = reinterpret_cast<TestScriptExpr*>(cookie);
+void Parser::after_assert_return_nan(WasmType ty) {
+  auto* expr = GetCookie<TestScriptExpr*>();
   expr->type = ty;
   expr->invoke->type = ty;
   TypeChecker checker = {};
   checker.Visit(expr);
 }
 
-void Parser::before_assert_trap(WasmSourceLocation loc) {
+void Parser::before_assert_trap() {
   assert(modules.size() && !module);
   Module* last_module = modules.back().get();
-  test_script.emplace_back(
-      new TestScriptExpr(last_module, TestScriptExpr::kAssertTrap, loc));
+  test_script.emplace_back(new TestScriptExpr(
+      last_module, TestScriptExpr::kAssertTrap, current_callback_info_->loc));
   current_assert_return_ = test_script.back().get();
 }
 

@@ -26,12 +26,12 @@ class Type {
     kI64 = WASM_TYPE_I64,
     kF32 = WASM_TYPE_F32,
     kF64 = WASM_TYPE_F64,
-    kAny = WASM_TYPE_ALL,  // TODO: Is this useful? could just void
+    kAny = WASM_TYPE_ALL,
     kUnknown,
   } Type_;
   Type(Type_ t) : value_(t) {}
   Type(WasmType t) : value_(static_cast<Type_>(t)) {
-    assert(t < WASM_TYPE_ALL && "Bad Type initializer");
+    assert(t <= WASM_TYPE_ALL && "Bad Type initializer");
   }
   operator Type_() const { return value_; }
   explicit operator WasmType() const { return static_cast<WasmType>(value_); }
