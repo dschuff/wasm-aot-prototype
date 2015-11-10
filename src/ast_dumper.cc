@@ -1,6 +1,7 @@
 #include "ast_dumper.h"
 
 #include <cassert>
+#include <cinttypes>
 #include <cstdio>
 
 static const char* TypeName(wasm::Type t) {
@@ -199,7 +200,7 @@ void AstDumper::VisitConst(Expression* expr, Literal* l) {
       printf("(%s.const 0x%x)", TypeName(l->type), l->value.i32);
       break;
     case Type::kI64:
-      printf("(%s.const 0x%lx)", TypeName(l->type), l->value.i64);
+      printf("(%s.const 0x%" PRIx64 ")", TypeName(l->type), l->value.i64);
       break;
     case Type::kF32:
       printf("(%s.const %a)", TypeName(l->type), l->value.f32);

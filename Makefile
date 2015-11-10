@@ -31,15 +31,27 @@ WAOT_HEADERS = waot_visitor.h
 WAT_SRCS = waot_visitor.cc wat.cc
 WAT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAT_SRCS))
 
-LLVM_PATH ?= /s/llvm-upstream/release_37/install
-LLVM_BUILD_PATH ?= /s/llvm-upstream/release_37/build
+
+LLVM_PATH ?= /s/llvm-upstream/release_37/build
+LLVM_BUILD_PATH ?= $(LLVM_PATH)
 LLVM_CONFIG = $(LLVM_PATH)/bin/llvm-config
 
 LLVM_CPPFLAGS := $(shell $(LLVM_CONFIG) --cppflags)
 LLVM_LIBS := $(shell $(LLVM_CONFIG) --libs)
 LLVM_LIBDIR := $(shell $(LLVM_CONFIG) --libdir)
 LLVM_SYSTEMLIBS := $(shell  $(LLVM_CONFIG) --system-libs)
-LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) -Wl,-rpath=$(LLVM_LIBDIR) -Wl,--as-needed
+
+# When we support Windows, that would probably be the time to turn this makefile
+# into something a bit more robust.
+OS := $(shell uname)
+ifeq ($(OS), Linux)
+# Support -DBUILD_SHARED_LIBS on Linux
+OS_LDFLAGS := -Wl,-rpath=$(LLVM_LIBDIR) -Wl,--as-needed
+else
+OS_LDFLAGS :=
+endif
+
+LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) $(OS_LDFLAGS)
 
 SANITIZE ?=
 ifneq ($(SANITIZE),)
@@ -63,7 +75,7 @@ $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS) $(LDFLAGS)
 
 $(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) 
-	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)
 
 $(OUT_DIR)/wat: $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
 	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
