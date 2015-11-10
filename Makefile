@@ -76,10 +76,12 @@ RUNTIME_CC = $(CC)
 RUNTIME_CFLAGS = $(CFLAGS) -Wno-unused-function
 
 RUNTIME_SRCS = stdio.c wart_main.c assert.c trap.c float_minmax.c memory.c
-RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS))
+RUNTIME_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(RUNTIME_SRCS)) $(OUT_DIR)/membase.o
 
 $(OUT_DIR)/%.o: host/%.c
 	$(RUNTIME_CC) $(RUNTIME_CFLAGS) -Isrc -c -o $@ $<
+$(OUT_DIR)/%.o: host/%.S
+	$(CC) $(RUNTIME_CFLAGS)  -c -o $@ $<
 
 $(OUT_DIR)/libwart.a: $(RUNTIME_OBJS)
 	ar rcs $@ $(RUNTIME_OBJS)

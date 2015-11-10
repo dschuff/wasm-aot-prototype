@@ -7,6 +7,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -92,7 +93,15 @@ static std::string DtorName(const wasm::Module& mod) {
 }
 
 static std::string MembaseGlobalName(const wasm::Module& mod) {
-  return std::string("." + mod.name + "_membase");
+  return std::string(".wasm_membase");
+}
+
+static std::string NumberedName(llvm::StringRef name, int number) {
+  std::string name_str;
+  llvm::raw_string_ostream name_stream(name_str);
+  name_stream << name << "_" << number;
+  name_stream.flush();
+  return name_str;
 }
 
 Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
@@ -103,20 +112,37 @@ Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
   const auto& DL(module_->getDataLayout());
-  auto* membase = cast<llvm::GlobalVariable>(
-      module_->getOrInsertGlobal(MembaseGlobalName(mod), irb_.getInt8PtrTy()));
-  membase->setInitializer(llvm::ConstantPointerNull::get(
-      cast<llvm::PointerType>(membase->getValueType())));
+  auto* membase = cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(
+      MembaseGlobalName(mod),
+      llvm::ArrayType::get(irb_.getInt8Ty(), 4ULL * 1024 * 1024 * 1024ULL)));
+  membase->setSection(".membase");
   irb_.CreateCall(
       module_->getOrInsertFunction(
-          RuntimeFuncName("allocate_memory"),
+          RuntimeFuncName("init_memory"),
           // Assume size_t is the same size as void*
-          FunctionType::get(irb_.getVoidTy(),
-                            {irb_.getInt8PtrTy()->getPointerTo(),
-                             DL.getIntPtrType(module_->getContext())},
-                            false)),
-      {membase,
+          FunctionType::get(
+              irb_.getVoidTy(),
+              {irb_.getInt8PtrTy(), DL.getIntPtrType(module_->getContext())},
+              false)),
+      {llvm::ConstantExpr::getBitCast(membase, irb_.getInt8PtrTy()),
        irb_.getIntN(DL.getPointerSizeInBits(), mod.initial_memory_size)});
+  // Assume size_t is the same size as void*
+  unsigned ptr_size = DL.getPointerSizeInBits();
+  for (auto& seg : mod.segments) {
+    auto* initializer = segment_initializers_[seg.get()];
+    irb_.CreateCall(
+        module_->getOrInsertFunction(
+            RuntimeFuncName("init_segment"),
+            FunctionType::get(
+                irb_.getVoidTy(),
+                {irb_.getInt8PtrTy(), DL.getIntPtrType(module_->getContext()),
+                 DL.getIntPtrType(module_->getContext()),
+                 initializer->getType()},
+                false)),
+        {llvm::ConstantExpr::getPointerCast(membase, irb_.getInt8PtrTy()),
+         irb_.getIntN(ptr_size, seg->address),
+         irb_.getIntN(ptr_size, seg->size), initializer});
+  }
   irb_.CreateRetVoid();
   AddInitFunc(f);
   return f;
@@ -129,13 +155,14 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
       Function::InternalLinkage, DtorName(mod), module_);
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
+  auto* membase = cast<llvm::GlobalVariable>(
+      module_->getNamedGlobal(MembaseGlobalName(mod)));
   irb_.CreateCall(
       module_->getOrInsertFunction(
-          RuntimeFuncName("free_memory"),
-          FunctionType::get(irb_.getVoidTy(),
-                            {irb_.getInt8PtrTy()->getPointerTo()}, false)),
-      {module_->getOrInsertGlobal(MembaseGlobalName(mod),
-                                  irb_.getInt8PtrTy())});
+          RuntimeFuncName("fini_memory"),
+          FunctionType::get(irb_.getVoidTy(), {irb_.getInt8PtrTy()}, false)),
+      {llvm::ConstantExpr::getPointerCast(membase, irb_.getInt8PtrTy())});
+
   irb_.CreateRetVoid();
   AddFiniFunc(f);
   return f;
@@ -143,14 +170,20 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
 
 Module* WAOTVisitor::VisitModule(const wasm::Module& mod) {
   assert(module_);
+  current_wasm_module_ = &mod;
   for (auto& imp : mod.imports)
     VisitImport(*imp);
   for (auto& func : mod.functions)
     VisitFunction(*func);
   for (auto& exp : mod.exports)
     VisitExport(*exp);
+  if (mod.initial_memory_size) {
+    for (auto& seg : mod.segments)
+      VisitSegment(*seg);
+  }
   CreateModuleConstructor(mod);
   CreateModuleDestructor(mod);
+  current_wasm_module_ = nullptr;
   return module_;
 }
 
@@ -244,7 +277,15 @@ void WAOTVisitor::VisitExport(const wasm::Export& exp) {
       Mangle(exp.module->name, exp.name), functions_[exp.function], module_);
 }
 
-void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {}
+void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {
+  auto* segment_data = new llvm::GlobalVariable(
+      *module_, llvm::ArrayType::get(irb_.getInt8Ty(), seg.size), false,
+      llvm::GlobalVariable::LinkageTypes::InternalLinkage, nullptr,
+      Mangle(current_wasm_module_->name, NumberedName("segment", seg.address)));
+  segment_data->setInitializer(
+      llvm::ConstantDataArray::getString(ctx_, seg.as_string(), false));
+  segment_initializers_[&seg] = segment_data;
+}
 
 Value* WAOTVisitor::VisitNop(wasm::Expression* expr) {
   return nullptr;
@@ -728,15 +769,6 @@ Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
   }
 }
 
-
-std::string NumberedName(llvm::StringRef name, int number) {
-  std::string name_str;
-  llvm::raw_string_ostream name_stream(name_str);
-  name_stream << name << "_" << number;
-  name_stream.flush();
-  return name_str;
-}
-
 Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
                                 wasm::Export* callee,
                                 wasm::UniquePtrVector<wasm::Expression>* args) {
@@ -905,6 +937,7 @@ void WAOTVisitor::FinishLLVMModule() {
   auto* array_delimiter =
       llvm::ConstantPointerNull::get(cast<llvm::PointerType>(initfini_fn_ty_));
   init_funcs_.push_back(array_delimiter);
+  fini_funcs_.push_back(array_delimiter);
 
   auto* init_array = new llvm::GlobalVariable(
       *module_, llvm::ArrayType::get(initfini_fn_ty_, init_funcs_.size()),
@@ -913,9 +946,9 @@ void WAOTVisitor::FinishLLVMModule() {
   init_array->setInitializer(llvm::ConstantArray::get(
       cast<llvm::ArrayType>(init_array->getValueType()), init_funcs_));
   auto* fini_array = new llvm::GlobalVariable(
-      *module_, llvm::ArrayType::get(initfini_fn_ty_, 1), false,
-      llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
+      *module_, llvm::ArrayType::get(initfini_fn_ty_, fini_funcs_.size()),
+      false, llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
       "__wasm_fini_array");
   fini_array->setInitializer(llvm::ConstantArray::get(
-      cast<llvm::ArrayType>(fini_array->getValueType()), {array_delimiter}));
+      cast<llvm::ArrayType>(fini_array->getValueType()), fini_funcs_));
 }

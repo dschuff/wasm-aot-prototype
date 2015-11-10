@@ -127,6 +127,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
 
   llvm::Module* module_ = nullptr;
   llvm::LLVMContext& ctx_;
+  const wasm::Module* current_wasm_module_ = nullptr;
   // NULL-terminated list of module constructor and assert functions.
   // TODO: the ini list mechanism currently doesn't handle linking multiple
   // object files together.
@@ -137,5 +138,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   std::unordered_map<const wasm::Callable*, llvm::Function*> functions_;
   llvm::Function* current_func_ = nullptr;
   std::vector<llvm::Value*> current_locals_;
+  std::unordered_map<const wasm::Segment*, llvm::GlobalVariable*>
+      segment_initializers_;
   llvm::IRBuilder<> irb_;
 };

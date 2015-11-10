@@ -6,15 +6,18 @@
   (export "foo" $foo)
 )
 
+;; CHECK: @__wasm_fini_array = appending global [3 x void ()*] [void ()* @.memory_assert_dtor, void ()* @.module1_dtor, void ()* null]
+
 ;; CHECK: define internal void @.memory_assert_ctor() {
-;; CHECK: call void @__wasm_allocate_memory(i8** @.memory_assert_membase, i64 100)
+;; CHECK: call void @__wasm_init_memory(i8* getelementptr {{.*}} @.wasm_membase{{.*}}, i64 100)
 ;; CHECK: define internal void @.memory_assert_dtor() {
-;; CHECK: call void @__wasm_free_memory(i8** @.memory_assert_membase)
+;; CHECK: call void @__wasm_fini_memory(i8* {{.*}} @.wasm_membase
 
 ;; CHECK: define internal void @.module1_ctor() {
-;; CHECK: call void @__wasm_allocate_memory(i8** @.module1_membase, i64 200)
+;; CHECK: call void @__wasm_init_memory(i8* getelementptr {{.*}} @.wasm_membase{{.*}}, i64 200)
 ;; CHECK: define internal void @.module1_dtor() {
-;; CHECK: call void @__wasm_free_memory(i8** @.module1_membase)
+;; CHECK: call void @__wasm_fini_memory(i8* {{.*}} @.wasm_membase
+
 
 
 (assert_return (invoke "foo") (i32.const 0))

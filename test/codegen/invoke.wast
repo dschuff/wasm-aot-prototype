@@ -3,7 +3,7 @@
 ;; RUN: not wat -S %s
 
 ;; CHECK: @__wasm_init_array = appending global [5 x void ()*] [void ()* @.invoke_ctor, void ()* bitcast (i32 ()* @Invoke_13 to void ()*), void ()* bitcast (i32 ()* @Invoke_17 to void ()*), void ()* bitcast (i32 ()* @Invoke_21 to void ()*), void ()* null]
-;; CHECK: @__wasm_fini_array = appending global [1 x void ()*] zeroinitializer
+;; CHECK: @__wasm_fini_array = appending global [2 x void ()*] [void ()* @.invoke_dtor, void ()* null]
 
 (module
   (export "test" $test)
