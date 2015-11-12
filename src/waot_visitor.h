@@ -66,6 +66,14 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitSetLocal(wasm::Expression* expr,
                              wasm::Variable* var,
                              wasm::Expression* value) override;
+  llvm::Value* VisitMemory(wasm::Expression* expr,
+			   wasm::MemoryOperator memop,
+			   wasm::MemType mem_type,
+			   uint32_t mem_alignment,
+			   uint64_t mem_offset,
+			   bool is_signed,
+			   wasm::Expression* address,
+			   wasm::Expression* store_val) override;
   llvm::Value* VisitConst(wasm::Expression* expr, wasm::Literal* l) override;
   llvm::Value* VisitUnop(wasm::Expression* expr,
                          wasm::UnaryOperator unop,

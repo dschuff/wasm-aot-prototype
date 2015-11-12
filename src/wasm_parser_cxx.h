@@ -49,6 +49,12 @@ namespace wasm {
 
 #define EACH_CALLBACK3 CALLBACK(after_const, WasmOpcode, WasmType, WasmNumber)
 
+#define EACH_CALLBACK4 \
+  CALLBACK(before_store, WasmOpcode, WasmMemType, uint32_t, uint64_t)
+
+#define EACH_CALLBACK5 \
+  CALLBACK(before_load, WasmOpcode, WasmMemType, uint32_t, uint64_t, int)
+
 class Parser {
  public:
   Parser(const char* start,
@@ -66,6 +72,8 @@ class Parser {
     EACH_CALLBACK1
     EACH_CALLBACK2
     EACH_CALLBACK3
+    EACH_CALLBACK4
+    EACH_CALLBACK5
 #undef CALLBACK
   }
   int Parse(bool spec_script_mode) {
@@ -96,6 +104,8 @@ class Parser {
   EACH_CALLBACK1
   EACH_CALLBACK2
   EACH_CALLBACK3
+  EACH_CALLBACK4
+  EACH_CALLBACK5
 #undef CALLBACK
 
   Module* module = nullptr;
@@ -194,6 +204,27 @@ class Parser {
     return p->name(arg1, arg2, arg3);                                   \
   }
   EACH_CALLBACK3
+#undef CALLBACK
+
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty)                  \
+  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
+                             arg2ty arg2, arg3ty arg3, arg4ty arg4) {   \
+    Parser* p(static_cast<Parser*>(info->user_data));                   \
+    p->SetCurrentCallbackInfo(info);                                    \
+    return p->name(arg1, arg2, arg3, arg4);                             \
+  }
+  EACH_CALLBACK4
+#undef CALLBACK
+
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty, arg5ty)          \
+  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
+                             arg2ty arg2, arg3ty arg3, arg4ty arg4,     \
+                             arg5ty arg5) {                             \
+    Parser* p(static_cast<Parser*>(info->user_data));                   \
+    p->SetCurrentCallbackInfo(info);                                    \
+    return p->name(arg1, arg2, arg3, arg4, arg5);                       \
+  }
+  EACH_CALLBACK5
 #undef CALLBACK
 
   void ParseCall(bool is_import, int index);

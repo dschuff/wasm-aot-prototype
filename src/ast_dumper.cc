@@ -23,6 +23,21 @@ static const char* TypeName(wasm::Type t) {
   }
 }
 
+static const char* MemTypeSizeName(wasm::MemType t) {
+  switch (t) {
+    case wasm::MemType::kI8:
+      return "8";
+    case wasm::MemType::kI16:
+      return "16";
+    case wasm::MemType::kI32:
+      return "32";
+    case wasm::MemType::kI64:
+      return "64";
+    default:
+      return "(unknown)";
+  }
+}
+
 namespace wasm {
 // Freestanding utility function to dump an expression for debugging.
 void DumpExpr(Expression* expr, bool dump_types) {
@@ -69,9 +84,8 @@ static void dump_result(const Callable& c) {
 }
 
 void AstDumper::VisitImport(const Import& import) {
-  printf("(import %s \"%s\" \"%s\"",
-         import.local_name.c_str(), import.module_name.c_str(),
-         import.func_name.c_str());
+  printf("(import %s \"%s\" \"%s\"", import.local_name.c_str(),
+         import.module_name.c_str(), import.func_name.c_str());
 
   if (import.args.size()) {
     printf(" (param");
@@ -118,8 +132,7 @@ void AstDumper::VisitFunction(const Function& func) {
 }
 
 void AstDumper::VisitSegment(const Segment& seg) {
-    printf("(segment %zu \"%s\")\n",
-           seg.address, seg.as_string().c_str());
+  printf("(segment %zu \"%s\")\n", seg.address, seg.as_string().c_str());
 }
 
 void AstDumper::VisitNop(Expression* expr) {
@@ -192,6 +205,32 @@ void AstDumper::VisitSetLocal(Expression* expr,
   }
   VisitExpression(value);
   printf(")");
+}
+
+void AstDumper::VisitMemory(Expression* expr,
+                            MemoryOperator memop,
+                            MemType mem_type,
+                            uint32_t mem_alignment,
+                            uint64_t mem_offset,
+                            bool is_signed,
+                            Expression* address,
+                            Expression* store_val) {
+  assert(memop == kStore || !store_val);
+  assert(memop == kLoad || !is_signed);
+  const char* mem_op_name = memop == kLoad ? "load" : "store";
+  const char* mem_type_size_name =
+      mem_type == expr->expr_type ? "" : MemTypeSizeName(mem_type);
+  const char* sign_suffix =
+      (memop == kStore || mem_type.IsFloatTy() || mem_type == expr->expr_type)
+          ? ""
+          : is_signed ? "_s" : "_u";
+  printf("(%s.%s%s%s offset=%" PRIu64 " align=%u", TypeName(expr->expr_type),
+         mem_op_name, mem_type_size_name, sign_suffix, mem_offset,
+         mem_alignment);
+  VisitExpression(address);
+  if (store_val)
+    VisitExpression(store_val);
+  printf(")\n");
 }
 
 void AstDumper::VisitConst(Expression* expr, Literal* l) {
@@ -431,4 +470,4 @@ void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
   printf(" \"[string ignored by sexpr-wasm parser]\")\n");
 }
 
-} // namespace wasm
+}  // namespace wasm

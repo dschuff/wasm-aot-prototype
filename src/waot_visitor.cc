@@ -92,7 +92,7 @@ static std::string DtorName(const wasm::Module& mod) {
   return std::string("." + mod.name + "_dtor");
 }
 
-static std::string MembaseGlobalName(const wasm::Module& mod) {
+static std::string MembaseGlobalName() {
   return std::string(".wasm_membase");
 }
 
@@ -113,7 +113,7 @@ Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
   irb_.SetInsertPoint(&f->getEntryBlock());
   const auto& DL(module_->getDataLayout());
   auto* membase = cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(
-      MembaseGlobalName(mod),
+      MembaseGlobalName(),
       llvm::ArrayType::get(irb_.getInt8Ty(), 4ULL * 1024 * 1024 * 1024ULL)));
   membase->setSection(".membase");
   irb_.CreateCall(
@@ -156,7 +156,7 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
   auto* membase = cast<llvm::GlobalVariable>(
-      module_->getNamedGlobal(MembaseGlobalName(mod)));
+      module_->getNamedGlobal(MembaseGlobalName()));
   irb_.CreateCall(
       module_->getOrInsertFunction(
           RuntimeFuncName("fini_memory"),
@@ -457,6 +457,50 @@ Value* WAOTVisitor::VisitSetLocal(wasm::Expression* expr,
   Value* store_addr = current_locals_[var->index];
   auto* store_value = VisitExpression(value);
   return irb_.CreateStore(store_value, store_addr);
+}
+
+Value* WAOTVisitor::VisitMemory(wasm::Expression* expr,
+				wasm::MemoryOperator memop,
+				wasm::MemType mem_type,
+				uint32_t mem_alignment,
+				uint64_t mem_offset,
+				bool is_signed,
+				wasm::Expression* address,
+				wasm::Expression* store_expr) {
+  Value* address_val = VisitExpression(address);
+  Value* store_val = nullptr;
+  if (store_expr)
+    store_val = VisitExpression(store_expr);
+  // get the membase
+  auto* membase_var = cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(
+      MembaseGlobalName(),
+      llvm::ArrayType::get(irb_.getInt8Ty(), 4ULL * 1024 * 1024 * 1024ULL)));
+  auto* membase  = llvm::ConstantExpr::getPointerCast(membase_var, irb_.getInt8PtrTy());
+  // TODO: check offset
+  // TODO: wasm64
+  auto* offset = irb_.getInt32(mem_offset);
+  // TODO: infinite precision
+  // addr = getelementptr(membase, address_val) -> getelementptr(membase, address_val+offset)
+  auto* index = irb_.CreateAdd(address_val, offset, "effective_addr");
+  auto* addr = irb_.CreateGEP(membase, index);
+  // TODO: alignment
+
+  if (store_expr) {
+    auto* store_val_trunc = mem_type.IsFloatTy() ? store_val :
+      irb_.CreateTrunc(store_val, irb_.getIntNTy(mem_type.GetSizeInBits()), "storetype_val");
+    irb_.CreateStore(store_val_trunc,
+		     irb_.CreatePointerCast(addr, store_val_trunc->getType()->getPointerTo()));
+    return nullptr;
+  } else {
+    auto* expr_type = getLLVMType(expr->expr_type);
+    auto* load_type = mem_type.IsFloatTy() ?  expr_type:
+      irb_.getIntNTy(mem_type.GetSizeInBits());
+
+    auto* loaded_val = irb_.CreateLoad(irb_.CreatePointerCast(addr, load_type->getPointerTo()),
+				     "loadtype_val");
+    return is_signed ? irb_.CreateSExt(loaded_val, expr_type, "load_val") :
+      irb_.CreateZExt(loaded_val, expr_type, "load_val");
+  }
 }
 
 Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {

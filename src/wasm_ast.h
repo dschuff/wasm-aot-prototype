@@ -40,6 +40,47 @@ class Type {
   Type_ value_ = kUnknown;
 };
 
+class MemType {
+ public:
+  typedef enum Type_ {
+    kI8 = WASM_MEM_TYPE_I8,
+    kI16 = WASM_MEM_TYPE_I16,
+    kI32 = WASM_MEM_TYPE_I32,
+    kI64 = WASM_MEM_TYPE_I64,
+    kF32 = WASM_MEM_TYPE_F32,
+    kF64 = WASM_MEM_TYPE_F64,
+    kUnknown,
+  } Type_;
+  MemType(Type_ t) : value_(t) {}
+  MemType(WasmMemType t) : value_(static_cast<Type_>(t)) {
+    assert(t < WASM_NUM_MEM_TYPES && "Bad Type initializer");
+  }
+  operator Type_() const { return value_; }
+  explicit operator WasmMemType() const {
+    return static_cast<WasmMemType>(value_);
+  }
+  // Compare against a value type. 
+  bool operator==(const Type& other) const {
+    return (value_ == kI32 && other == Type::kI32) ||
+           (value_ == kI64 && other == Type::kI64) ||
+           (value_ == kF32 && other == Type::kF32) ||
+           (value_ == kF64 && other == Type::kF64);
+  }
+  bool IsFloatTy() const { return value_ == kF32 || value_ == kF64; }
+  unsigned GetSizeInBits() const {
+    static_assert(kI8 == 0, "wrong value for kI8");
+    static_assert(kI16 == 1, "wrong value for kI16");
+    static_assert(kI32 == 2, "wrong value for kI32");
+    static_assert(kI64 == 3, "wrong value for kI64");
+    static_assert(kF32 == 4, "wrong value for kF32");
+    static_assert(kF64 == 5, "wrong value for kF64");
+    return value_ <= kI64 ? 8 << value_ : 32 << (value_ - kF32);
+  };
+
+ private:
+  Type_ value_ = kUnknown;
+};
+
 // TODO: do we need a hierarchy of operators like the spec?
 enum UnaryOperator {
   // Int
@@ -117,6 +158,11 @@ enum ConversionOperator {
   kReinterpretInt,
 };
 
+enum MemoryOperator {
+  kLoad,
+  kStore,
+};
+
 class Literal {
  public:
   Type type = Type::kUnknown;
@@ -155,6 +201,7 @@ class Expression {
     kBinary,
     kCompare,
     kConvert,
+    kMemory,
   };
   Expression(ExpressionKind k) : kind(k) {}
   // Common
@@ -169,6 +216,12 @@ class Expression {
   Callable* callee;
   // get_local, set_local variable
   Variable* local_var;
+  // Load, Store
+  MemoryOperator memop;
+  MemType mem_type = MemType::kUnknown;
+  uint32_t mem_alignment;
+  uint64_t mem_offset;
+  bool is_signed;
   // Unops
   UnaryOperator unop;
   // Binops
@@ -189,7 +242,7 @@ class Callable {
  public:
   Callable(Type t) : result_type(t) {}
   Type result_type = Type::kVoid;
-  std::string local_name;  // Empty if none bound
+  std::string local_name;            // Empty if none bound
   UniquePtrVector<Variable> locals;  // Includes the args at the front
   std::vector<Variable*> args;       // Convenience pointers to the args
 };

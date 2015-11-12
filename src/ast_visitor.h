@@ -25,9 +25,9 @@ namespace wasm {
 
 template <typename ModuleVal, typename ExprVal>
 class AstVisitor {
-public:
- ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
- ExprVal Visit(TestScriptExpr* script) { return VisitTestScriptExpr(script); }
+ public:
+  ModuleVal Visit(const Module& mod) { return VisitModule(mod); }
+  ExprVal Visit(TestScriptExpr* script) { return VisitTestScriptExpr(script); }
 
  protected:
   virtual ModuleVal VisitModule(const Module& mod) {
@@ -84,6 +84,11 @@ public:
                             expr->exprs[0].get(), expr->exprs[1].get());
       case Expression::kConvert:
         return VisitConversion(expr, expr->cvt, expr->exprs.front().get());
+      case Expression::kMemory:
+        return VisitMemory(
+            expr, expr->memop, expr->mem_type, expr->mem_alignment,
+            expr->mem_offset, expr->is_signed, expr->exprs[0].get(),
+            expr->memop == kStore ? expr->exprs[1].get() : nullptr);
       default:
         assert(false);
     }
@@ -160,6 +165,19 @@ public:
     VisitExpression(operand);
     return ExprVal();
   }
+  virtual ExprVal VisitMemory(Expression* expr,
+                              MemoryOperator memop,
+                              MemType mem_type,
+                              uint32_t mem_alignment,
+                              uint64_t mem_offset,
+                              bool is_signed,
+                              Expression* address,
+                              Expression* store_val) {
+    VisitExpression(address);
+    if (store_val)
+      VisitExpression(store_val);
+    return ExprVal();
+  }
 
   ExprVal VisitTestScriptExpr(TestScriptExpr* expr) {
     switch (expr->opcode) {
@@ -203,4 +221,4 @@ public:
 };
 }
 
-#endif // AST_VISITOR_H
+#endif  // AST_VISITOR_H

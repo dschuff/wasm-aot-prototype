@@ -14,6 +14,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
   void VisitExpression(wasm::Expression* expr) override {
     AstVisitor::VisitExpression(expr);
   }
+
  protected:
   void VisitFunction(const wasm::Function& f) override {
     current_function_ = &f;
@@ -80,6 +81,21 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
                      wasm::Expression* value) override {
     value->expected_type = var->type;
     VisitExpression(value);
+  }
+  void VisitMemory(wasm::Expression* expr,
+                   wasm::MemoryOperator memop,
+                   wasm::MemType mem_type,
+                   uint32_t mem_alignment,
+                   uint64_t mem_offset,
+                   bool is_signed,
+                   wasm::Expression* address,
+                   wasm::Expression* store_val) {
+    address->expected_type = wasm::Type::kI32;  // TODO: wasm64
+    VisitExpression(address);
+    if (store_val) {
+      store_val->expected_type = expr->expr_type;
+      VisitExpression(store_val);
+    }
   }
   void VisitUnop(wasm::Expression* expr,
                  wasm::UnaryOperator unop,
@@ -225,6 +241,61 @@ void Parser::before_set_local(int index) {
   expr->local_var = current_func_->locals[index].get();
   expr->expr_type = expr->local_var->type;
   InsertAndPush(expr, 1);
+}
+
+static Type MemOperandType(WasmOpcode opcode) {
+  switch (opcode) {
+    case WASM_OPCODE_I32_LOAD_I32:
+    case WASM_OPCODE_I32_LOAD_I64:
+    case WASM_OPCODE_I32_STORE_I32:
+    case WASM_OPCODE_I32_STORE_I64:
+      return Type::kI32;
+    case WASM_OPCODE_I64_LOAD_I32:
+    case WASM_OPCODE_I64_LOAD_I64:
+    case WASM_OPCODE_I64_STORE_I32:
+    case WASM_OPCODE_I64_STORE_I64:
+      return Type::kI64;
+    case WASM_OPCODE_F32_LOAD_I32:
+    case WASM_OPCODE_F32_LOAD_I64:
+    case WASM_OPCODE_F32_STORE_I32:
+    case WASM_OPCODE_F32_STORE_I64:
+      return Type::kF32;
+    case WASM_OPCODE_F64_LOAD_I32:
+    case WASM_OPCODE_F64_LOAD_I64:
+    case WASM_OPCODE_F64_STORE_I32:
+    case WASM_OPCODE_F64_STORE_I64:
+      return Type::kF64;
+    default:
+      assert(false && "Unexpected opcode in MemOperandType");
+  }
+}
+
+void Parser::before_load(WasmOpcode opcode,
+                         WasmMemType mem_type,
+                         uint32_t alignment,
+                         uint64_t offset,
+                         int is_signed) {
+  auto* expr = new Expression(Expression::kMemory);
+  expr->expr_type = MemOperandType(opcode);
+  expr->memop = kLoad;
+  expr->mem_type = mem_type;
+  expr->mem_alignment = alignment;
+  expr->mem_offset = offset;
+  expr->is_signed = is_signed;
+  InsertAndPush(expr, 1);
+}
+
+void Parser::before_store(WasmOpcode opcode,
+                          WasmMemType mem_type,
+                          uint32_t alignment,
+                          uint64_t offset) {
+  auto* expr = new Expression(Expression::kMemory);
+  expr->expr_type = MemOperandType(opcode);
+  expr->memop = kStore;
+  expr->mem_type = mem_type;
+  expr->mem_alignment = alignment;
+  expr->mem_offset = offset;
+  InsertAndPush(expr, 2);
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {

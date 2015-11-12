@@ -10,7 +10,7 @@ class AstDumper : public AstVisitor<void, void> {
  public:
   AstDumper(bool dump_types) : dump_types_(dump_types) {}
 
-protected:
+ protected:
   void VisitModule(const Module& mod) override;
   void VisitImport(const Import& imp) override;
   void VisitExport(const Export& exp) override;
@@ -39,6 +39,14 @@ protected:
   void VisitSetLocal(Expression* expr,
                      Variable* var,
                      Expression* value) override;
+  void VisitMemory(Expression* expr,
+                   MemoryOperator memop,
+                   MemType mem_type,
+                   uint32_t mem_alignment,
+                   uint64_t mem_offset,
+                   bool is_signed,
+                   Expression* address,
+                   Expression* store_val) override;
   void VisitConst(Expression* expr, Literal* l) override;
   void VisitUnop(Expression* expr,
                  UnaryOperator unop,
@@ -76,4 +84,4 @@ protected:
 void DumpExpr(Expression* expr, bool dump_types);
 const char* ConversionOpName(ConversionOperator cvt);
 }
-#endif // AST_DUMPER_H
+#endif  // AST_DUMPER_H
