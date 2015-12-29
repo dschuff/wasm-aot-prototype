@@ -140,8 +140,10 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     assert(actual != wasm::Type::kUnknown);
     if (expected != wasm::Type::kVoid && actual != wasm::Type::kAny &&
         actual != expected) {
-      fprintf(stderr, "Type mismatch: expected %d, actual %d\n",
-              (WasmType)expected, (WasmType)actual);
+      fprintf(stderr,
+              "Type mismatch: expected %d, actual %d\n",
+              (WasmType)expected,
+              (WasmType)actual);
     }
   }
   const wasm::Function* current_function_ = nullptr;
@@ -271,7 +273,8 @@ void Parser::before_load(WasmOpcode opcode,
                          uint32_t alignment,
                          uint64_t offset,
                          int is_signed) {
-  auto* expr = new MemoryExpression(kLoad, mem_type, alignment, offset, is_signed);
+  auto* expr =
+      new MemoryExpression(kLoad, mem_type, alignment, offset, is_signed);
   expr->expr_type = MemOperandType(opcode);
   InsertAndPush(expr, 1);
 }
@@ -723,9 +726,8 @@ static Type ConversionOperandType(Type result_type, ConversionOperator cvt) {
 void Parser::before_convert(WasmOpcode opcode) {
   auto conv_operator = ConvOperator(opcode);
   auto expr_type = ConversionResultType(opcode);
-  auto* expr =
-    new ConversionExpression(conv_operator,
-			     ConversionOperandType(expr_type, conv_operator));
+  auto* expr = new ConversionExpression(
+      conv_operator, ConversionOperandType(expr_type, conv_operator));
   expr->expr_type = expr_type;
   InsertAndPush(expr, 1);
 }
@@ -797,10 +799,12 @@ void Parser::before_module() {
     const WasmImport& parser_import = m->imports.data[i];
     module->imports.emplace_back(new Import(
         m->signatures.data[parser_import.signature_index].result_type,
-        parser_import.module_name, parser_import.func_name));
+        parser_import.module_name,
+        parser_import.func_name));
     Import* imp = module->imports.back().get();
     for (size_t j = 0;
-         j < m->signatures.data[parser_import.signature_index].args.size; ++j) {
+         j < m->signatures.data[parser_import.signature_index].args.size;
+         ++j) {
       imp->locals.emplace_back(new Variable(
           m->signatures.data[parser_import.signature_index].args.data[j].type));
       imp->args.push_back(imp->locals.back().get());
@@ -844,8 +848,8 @@ void Parser::after_export(const char* export_name) {
 void Parser::before_invoke(const char* invoke_name, int invoke_function_index) {
   assert(modules.size());
   Module* last_module = modules.back().get();
-  auto* expr = new TestScriptExpr(last_module, TestScriptExpr::kInvoke,
-                                  current_callback_info_->loc);
+  auto* expr = new TestScriptExpr(
+      last_module, TestScriptExpr::kInvoke, current_callback_info_->loc);
   if (current_assert_return_) {
     current_assert_return_->invoke.reset(expr);
   } else {

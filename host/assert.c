@@ -13,7 +13,9 @@ void __wasm_assert_fail_i32(int32_t line_num,
   fprintf(
       stderr,
       "Assertion failure in assert_return on line %d: expected %d, got %d\n",
-      line_num, expected, actual);
+      line_num,
+      expected,
+      actual);
   __wasm_exit_status = 1;
 }
 
@@ -23,7 +25,9 @@ void __wasm_assert_fail_i64(int32_t line_num,
   fprintf(stderr,
           "Assertion failure in assert_return on line %d: expected %" PRId64
           ", got %" PRId64 "\n",
-          line_num, expected, actual);
+          line_num,
+          expected,
+          actual);
   __wasm_exit_status = 1;
 }
 
@@ -31,7 +35,9 @@ void __wasm_assert_fail_f32(int32_t line_num, float expected, float actual) {
   fprintf(
       stderr,
       "Assertion failure in assert_return on line %d: expected %f, got %f\n",
-      line_num, expected, actual);
+      line_num,
+      expected,
+      actual);
   __wasm_exit_status = 1;
 }
 
@@ -39,7 +45,9 @@ void __wasm_assert_fail_f64(int32_t line_num, double expected, double actual) {
   fprintf(
       stderr,
       "Assertion failure in assert_return on line %d: expected %a, got %a\n",
-      line_num, expected, actual);
+      line_num,
+      expected,
+      actual);
   __wasm_exit_status = 1;
 }
 
@@ -56,7 +64,8 @@ void __wasm_assert_return_nan_f32(int32_t line_num, float value) {
   fprintf(stderr,
           "Assertion failure in assert_return_nan on line %d: expected NaN, "
           "got %f\n",
-          line_num, value);
+          line_num,
+          value);
   __wasm_exit_status = 1;
 }
 
@@ -66,6 +75,7 @@ void __wasm_assert_return_nan_f64(int32_t line_num, double value) {
   fprintf(stderr,
           "Assertion failure in assert_return_nan on line %d: expected NaN, "
           "got %lf\n",
-          line_num, value);
+          line_num,
+          value);
   __wasm_exit_status = 1;
 }

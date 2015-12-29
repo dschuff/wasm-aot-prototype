@@ -59,7 +59,7 @@ class MemType {
   explicit operator WasmMemType() const {
     return static_cast<WasmMemType>(value_);
   }
-  // Compare against a value type. 
+  // Compare against a value type.
   bool operator==(const Type& other) const {
     return (value_ == kI32 && other == Type::kI32) ||
            (value_ == kI64 && other == Type::kI64) ||
@@ -184,7 +184,8 @@ class Variable {
 
 class Expression {
  public:
-  // ExpressionKind is used instead of RTTI. Only AstVisitor::VisitExpression actually
+  // ExpressionKind is used instead of RTTI. Only AstVisitor::VisitExpression
+  // actually
   // needs to care about this field currently.
   enum ExpressionKind {
     kNop,
@@ -211,17 +212,22 @@ class Expression {
 
 class ConstantExpression final : public Expression {
  public:
- ConstantExpression(const Type ty) : Expression(kConst) { literal.type = ty; };
+  ConstantExpression(const Type ty) : Expression(kConst) {
+    literal.type = ty;
+  };
   Literal literal;
 };
 
-class CallExpression final: public Expression {
+class CallExpression final : public Expression {
  public:
- CallExpression(int idx, bool imp, Callable* c) :
-  Expression(kCallDirect), callee_index(idx), is_import(imp), callee(c) {};
- int callee_index;
- bool is_import;
- Callable* callee;
+  CallExpression(int idx, bool imp, Callable* c)
+      : Expression(kCallDirect),
+        callee_index(idx),
+        is_import(imp),
+        callee(c) {};
+  int callee_index;
+  bool is_import;
+  Callable* callee;
 };
 
 class LocalExpression final : public Expression {
@@ -235,15 +241,25 @@ class LocalExpression final : public Expression {
     return new LocalExpression(kSetLocal, v);
   }
   Variable* local_var;
+
  private:
- LocalExpression(ExpressionKind k, Variable *v) : Expression(k), local_var(v) {};
+  LocalExpression(ExpressionKind k, Variable* v)
+      : Expression(k), local_var(v) {};
 };
 
-class MemoryExpression final: public Expression {
+class MemoryExpression final : public Expression {
  public:
-  MemoryExpression(MemoryOperator op, MemType t, uint32_t align,
-		   uint64_t off, bool sign) :
-  Expression(kMemory), memop(op), mem_type(t), alignment(align), offset(off), is_signed(sign) {};
+  MemoryExpression(MemoryOperator op,
+                   MemType t,
+                   uint32_t align,
+                   uint64_t off,
+                   bool sign)
+      : Expression(kMemory),
+        memop(op),
+        mem_type(t),
+        alignment(align),
+        offset(off),
+        is_signed(sign) {};
   MemoryOperator memop;
   MemType mem_type = MemType::kUnknown;
   uint32_t alignment;
@@ -253,34 +269,32 @@ class MemoryExpression final: public Expression {
 
 class UnaryExpression final : public Expression {
  public:
- UnaryExpression(UnaryOperator op) : Expression(kUnary), unop(op) {};
- UnaryOperator unop;
+  UnaryExpression(UnaryOperator op) : Expression(kUnary), unop(op) {};
+  UnaryOperator unop;
 };
 
-class BinaryExpression final: public Expression {
+class BinaryExpression final : public Expression {
  public:
- BinaryExpression(BinaryOperator op) : Expression(kBinary), binop(op) {};
- BinaryOperator binop;
+  BinaryExpression(BinaryOperator op) : Expression(kBinary), binop(op) {};
+  BinaryOperator binop;
 };
 
-class CompareExpression final: public Expression {
+class CompareExpression final : public Expression {
  public:
- CompareExpression(Type ct, CompareOperator op) :
-  Expression(kCompare), compare_type(ct), relop(op) {};
- Type compare_type = Type::kUnknown;
- CompareOperator relop;
+  CompareExpression(Type ct, CompareOperator op)
+      : Expression(kCompare), compare_type(ct), relop(op) {};
+  Type compare_type = Type::kUnknown;
+  CompareOperator relop;
 };
 
-class ConversionExpression final: public Expression {
+class ConversionExpression final : public Expression {
  public:
- ConversionExpression(ConversionOperator op, Type opty) :
-  Expression(kConvert), cvt(op), operand_type(opty) {};
- ConversionOperator cvt;
- //   Technically redundant with cvt, but handy to have.
- Type operand_type = Type::kUnknown;
+  ConversionExpression(ConversionOperator op, Type opty)
+      : Expression(kConvert), cvt(op), operand_type(opty) {};
+  ConversionOperator cvt;
+  //   Technically redundant with cvt, but handy to have.
+  Type operand_type = Type::kUnknown;
 };
-
-
 
 class Callable {
  public:

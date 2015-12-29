@@ -4,7 +4,7 @@
 
 #if defined(__linux__)
 #define PREFIX "."
-#elif defined( __APPLE__)
+#elif defined(__APPLE__)
 #define PREFIX "_."
 #else
 #error "Unsupported platform"

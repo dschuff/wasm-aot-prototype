@@ -84,8 +84,10 @@ static void dump_result(const Callable& c) {
 }
 
 void AstDumper::VisitImport(const Import& import) {
-  printf("(import %s \"%s\" \"%s\"", import.local_name.c_str(),
-         import.module_name.c_str(), import.func_name.c_str());
+  printf("(import %s \"%s\" \"%s\"",
+         import.local_name.c_str(),
+         import.module_name.c_str(),
+         import.func_name.c_str());
 
   if (import.args.size()) {
     printf(" (param");
@@ -123,8 +125,8 @@ void AstDumper::VisitFunction(const Function& func) {
 
   dump_var_list(func.args.begin(), func.args.end(), "param");
   dump_result(func);
-  dump_var_list(func.locals.begin() + func.args.size(), func.locals.end(),
-                "local");
+  dump_var_list(
+      func.locals.begin() + func.args.size(), func.locals.end(), "local");
   for (auto& expr : func.body) {
     VisitExpression(expr.get());
   }
@@ -224,8 +226,12 @@ void AstDumper::VisitMemory(Expression* expr,
       (memop == kStore || mem_type.IsFloatTy() || mem_type == expr->expr_type)
           ? ""
           : is_signed ? "_s" : "_u";
-  printf("(%s.%s%s%s offset=%" PRIu64 " align=%u", TypeName(expr->expr_type),
-         mem_op_name, mem_type_size_name, sign_suffix, mem_offset,
+  printf("(%s.%s%s%s offset=%" PRIu64 " align=%u",
+         TypeName(expr->expr_type),
+         mem_op_name,
+         mem_type_size_name,
+         sign_suffix,
+         mem_offset,
          mem_alignment);
   VisitExpression(address);
   if (store_val)
@@ -420,7 +426,9 @@ const char* ConversionOpName(ConversionOperator cvt) {
 void AstDumper::VisitConversion(ConversionExpression* expr,
                                 ConversionOperator cvt,
                                 Expression* operand) {
-  printf("(%s.%s/%s ", TypeName(expr->expr_type), ConversionOpName(cvt),
+  printf("(%s.%s/%s ",
+         TypeName(expr->expr_type),
+         ConversionOpName(cvt),
          TypeName(expr->operand_type));
   VisitExpression(operand);
   printf(")\n");
@@ -443,8 +451,8 @@ void AstDumper::VisitInvoke(TestScriptExpr* expr,
 void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
                                   TestScriptExpr* invoke_arg,
                                   UniquePtrVector<Expression>* expected) {
-  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
-         expr->source_loc.line);
+  printf(
+      ";; %s:%d\n", expr->source_loc.filename.c_str(), expr->source_loc.line);
   printf("(assert_return ");
   Visit(invoke_arg);
   if (expected->size())
@@ -454,8 +462,8 @@ void AstDumper::VisitAssertReturn(TestScriptExpr* expr,
 
 void AstDumper::VisitAssertReturnNaN(TestScriptExpr* expr,
                                      TestScriptExpr* invoke_arg) {
-  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
-         expr->source_loc.line);
+  printf(
+      ";; %s:%d\n", expr->source_loc.filename.c_str(), expr->source_loc.line);
   printf("(assert_return_nan ");
   Visit(invoke_arg);
   printf(")\n");
@@ -463,8 +471,8 @@ void AstDumper::VisitAssertReturnNaN(TestScriptExpr* expr,
 
 void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
                                 TestScriptExpr* invoke_arg) {
-  printf(";; %s:%d\n", expr->source_loc.filename.c_str(),
-         expr->source_loc.line);
+  printf(
+      ";; %s:%d\n", expr->source_loc.filename.c_str(), expr->source_loc.line);
   printf("(assert_trap ");
   Visit(invoke_arg);
   printf(" \"[string ignored by sexpr-wasm parser]\")\n");

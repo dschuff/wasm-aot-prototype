@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
   // Get the input buffer.
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> ErrorOrBuffer =
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer> > ErrorOrBuffer =
       llvm::MemoryBuffer::getFileOrSTDIN(g_input_filename);
 
   if (ErrorOrBuffer.getError()) {
@@ -91,8 +91,10 @@ int main(int argc, char** argv) {
     errs() << Buffer->getBuffer();
     errs() << "OUTPUT:\n";
   }
-  wasm::Parser parser(Buffer->getBufferStart(), Buffer->getBufferEnd(),
-                      g_input_filename.c_str(), false);
+  wasm::Parser parser(Buffer->getBufferStart(),
+                      Buffer->getBufferEnd(),
+                      g_input_filename.c_str(),
+                      false);
   if (parser.Parse(g_spec_test_script_mode)) {
     return 1;
   }

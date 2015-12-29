@@ -23,7 +23,8 @@ void __wasm_allocate_memory(size_t initial_size) {
   }
   if (ret != 0) {
     __wasm_report_error(
-        "Error allocating heap of %zd bytes with aligment %zd\n", initial_size,
+        "Error allocating heap of %zd bytes with aligment %zd\n",
+        initial_size,
         kPageSize);
     __wasm_trap(kUnknownInternalError);
   }
@@ -32,7 +33,8 @@ void __wasm_allocate_memory(size_t initial_size) {
 void __wasm_grow_memory(size_t delta) {
   if (delta & (kPageSize - 1) != 0) {
     __wasm_report_error(
-        "grow_memory delta %zd is not a multiple of page size %zd\n", delta,
+        "grow_memory delta %zd is not a multiple of page size %zd\n",
+        delta,
         kPageSize);
     __wasm_trap(kInvalidArgument);
   }

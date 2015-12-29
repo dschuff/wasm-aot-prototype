@@ -88,12 +88,12 @@ class AstVisitor {
         return VisitUnop(ue, ue->unop, ue->exprs.front().get());
       }
       case Expression::kBinary: {
-	BinaryExpression* be = static_cast<BinaryExpression*>(expr);
+        BinaryExpression* be = static_cast<BinaryExpression*>(expr);
         return VisitBinop(
             be, be->binop, be->exprs[0].get(), be->exprs[1].get());
       }
       case Expression::kCompare: {
-	CompareExpression* ce = static_cast<CompareExpression*>(expr);
+        CompareExpression* ce = static_cast<CompareExpression*>(expr);
         return VisitCompare(ce,
                             ce->compare_type,
                             ce->relop,
@@ -101,20 +101,19 @@ class AstVisitor {
                             ce->exprs[1].get());
       }
       case Expression::kConvert: {
-	ConversionExpression* ce = static_cast<ConversionExpression*>(expr);
+        ConversionExpression* ce = static_cast<ConversionExpression*>(expr);
         return VisitConversion(ce, ce->cvt, ce->exprs.front().get());
       }
       case Expression::kMemory: {
-	MemoryExpression* me = static_cast<MemoryExpression*>(expr);
-        return VisitMemory(
-	    me,
-            me->memop,
-            me->mem_type,
-            me->alignment,
-            me->offset,
-            me->is_signed,
-            me->exprs[0].get(),
-            me->memop == kStore ? me->exprs[1].get() : nullptr);
+        MemoryExpression* me = static_cast<MemoryExpression*>(expr);
+        return VisitMemory(me,
+                           me->memop,
+                           me->mem_type,
+                           me->alignment,
+                           me->offset,
+                           me->is_signed,
+                           me->exprs[0].get(),
+                           me->memop == kStore ? me->exprs[1].get() : nullptr);
       }
       default:
         assert(false);

@@ -108,7 +108,9 @@ Function* WAOTVisitor::CreateModuleConstructor(const wasm::Module& mod) {
   auto* f = Function::Create(
       cast<FunctionType>(
           cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
-      Function::InternalLinkage, CtorName(mod), module_);
+      Function::InternalLinkage,
+      CtorName(mod),
+      module_);
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
   const auto& DL(module_->getDataLayout());
@@ -152,11 +154,13 @@ Function* WAOTVisitor::CreateModuleDestructor(const wasm::Module& mod) {
   auto* f = Function::Create(
       cast<FunctionType>(
           cast<llvm::PointerType>(initfini_fn_ty_)->getElementType()),
-      Function::InternalLinkage, DtorName(mod), module_);
+      Function::InternalLinkage,
+      DtorName(mod),
+      module_);
   BasicBlock::Create(ctx_, "entry", f);
   irb_.SetInsertPoint(&f->getEntryBlock());
-  auto* membase = cast<llvm::GlobalVariable>(
-      module_->getNamedGlobal(MembaseGlobalName()));
+  auto* membase =
+      cast<llvm::GlobalVariable>(module_->getNamedGlobal(MembaseGlobalName()));
   irb_.CreateCall(
       module_->getOrInsertFunction(
           RuntimeFuncName("fini_memory"),
@@ -199,7 +203,9 @@ Function* WAOTVisitor::GetFunction(const wasm::Callable& func,
   }
 
   auto* f = Function::Create(FunctionType::get(ret_type, arg_types, false),
-                             linkage, func.local_name.c_str(), module_);
+                             linkage,
+                             func.local_name.c_str(),
+                             module_);
   assert(f && "Could not create Function");
 
   auto arg_iterator = f->arg_begin();
@@ -272,15 +278,20 @@ void WAOTVisitor::VisitImport(const wasm::Import& imp) {
 }
 
 void WAOTVisitor::VisitExport(const wasm::Export& exp) {
-  llvm::GlobalAlias::create(
-      functions_[exp.function]->getType(), Function::ExternalLinkage,
-      Mangle(exp.module->name, exp.name), functions_[exp.function], module_);
+  llvm::GlobalAlias::create(functions_[exp.function]->getType(),
+                            Function::ExternalLinkage,
+                            Mangle(exp.module->name, exp.name),
+                            functions_[exp.function],
+                            module_);
 }
 
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {
   auto* segment_data = new llvm::GlobalVariable(
-      *module_, llvm::ArrayType::get(irb_.getInt8Ty(), seg.size), false,
-      llvm::GlobalVariable::LinkageTypes::InternalLinkage, nullptr,
+      *module_,
+      llvm::ArrayType::get(irb_.getInt8Ty(), seg.size),
+      false,
+      llvm::GlobalVariable::LinkageTypes::InternalLinkage,
+      nullptr,
       Mangle(current_wasm_module_->name, NumberedName("segment", seg.address)));
   segment_data->setInitializer(
       llvm::ConstantDataArray::getString(ctx_, seg.as_string(), false));
@@ -366,9 +377,9 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
                             wasm::Expression* condition,
                             wasm::Expression* then,
                             wasm::Expression* els) {
-  Value* cmp_result =
-      irb_.CreateICmpNE(VisitExpression(condition),
-                        ConstantInt::get(irb_.getInt32Ty(), 0), "if_cmp");
+  Value* cmp_result = irb_.CreateICmpNE(VisitExpression(condition),
+                                        ConstantInt::get(irb_.getInt32Ty(), 0),
+                                        "if_cmp");
 
   auto* then_bb = BasicBlock::Create(ctx_, "if.then", current_func_);
   auto* else_bb = BasicBlock::Create(ctx_, "if.else", current_func_);
@@ -447,7 +458,7 @@ Value* WAOTVisitor::VisitReturn(
 }
 
 Value* WAOTVisitor::VisitGetLocal(wasm::LocalExpression* expr,
-				  wasm::Variable* var) {
+                                  wasm::Variable* var) {
   auto* load_addr = current_locals_[var->index];
   return irb_.CreateLoad(getLLVMType(var->type), load_addr, "get_local");
 }
@@ -461,13 +472,13 @@ Value* WAOTVisitor::VisitSetLocal(wasm::LocalExpression* expr,
 }
 
 Value* WAOTVisitor::VisitMemory(wasm::Expression* expr,
-				wasm::MemoryOperator memop,
-				wasm::MemType mem_type,
-				uint32_t mem_alignment,
-				uint64_t mem_offset,
-				bool is_signed,
-				wasm::Expression* address,
-				wasm::Expression* store_expr) {
+                                wasm::MemoryOperator memop,
+                                wasm::MemType mem_type,
+                                uint32_t mem_alignment,
+                                uint64_t mem_offset,
+                                bool is_signed,
+                                wasm::Expression* address,
+                                wasm::Expression* store_expr) {
   Value* address_val = VisitExpression(address);
   Value* store_val = nullptr;
   if (store_expr)
@@ -476,31 +487,40 @@ Value* WAOTVisitor::VisitMemory(wasm::Expression* expr,
   auto* membase_var = cast<llvm::GlobalVariable>(module_->getOrInsertGlobal(
       MembaseGlobalName(),
       llvm::ArrayType::get(irb_.getInt8Ty(), 4ULL * 1024 * 1024 * 1024ULL)));
-  auto* membase  = llvm::ConstantExpr::getPointerCast(membase_var, irb_.getInt8PtrTy());
+  auto* membase =
+      llvm::ConstantExpr::getPointerCast(membase_var, irb_.getInt8PtrTy());
   // TODO: check offset
   // TODO: wasm64
   auto* offset = irb_.getInt32(mem_offset);
   // TODO: infinite precision
-  // addr = getelementptr(membase, address_val) -> getelementptr(membase, address_val+offset)
+  // addr = getelementptr(membase, address_val) -> getelementptr(membase,
+  // address_val+offset)
   auto* index = irb_.CreateAdd(address_val, offset, "effective_addr");
   auto* addr = irb_.CreateGEP(membase, index);
   // TODO: alignment
 
   if (store_expr) {
-    auto* store_val_trunc = mem_type.IsFloatTy() ? store_val :
-      irb_.CreateTrunc(store_val, irb_.getIntNTy(mem_type.GetSizeInBits()), "storetype_val");
+    auto* store_val_trunc =
+        mem_type.IsFloatTy()
+            ? store_val
+            : irb_.CreateTrunc(store_val,
+                               irb_.getIntNTy(mem_type.GetSizeInBits()),
+                               "storetype_val");
     irb_.CreateStore(store_val_trunc,
-		     irb_.CreatePointerCast(addr, store_val_trunc->getType()->getPointerTo()));
+                     irb_.CreatePointerCast(
+                         addr, store_val_trunc->getType()->getPointerTo()));
     return nullptr;
   } else {
     auto* expr_type = getLLVMType(expr->expr_type);
-    auto* load_type = mem_type.IsFloatTy() ?  expr_type:
-      irb_.getIntNTy(mem_type.GetSizeInBits());
+    auto* load_type = mem_type.IsFloatTy()
+                          ? expr_type
+                          : irb_.getIntNTy(mem_type.GetSizeInBits());
 
-    auto* loaded_val = irb_.CreateLoad(irb_.CreatePointerCast(addr, load_type->getPointerTo()),
-				     "loadtype_val");
-    return is_signed ? irb_.CreateSExt(loaded_val, expr_type, "load_val") :
-      irb_.CreateZExt(loaded_val, expr_type, "load_val");
+    auto* loaded_val =
+        irb_.CreateLoad(irb_.CreatePointerCast(addr, load_type->getPointerTo()),
+                        "loadtype_val");
+    return is_signed ? irb_.CreateSExt(loaded_val, expr_type, "load_val")
+                     : irb_.CreateZExt(loaded_val, expr_type, "load_val");
   }
 }
 
@@ -510,14 +530,14 @@ Value* WAOTVisitor::VisitConst(wasm::Expression* expr, wasm::Literal* l) {
       return llvm::UndefValue::get(Type::getVoidTy(ctx_));
     case wasm::Type::kI32:
     case wasm::Type::kI64:
-      return ConstantInt::get(getLLVMType(l->type), l->type == wasm::Type::kI32
-                                                        ? l->value.i32
-                                                        : l->value.i64);
+      return ConstantInt::get(
+          getLLVMType(l->type),
+          l->type == wasm::Type::kI32 ? l->value.i32 : l->value.i64);
     case wasm::Type::kF32:
     case wasm::Type::kF64:
-      return ConstantFP::get(getLLVMType(l->type), l->type == wasm::Type::kF32
-                                                       ? l->value.f32
-                                                       : l->value.f64);
+      return ConstantFP::get(
+          getLLVMType(l->type),
+          l->type == wasm::Type::kF32 ? l->value.f32 : l->value.f64);
     default:
       assert(false);
   }
@@ -630,8 +650,8 @@ static Value* VisitShift(Instruction::BinaryOps opcode,
     // Practically I don't know of any architecture where it would trap or
     // anything strange.
     Value* shift_result = irb->CreateBinOp(opcode, lhs, rhs, "shift_result");
-    return irb->CreateSelect(shiftop_check, ConstantInt::get(op_ty, 0),
-                             shift_result, "shift_expr");
+    return irb->CreateSelect(
+        shiftop_check, ConstantInt::get(op_ty, 0), shift_result, "shift_expr");
   }
 }
 
@@ -639,7 +659,8 @@ static Constant* GetTrapFunction(Module* module) {
   return module->getOrInsertFunction(
       RuntimeFuncName("trap"),
       FunctionType::get(Type::getVoidTy(module->getContext()),
-                        {Type::getInt32Ty(module->getContext())}, false));
+                        {Type::getInt32Ty(module->getContext())},
+                        false));
 }
 
 Value* WAOTVisitor::VisitIDiv(Instruction::BinaryOps opcode,
@@ -665,8 +686,8 @@ Constant* WAOTVisitor::GetBinaryOpCallee(wasm::Type wasm_ty,
   Type* expr_ty = getLLVMType(wasm_ty);
   switch (binop) {
     case wasm::kCopySign:
-      return llvm::Intrinsic::getDeclaration(module_, llvm::Intrinsic::copysign,
-                                             expr_ty);
+      return llvm::Intrinsic::getDeclaration(
+          module_, llvm::Intrinsic::copysign, expr_ty);
     case wasm::kMin:
       return module_->getOrInsertFunction(
           RuntimeFuncName("float_min", wasm_ty),
@@ -709,8 +730,8 @@ Value* WAOTVisitor::VisitBinop(wasm::Expression* expr,
     case wasm::kCopySign:
     case wasm::kMin:
     case wasm::kMax:
-      return VisitCallBinop(expr->expr_type, binop, lhs_value, rhs_value,
-                            &irb_);
+      return VisitCallBinop(
+          expr->expr_type, binop, lhs_value, rhs_value, &irb_);
     default:
       break;
   }
@@ -724,8 +745,12 @@ Value* WAOTVisitor::VisitCompare(wasm::Expression* expr,
                                  wasm::Expression* rhs) {
   Value* lhs_val = VisitExpression(lhs);
   Value* rhs_val = VisitExpression(rhs);
-  return CreateCompare(getLLVMType(compare_type), relop, &irb_, lhs_val,
-                       rhs_val, "compare_epxr");
+  return CreateCompare(getLLVMType(compare_type),
+                       relop,
+                       &irb_,
+                       lhs_val,
+                       rhs_val,
+                       "compare_epxr");
 }
 
 void WAOTVisitor::TrapIfNaN(Value* lhs) {
@@ -755,12 +780,14 @@ void WAOTVisitor::ToIntRangeCheck(Value* operand,
     min_pred = CmpInst::FCMP_ULE;
   }
 
-  Value* cmp1 =
-      irb_.CreateFCmp(CmpInst::FCMP_UGE, operand,
-                      ConstantFP::get(operand->getType(), maxval), "ovf_upper");
-  Value* cmp2 =
-      irb_.CreateFCmp(min_pred, operand,
-                      ConstantFP::get(operand->getType(), minval), "ovf_lower");
+  Value* cmp1 = irb_.CreateFCmp(CmpInst::FCMP_UGE,
+                                operand,
+                                ConstantFP::get(operand->getType(), maxval),
+                                "ovf_upper");
+  Value* cmp2 = irb_.CreateFCmp(min_pred,
+                                operand,
+                                ConstantFP::get(operand->getType(), minval),
+                                "ovf_lower");
   Value* should_trap = irb_.CreateOr(cmp1, cmp2, "overflow_check");
   auto* next_bb = BasicBlock::Create(ctx_, "conv.next", current_func_);
   auto* trap_bb = BasicBlock::Create(ctx_, "conv.trap", current_func_);
@@ -826,15 +853,19 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   auto* ret_type = getLLVMType(expr->type);
   auto* f = Function::Create(FunctionType::get(ret_type, {}, false),
                              Function::ExternalLinkage,
-                             NumberedName("Invoke", expr->source_loc.line), module_);
+                             NumberedName("Invoke", expr->source_loc.line),
+                             module_);
   assert(f);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
   Function* previous_func = current_func_;
   current_func_ = f;
-  Value* call = VisitCall(nullptr, false, callee->function,
-                          callee->function->index_in_module, args);
+  Value* call = VisitCall(nullptr,
+                          false,
+                          callee->function,
+                          callee->function->index_in_module,
+                          args);
 
   irb_.SetInsertPoint(bb);
   if (ret_type->isVoidTy()) {
@@ -848,7 +879,6 @@ Value* WAOTVisitor::VisitInvoke(wasm::TestScriptExpr* expr,
   return f;
 }
 
-
 Value* WAOTVisitor::VisitAssertReturn(
     wasm::TestScriptExpr* expr,
     wasm::TestScriptExpr* invoke,
@@ -860,10 +890,11 @@ Value* WAOTVisitor::VisitAssertReturn(
   // failure handler __wasm_assert_fail_<type> for each wasm type, which
   // returns void and takes the assertion number and expected and actual result
   // values.
-  auto* f = Function::Create(
-      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-      Function::ExternalLinkage,
-      NumberedName("AssertReturn", expr->source_loc.line), module_);
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage,
+                       NumberedName("AssertReturn", expr->source_loc.line),
+                       module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
@@ -903,7 +934,8 @@ Value* WAOTVisitor::VisitAssertReturn(
             RuntimeFuncName("assert_fail", expected->front()->expr_type),
             FunctionType::get(
                 Type::getVoidTy(ctx_),
-                {Type::getInt32Ty(ctx_), expected_type, expected_type}, false)),
+                {Type::getInt32Ty(ctx_), expected_type, expected_type},
+                false)),
         {ConstantInt::get(Type::getInt32Ty(ctx_), expr->source_loc.line),
          expected_result, result});
   }
@@ -916,10 +948,11 @@ Value* WAOTVisitor::VisitAssertReturn(
 
 Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                                          wasm::TestScriptExpr* invoke) {
-  auto* f = Function::Create(
-      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-      Function::ExternalLinkage,
-      NumberedName("AssertReturnNaN", expr->source_loc.line), module_);
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage,
+                       NumberedName("AssertReturnNaN", expr->source_loc.line),
+                       module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   irb_.SetInsertPoint(bb);
@@ -935,8 +968,8 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
   // the appropriate thing on failure.
   Constant* assert_func = module_->getOrInsertFunction(
       RuntimeFuncName("assert_return_nan", expr->type),
-      FunctionType::get(Type::getVoidTy(ctx_),
-                        {i32_ty, getLLVMType(expr->type)}, false));
+      FunctionType::get(
+          Type::getVoidTy(ctx_), {i32_ty, getLLVMType(expr->type)}, false));
   irb_.CreateCall(assert_func,
                   {ConstantInt::get(i32_ty, expr->source_loc.line), result});
   irb_.CreateRetVoid();
@@ -947,10 +980,11 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
 
 Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
                                     wasm::TestScriptExpr* invoke) {
-  auto* f = Function::Create(
-      FunctionType::get(Type::getVoidTy(ctx_), {}, false),
-      Function::ExternalLinkage,
-      NumberedName("AssertTrap", expr->source_loc.line), module_);
+  auto* f =
+      Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
+                       Function::ExternalLinkage,
+                       NumberedName("AssertTrap", expr->source_loc.line),
+                       module_);
   BasicBlock::Create(ctx_, "entry", f);
   auto* bb = &f->getEntryBlock();
   assert(current_func_ == nullptr);
@@ -985,14 +1019,20 @@ void WAOTVisitor::FinishLLVMModule() {
   fini_funcs_.push_back(array_delimiter);
 
   auto* init_array = new llvm::GlobalVariable(
-      *module_, llvm::ArrayType::get(initfini_fn_ty_, init_funcs_.size()),
-      false, llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
+      *module_,
+      llvm::ArrayType::get(initfini_fn_ty_, init_funcs_.size()),
+      false,
+      llvm::GlobalVariable::LinkageTypes::AppendingLinkage,
+      nullptr,
       "__wasm_init_array");
   init_array->setInitializer(llvm::ConstantArray::get(
       cast<llvm::ArrayType>(init_array->getValueType()), init_funcs_));
   auto* fini_array = new llvm::GlobalVariable(
-      *module_, llvm::ArrayType::get(initfini_fn_ty_, fini_funcs_.size()),
-      false, llvm::GlobalVariable::LinkageTypes::AppendingLinkage, nullptr,
+      *module_,
+      llvm::ArrayType::get(initfini_fn_ty_, fini_funcs_.size()),
+      false,
+      llvm::GlobalVariable::LinkageTypes::AppendingLinkage,
+      nullptr,
       "__wasm_fini_array");
   fini_array->setInitializer(llvm::ConstantArray::get(
       cast<llvm::ArrayType>(fini_array->getValueType()), fini_funcs_));

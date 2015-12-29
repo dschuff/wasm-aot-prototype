@@ -23,8 +23,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
         initfini_fn_ty_(llvm::FunctionType::get(
                             llvm::Type::getVoidTy(llvm_module->getContext()),
                             {},
-                            false)
-                            ->getPointerTo()),
+                            false)->getPointerTo()),
         irb_(llvm_module->getContext()) {}
 
   bool SetEntryExport(const wasm::Callable* func) {
@@ -67,13 +66,13 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                              wasm::Variable* var,
                              wasm::Expression* value) override;
   llvm::Value* VisitMemory(wasm::Expression* expr,
-			   wasm::MemoryOperator memop,
-			   wasm::MemType mem_type,
-			   uint32_t mem_alignment,
-			   uint64_t mem_offset,
-			   bool is_signed,
-			   wasm::Expression* address,
-			   wasm::Expression* store_val) override;
+                           wasm::MemoryOperator memop,
+                           wasm::MemType mem_type,
+                           uint32_t mem_alignment,
+                           uint64_t mem_offset,
+                           bool is_signed,
+                           wasm::Expression* address,
+                           wasm::Expression* store_val) override;
   llvm::Value* VisitConst(wasm::Expression* expr, wasm::Literal* l) override;
   llvm::Value* VisitUnop(wasm::Expression* expr,
                          wasm::UnaryOperator unop,

@@ -186,43 +186,49 @@ class Parser {
   EACH_CALLBACK1
 #undef CALLBACK
 
-#define CALLBACK(name, arg1ty, arg2ty)                                  \
-  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
-                             arg2ty arg2) {                             \
-    Parser* p(static_cast<Parser*>(info->user_data));                   \
-    p->SetCurrentCallbackInfo(info);                                    \
-    return p->name(arg1, arg2);                                         \
+#define CALLBACK(name, arg1ty, arg2ty)                          \
+  static void wrapper_##name(                                   \
+      WasmParserCallbackInfo* info, arg1ty arg1, arg2ty arg2) { \
+    Parser* p(static_cast<Parser*>(info->user_data));           \
+    p->SetCurrentCallbackInfo(info);                            \
+    return p->name(arg1, arg2);                                 \
   }
   EACH_CALLBACK2
 #undef CALLBACK
 
-#define CALLBACK(name, arg1ty, arg2ty, arg3ty)                          \
-  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
-                             arg2ty arg2, arg3ty arg3) {                \
-    Parser* p(static_cast<Parser*>(info->user_data));                   \
-    p->SetCurrentCallbackInfo(info);                                    \
-    return p->name(arg1, arg2, arg3);                                   \
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty)                               \
+  static void wrapper_##name(                                                \
+      WasmParserCallbackInfo* info, arg1ty arg1, arg2ty arg2, arg3ty arg3) { \
+    Parser* p(static_cast<Parser*>(info->user_data));                        \
+    p->SetCurrentCallbackInfo(info);                                         \
+    return p->name(arg1, arg2, arg3);                                        \
   }
   EACH_CALLBACK3
 #undef CALLBACK
 
-#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty)                  \
-  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
-                             arg2ty arg2, arg3ty arg3, arg4ty arg4) {   \
-    Parser* p(static_cast<Parser*>(info->user_data));                   \
-    p->SetCurrentCallbackInfo(info);                                    \
-    return p->name(arg1, arg2, arg3, arg4);                             \
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty)     \
+  static void wrapper_##name(WasmParserCallbackInfo* info, \
+                             arg1ty arg1,                  \
+                             arg2ty arg2,                  \
+                             arg3ty arg3,                  \
+                             arg4ty arg4) {                \
+    Parser* p(static_cast<Parser*>(info->user_data));      \
+    p->SetCurrentCallbackInfo(info);                       \
+    return p->name(arg1, arg2, arg3, arg4);                \
   }
   EACH_CALLBACK4
 #undef CALLBACK
 
-#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty, arg5ty)          \
-  static void wrapper_##name(WasmParserCallbackInfo* info, arg1ty arg1, \
-                             arg2ty arg2, arg3ty arg3, arg4ty arg4,     \
-                             arg5ty arg5) {                             \
-    Parser* p(static_cast<Parser*>(info->user_data));                   \
-    p->SetCurrentCallbackInfo(info);                                    \
-    return p->name(arg1, arg2, arg3, arg4, arg5);                       \
+#define CALLBACK(name, arg1ty, arg2ty, arg3ty, arg4ty, arg5ty) \
+  static void wrapper_##name(WasmParserCallbackInfo* info,     \
+                             arg1ty arg1,                      \
+                             arg2ty arg2,                      \
+                             arg3ty arg3,                      \
+                             arg4ty arg4,                      \
+                             arg5ty arg5) {                    \
+    Parser* p(static_cast<Parser*>(info->user_data));          \
+    p->SetCurrentCallbackInfo(info);                           \
+    return p->name(arg1, arg2, arg3, arg4, arg5);              \
   }
   EACH_CALLBACK5
 #undef CALLBACK

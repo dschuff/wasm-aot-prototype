@@ -19,7 +19,8 @@ void __wasm_init_memory(void* base, size_t initial_size) {
 void __wasm_grow_memory(size_t delta) {
   if ((delta & (kPageSize - 1)) != 0) {
     __wasm_report_error(
-        "grow_memory delta %zd is not a multiple of page size %zd\n", delta,
+        "grow_memory delta %zd is not a multiple of page size %zd\n",
+        delta,
         kPageSize);
     __wasm_trap(kInvalidArgument);
   }
