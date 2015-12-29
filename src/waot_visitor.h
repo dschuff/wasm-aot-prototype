@@ -53,7 +53,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                        wasm::Expression* then,
                        wasm::Expression* els) override;
   llvm::Value* VisitCall(
-      wasm::Expression* expr,
+      wasm::CallExpression* expr,
       bool is_import,
       wasm::Callable* callee,
       int callee_index,
@@ -61,9 +61,9 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitReturn(
       wasm::Expression* expr,
       wasm::UniquePtrVector<wasm::Expression>* value) override;
-  llvm::Value* VisitGetLocal(wasm::Expression* expr,
+  llvm::Value* VisitGetLocal(wasm::LocalExpression* expr,
                              wasm::Variable* var) override;
-  llvm::Value* VisitSetLocal(wasm::Expression* expr,
+  llvm::Value* VisitSetLocal(wasm::LocalExpression* expr,
                              wasm::Variable* var,
                              wasm::Expression* value) override;
   llvm::Value* VisitMemory(wasm::Expression* expr,
@@ -87,7 +87,7 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
                             wasm::CompareOperator relop,
                             wasm::Expression* lhs,
                             wasm::Expression* rhs) override;
-  llvm::Value* VisitConversion(wasm::Expression* expr,
+  llvm::Value* VisitConversion(wasm::ConversionExpression* expr,
                                wasm::ConversionOperator cvt,
                                wasm::Expression* operand) override;
 

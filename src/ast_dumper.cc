@@ -160,7 +160,7 @@ void AstDumper::VisitIf(Expression* expr,
   printf(")\n");
 }
 
-void AstDumper::VisitCall(Expression* expr,
+void AstDumper::VisitCall(CallExpression* expr,
                           bool is_import,
                           Callable* callee,
                           int callee_index,
@@ -185,7 +185,7 @@ void AstDumper::VisitReturn(Expression* expr,
   printf(") ");
 }
 
-void AstDumper::VisitGetLocal(Expression* expr, Variable* var) {
+void AstDumper::VisitGetLocal(LocalExpression* expr, Variable* var) {
   printf("(get_local ");
   if (!var->local_name.empty()) {
     printf("%s)", var->local_name.c_str());
@@ -194,7 +194,7 @@ void AstDumper::VisitGetLocal(Expression* expr, Variable* var) {
   }
 }
 
-void AstDumper::VisitSetLocal(Expression* expr,
+void AstDumper::VisitSetLocal(LocalExpression* expr,
                               Variable* var,
                               Expression* value) {
   printf("(set_local ");
@@ -417,7 +417,7 @@ const char* ConversionOpName(ConversionOperator cvt) {
   }
 }
 
-void AstDumper::VisitConversion(Expression* expr,
+void AstDumper::VisitConversion(ConversionExpression* expr,
                                 ConversionOperator cvt,
                                 Expression* operand) {
   printf("(%s.%s/%s ", TypeName(expr->expr_type), ConversionOpName(cvt),

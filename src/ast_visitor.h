@@ -59,36 +59,63 @@ class AstVisitor {
       case Expression::kBlock:
         return VisitBlock(expr, &expr->exprs);
       case Expression::kIf:
-        return VisitIf(expr, expr->exprs[0].get(), expr->exprs[1].get(),
+        return VisitIf(expr,
+                       expr->exprs[0].get(),
+                       expr->exprs[1].get(),
                        expr->exprs.size() > 2 ? expr->exprs[2].get() : nullptr);
-      case Expression::kCallDirect:
-        return VisitCall(expr, expr->is_import, expr->callee,
-                         expr->callee_index, &expr->exprs);
+      case Expression::kCallDirect: {
+        CallExpression* ce = static_cast<CallExpression*>(expr);
+        return VisitCall(
+            ce, ce->is_import, ce->callee, ce->callee_index, &ce->exprs);
+      }
       case Expression::kReturn:
         // We don't support multiple returns anymore but it could still be void
         assert(expr->exprs.size() <= 1);
         return VisitReturn(expr, &expr->exprs);
-      case Expression::kGetLocal:
-        return VisitGetLocal(expr, expr->local_var);
-      case Expression::kSetLocal:
-        return VisitSetLocal(expr, expr->local_var, expr->exprs.front().get());
+      case Expression::kGetLocal: {
+        LocalExpression* le = static_cast<LocalExpression*>(expr);
+        return VisitGetLocal(le, le->local_var);
+      }
+      case Expression::kSetLocal: {
+        LocalExpression* le = static_cast<LocalExpression*>(expr);
+        return VisitSetLocal(le, le->local_var, le->exprs.front().get());
+      }
       case Expression::kConst:
-        return VisitConst(expr, &expr->literal);
-      case Expression::kUnary:
-        return VisitUnop(expr, expr->unop, expr->exprs.front().get());
-      case Expression::kBinary:
-        return VisitBinop(expr, expr->binop, expr->exprs[0].get(),
-                          expr->exprs[1].get());
-      case Expression::kCompare:
-        return VisitCompare(expr, expr->compare_type, expr->relop,
-                            expr->exprs[0].get(), expr->exprs[1].get());
-      case Expression::kConvert:
-        return VisitConversion(expr, expr->cvt, expr->exprs.front().get());
-      case Expression::kMemory:
+        return VisitConst(expr,
+                          &static_cast<ConstantExpression*>(expr)->literal);
+      case Expression::kUnary: {
+        UnaryExpression* ue = static_cast<UnaryExpression*>(expr);
+        return VisitUnop(ue, ue->unop, ue->exprs.front().get());
+      }
+      case Expression::kBinary: {
+	BinaryExpression* be = static_cast<BinaryExpression*>(expr);
+        return VisitBinop(
+            be, be->binop, be->exprs[0].get(), be->exprs[1].get());
+      }
+      case Expression::kCompare: {
+	CompareExpression* ce = static_cast<CompareExpression*>(expr);
+        return VisitCompare(ce,
+                            ce->compare_type,
+                            ce->relop,
+                            ce->exprs[0].get(),
+                            ce->exprs[1].get());
+      }
+      case Expression::kConvert: {
+	ConversionExpression* ce = static_cast<ConversionExpression*>(expr);
+        return VisitConversion(ce, ce->cvt, ce->exprs.front().get());
+      }
+      case Expression::kMemory: {
+	MemoryExpression* me = static_cast<MemoryExpression*>(expr);
         return VisitMemory(
-            expr, expr->memop, expr->mem_type, expr->mem_alignment,
-            expr->mem_offset, expr->is_signed, expr->exprs[0].get(),
-            expr->memop == kStore ? expr->exprs[1].get() : nullptr);
+	    me,
+            me->memop,
+            me->mem_type,
+            me->alignment,
+            me->offset,
+            me->is_signed,
+            me->exprs[0].get(),
+            me->memop == kStore ? me->exprs[1].get() : nullptr);
+      }
       default:
         assert(false);
     }
@@ -111,7 +138,7 @@ class AstVisitor {
     return ExprVal();
   }
 
-  virtual ExprVal VisitCall(Expression* expr,
+  virtual ExprVal VisitCall(CallExpression* expr,
                             bool is_import,
                             Callable* callee,
                             int callee_index,
@@ -126,10 +153,10 @@ class AstVisitor {
       VisitExpression(value->front().get());
     return ExprVal();
   }
-  virtual ExprVal VisitGetLocal(Expression* expr, Variable* var) {
+  virtual ExprVal VisitGetLocal(LocalExpression* expr, Variable* var) {
     return ExprVal();
   }
-  virtual ExprVal VisitSetLocal(Expression* expr,
+  virtual ExprVal VisitSetLocal(LocalExpression* expr,
                                 Variable* var,
                                 Expression* value) {
     VisitExpression(value);
@@ -159,7 +186,7 @@ class AstVisitor {
     VisitExpression(rhs);
     return ExprVal();
   }
-  virtual ExprVal VisitConversion(Expression* expr,
+  virtual ExprVal VisitConversion(ConversionExpression* expr,
                                   ConversionOperator cvt,
                                   Expression* operand) {
     VisitExpression(operand);

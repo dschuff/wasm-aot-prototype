@@ -28,15 +28,15 @@ class AstDumper : public AstVisitor<void, void> {
                Expression* condition,
                Expression* then,
                Expression* els) override;
-  void VisitCall(Expression* expr,
+  void VisitCall(CallExpression* expr,
                  bool is_import,
                  Callable* callee,
                  int callee_index,
                  UniquePtrVector<Expression>* args) override;
   void VisitReturn(Expression* expr,
                    UniquePtrVector<Expression>* value) override;
-  void VisitGetLocal(Expression* expr, Variable* var) override;
-  void VisitSetLocal(Expression* expr,
+  void VisitGetLocal(LocalExpression* expr, Variable* var) override;
+  void VisitSetLocal(LocalExpression* expr,
                      Variable* var,
                      Expression* value) override;
   void VisitMemory(Expression* expr,
@@ -60,7 +60,7 @@ class AstDumper : public AstVisitor<void, void> {
                     CompareOperator relop,
                     Expression* lhs,
                     Expression* rhs) override;
-  void VisitConversion(Expression* expr,
+  void VisitConversion(ConversionExpression* expr,
                        ConversionOperator cvt,
                        Expression* operand) override;
 

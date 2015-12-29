@@ -62,7 +62,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       VisitExpression(arg.get());
     }
   }
-  void VisitCall(wasm::Expression* expr,
+  void VisitCall(wasm::CallExpression* expr,
                  bool is_import,
                  wasm::Callable* callee,
                  int callee_index,
@@ -76,7 +76,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
       VisitExpression(value->back().get());
     }
   }
-  void VisitSetLocal(wasm::Expression* expr,
+  void VisitSetLocal(wasm::LocalExpression* expr,
                      wasm::Variable* var,
                      wasm::Expression* value) override {
     value->expected_type = var->type;
@@ -122,7 +122,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
     rhs->expected_type = compare_type;
     VisitExpression(rhs);
   }
-  void VisitConversion(wasm::Expression* expr,
+  void VisitConversion(wasm::ConversionExpression* expr,
                        wasm::ConversionOperator cvt,
                        wasm::Expression* operand) override {
     operand->expected_type = expr->operand_type;
@@ -195,9 +195,7 @@ void Parser::after_if(WasmType ty, int with_else) {
 }
 
 void Parser::ParseCall(bool is_import, int index) {
-  auto* expr = new Expression(Expression::kCallDirect);
-  expr->callee_index = index;
-  expr->is_import = is_import;
+  auto* expr = new CallExpression(index, is_import, nullptr);
   assert(is_import ? module->imports.size() > static_cast<unsigned>(index)
                    : module->functions.size() > static_cast<unsigned>(index));
   if (is_import) {
@@ -228,17 +226,15 @@ void Parser::after_return(WasmType ty) {
 }
 
 void Parser::after_get_local(int index) {
-  auto* expr = new Expression(Expression::kGetLocal);
   assert(current_func_);
-  expr->local_var = current_func_->locals[index].get();
+  auto* expr = LocalExpression::GetGetLocal(current_func_->locals[index].get());
   expr->expr_type = expr->local_var->type;
   Insert(expr);
 }
 
 void Parser::before_set_local(int index) {
-  auto* expr = new Expression(Expression::kSetLocal);
   assert(current_func_);
-  expr->local_var = current_func_->locals[index].get();
+  auto* expr = LocalExpression::GetSetLocal(current_func_->locals[index].get());
   expr->expr_type = expr->local_var->type;
   InsertAndPush(expr, 1);
 }
@@ -275,13 +271,8 @@ void Parser::before_load(WasmOpcode opcode,
                          uint32_t alignment,
                          uint64_t offset,
                          int is_signed) {
-  auto* expr = new Expression(Expression::kMemory);
+  auto* expr = new MemoryExpression(kLoad, mem_type, alignment, offset, is_signed);
   expr->expr_type = MemOperandType(opcode);
-  expr->memop = kLoad;
-  expr->mem_type = mem_type;
-  expr->mem_alignment = alignment;
-  expr->mem_offset = offset;
-  expr->is_signed = is_signed;
   InsertAndPush(expr, 1);
 }
 
@@ -289,19 +280,14 @@ void Parser::before_store(WasmOpcode opcode,
                           WasmMemType mem_type,
                           uint32_t alignment,
                           uint64_t offset) {
-  auto* expr = new Expression(Expression::kMemory);
+  auto* expr = new MemoryExpression(kStore, mem_type, alignment, offset, false);
   expr->expr_type = MemOperandType(opcode);
-  expr->memop = kStore;
-  expr->mem_type = mem_type;
-  expr->mem_alignment = alignment;
-  expr->mem_offset = offset;
   InsertAndPush(expr, 2);
 }
 
 void Parser::after_const(WasmOpcode opcode, WasmType ty, WasmNumber value) {
-  auto* expr = new Expression(Expression::kConst);
+  auto* expr = new ConstantExpression(ty);
   expr->expr_type = ty;
-  expr->literal.type = ty;
   switch (ty) {
     case WASM_TYPE_I32:
       assert(opcode == WASM_OPCODE_I32_CONST || opcode == WASM_OPCODE_I8_CONST);
@@ -395,9 +381,8 @@ static UnaryOperator UnopOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_unary(WasmOpcode opcode) {
-  auto* expr = new Expression(Expression::kUnary);
+  auto* expr = new UnaryExpression(UnopOperator(opcode));
   expr->expr_type = UnopType(opcode);
-  expr->unop = UnopOperator(opcode);
   InsertAndPush(expr, 1);
 }
 
@@ -517,9 +502,8 @@ static BinaryOperator BinopOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_binary(WasmOpcode opcode) {
-  auto* expr = new Expression(Expression::kBinary);
+  auto* expr = new BinaryExpression(BinopOperator(opcode));
   expr->expr_type = BinopType(opcode);
-  expr->binop = BinopOperator(opcode);
   InsertAndPush(expr, 2);
 }
 
@@ -620,10 +604,8 @@ static CompareOperator CmpOperator(WasmOpcode opcode) {
 }
 
 void Parser::before_compare(WasmOpcode opcode) {
-  auto* expr = new Expression(Expression::kCompare);
+  auto* expr = new CompareExpression(CompareType(opcode), CmpOperator(opcode));
   expr->expr_type = Type::kI32;
-  expr->compare_type = CompareType(opcode);
-  expr->relop = CmpOperator(opcode);
   InsertAndPush(expr, 2);
 }
 
@@ -739,10 +721,12 @@ static Type ConversionOperandType(Type result_type, ConversionOperator cvt) {
 }
 
 void Parser::before_convert(WasmOpcode opcode) {
-  auto* expr = new Expression(Expression::kConvert);
-  expr->expr_type = ConversionResultType(opcode);
-  expr->cvt = ConvOperator(opcode);
-  expr->operand_type = ConversionOperandType(expr->expr_type, expr->cvt);
+  auto conv_operator = ConvOperator(opcode);
+  auto expr_type = ConversionResultType(opcode);
+  auto* expr =
+    new ConversionExpression(conv_operator,
+			     ConversionOperandType(expr_type, conv_operator));
+  expr->expr_type = expr_type;
   InsertAndPush(expr, 1);
 }
 

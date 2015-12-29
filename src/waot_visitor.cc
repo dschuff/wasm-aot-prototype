@@ -424,7 +424,7 @@ Value* WAOTVisitor::VisitIf(wasm::Expression* expr,
   return ret;
 }
 
-Value* WAOTVisitor::VisitCall(wasm::Expression* expr,
+Value* WAOTVisitor::VisitCall(wasm::CallExpression* expr,
                               bool is_import,
                               wasm::Callable* callee,
                               int callee_index,
@@ -446,12 +446,13 @@ Value* WAOTVisitor::VisitReturn(
       PromoteI1(retval, current_func_->getReturnType(), &irb_, ctx_));
 }
 
-Value* WAOTVisitor::VisitGetLocal(wasm::Expression* expr, wasm::Variable* var) {
+Value* WAOTVisitor::VisitGetLocal(wasm::LocalExpression* expr,
+				  wasm::Variable* var) {
   auto* load_addr = current_locals_[var->index];
   return irb_.CreateLoad(getLLVMType(var->type), load_addr, "get_local");
 }
 
-Value* WAOTVisitor::VisitSetLocal(wasm::Expression* expr,
+Value* WAOTVisitor::VisitSetLocal(wasm::LocalExpression* expr,
                                   wasm::Variable* var,
                                   wasm::Expression* value) {
   Value* store_addr = current_locals_[var->index];
@@ -772,7 +773,7 @@ void WAOTVisitor::ToIntRangeCheck(Value* operand,
   irb_.SetInsertPoint(next_bb);
 }
 
-Value* WAOTVisitor::VisitConversion(wasm::Expression* expr,
+Value* WAOTVisitor::VisitConversion(wasm::ConversionExpression* expr,
                                     wasm::ConversionOperator cvt,
                                     wasm::Expression* operand) {
   Value* operand_val = VisitExpression(operand);

@@ -182,12 +182,10 @@ class Variable {
   std::string local_name;  // Empty if none bound
 };
 
-// There's only one Expression class, which has all the possible data members,
-// some of which are common. This avoids the need to make it virtual or use any
-// kind of RTTI. Only AstVisitor::VisitExpression and the parser actually need
-// to care about the kind, and the use of these members by the kinds.
 class Expression {
  public:
+  // ExpressionKind is used instead of RTTI. Only AstVisitor::VisitExpression actually
+  // needs to care about this field currently.
   enum ExpressionKind {
     kNop,
     kBlock,
@@ -204,39 +202,85 @@ class Expression {
     kMemory,
   };
   Expression(ExpressionKind k) : kind(k) {}
-  // Common
   ExpressionKind kind;
   Type expr_type = Type::kUnknown;
   Type expected_type = Type::kUnknown;
-  // Const
-  Literal literal = {};
-  // Call, CallImport
-  int callee_index = 0;
-  bool is_import = false;
-  Callable* callee;
-  // get_local, set_local variable
-  Variable* local_var;
-  // Load, Store
-  MemoryOperator memop;
-  MemType mem_type = MemType::kUnknown;
-  uint32_t mem_alignment;
-  uint64_t mem_offset;
-  bool is_signed;
-  // Unops
-  UnaryOperator unop;
-  // Binops
-  BinaryOperator binop;
-  // Compare
-  Type compare_type = Type::kUnknown;
-  CompareOperator relop;
-  // Convert
-  ConversionOperator cvt;
-  //   Technically redundant with cvt, but handy to have.
-  Type operand_type = Type::kUnknown;
-  // Common (block, call args, return/set_local vals, compare operands,
-  // conversion operand)
+  // Operands
   UniquePtrVector<Expression> exprs;
 };
+
+class ConstantExpression final : public Expression {
+ public:
+ ConstantExpression(const Type ty) : Expression(kConst) { literal.type = ty; };
+  Literal literal;
+};
+
+class CallExpression final: public Expression {
+ public:
+ CallExpression(int idx, bool imp, Callable* c) :
+  Expression(kCallDirect), callee_index(idx), is_import(imp), callee(c) {};
+ int callee_index;
+ bool is_import;
+ Callable* callee;
+};
+
+class LocalExpression final : public Expression {
+ public:
+  // TODO: After updating to AST parser, consider standardizing on factories
+  // everywhere, or constructors everywhere.
+  static LocalExpression* GetGetLocal(Variable* v) {
+    return new LocalExpression(kGetLocal, v);
+  }
+  static LocalExpression* GetSetLocal(Variable* v) {
+    return new LocalExpression(kSetLocal, v);
+  }
+  Variable* local_var;
+ private:
+ LocalExpression(ExpressionKind k, Variable *v) : Expression(k), local_var(v) {};
+};
+
+class MemoryExpression final: public Expression {
+ public:
+  MemoryExpression(MemoryOperator op, MemType t, uint32_t align,
+		   uint64_t off, bool sign) :
+  Expression(kMemory), memop(op), mem_type(t), alignment(align), offset(off), is_signed(sign) {};
+  MemoryOperator memop;
+  MemType mem_type = MemType::kUnknown;
+  uint32_t alignment;
+  uint64_t offset;
+  bool is_signed;
+};
+
+class UnaryExpression final : public Expression {
+ public:
+ UnaryExpression(UnaryOperator op) : Expression(kUnary), unop(op) {};
+ UnaryOperator unop;
+};
+
+class BinaryExpression final: public Expression {
+ public:
+ BinaryExpression(BinaryOperator op) : Expression(kBinary), binop(op) {};
+ BinaryOperator binop;
+};
+
+class CompareExpression final: public Expression {
+ public:
+ CompareExpression(Type ct, CompareOperator op) :
+  Expression(kCompare), compare_type(ct), relop(op) {};
+ Type compare_type = Type::kUnknown;
+ CompareOperator relop;
+};
+
+class ConversionExpression final: public Expression {
+ public:
+ ConversionExpression(ConversionOperator op, Type opty) :
+  Expression(kConvert), cvt(op), operand_type(opty) {};
+ ConversionOperator cvt;
+ //   Technically redundant with cvt, but handy to have.
+ Type operand_type = Type::kUnknown;
+};
+
+
 
 class Callable {
  public:
