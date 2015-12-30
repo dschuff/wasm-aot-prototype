@@ -43,21 +43,23 @@ class Type {
 class MemType {
  public:
   typedef enum Type_ {
-    kI8 = WASM_MEM_TYPE_I8,
-    kI16 = WASM_MEM_TYPE_I16,
-    kI32 = WASM_MEM_TYPE_I32,
-    kI64 = WASM_MEM_TYPE_I64,
-    kF32 = WASM_MEM_TYPE_F32,
-    kF64 = WASM_MEM_TYPE_F64,
+    // TODO: remove this type distinction and just go with size instead?
+    kI8,
+    kI16,
+    kI32,
+    kI64,
+    kF32,
+    kF64,
     kUnknown,
   } Type_;
   MemType(Type_ t) : value_(t) {}
-  MemType(WasmMemType t) : value_(static_cast<Type_>(t)) {
-    assert(t < WASM_NUM_MEM_TYPES && "Bad Type initializer");
+  MemType(WasmMemSize t) : value_(static_cast<Type_>(t)) {
+    // TODO: this is now broken. fix it when we add mem ops
+    assert(t < 4 && "Bad Type initializer");
   }
   operator Type_() const { return value_; }
-  explicit operator WasmMemType() const {
-    return static_cast<WasmMemType>(value_);
+  explicit operator WasmMemSize() const {
+    return static_cast<WasmMemSize>(value_);
   }
   // Compare against a value type.
   bool operator==(const Type& other) const {
@@ -351,14 +353,15 @@ class Module {
 
 class SourceLocation {
  public:
-  SourceLocation(const WasmSourceLocation& loc)
-      : filename(loc.source->filename), line(loc.line), col(loc.col) {}
+  SourceLocation(const WasmLocation& loc)
+      : filename(loc.filename), line(loc.first_line), col(loc.first_column) {}
   // For now there's only ever one file per run, but it's simpler to keep the
   // filename here.  If there gets to be SourceLocs for every expr, we probably
   // want to dedup the filename info.
   std::string filename = "";
   int line = 0;
   int col = 0;
+  // TODO: add last line/col
 };
 
 // For spec repo test scripts. The spec test script operations are basically
@@ -375,7 +378,7 @@ class TestScriptExpr {
     kAssertReturnNaN,
     kAssertTrap
   } Opcode;
-  TestScriptExpr(Module* mod, Opcode op, const WasmSourceLocation loc)
+  TestScriptExpr(Module* mod, Opcode op, const WasmLocation loc)
       : module(mod), opcode(op), source_loc(loc), type(Type::kUnknown) {}
 
   Module* module;

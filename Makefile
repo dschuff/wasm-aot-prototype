@@ -16,12 +16,12 @@ OUT_DIR = out
 
 VPATH = $(PARSER_SRC):src:$(OUT_DIR)
 
-PARSER_SRCS = wasm-parse.c
+PARSER_SRCS = wasm-check.c wasm-lexer.c wasm-parser.c wasm-vector.c wasm.c
 PARSER_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(PARSER_SRCS))
-WASMGEN_SRCS = sexpr-wasm.c wasm-gen.c
+WASMGEN_SRCS = sexpr-wasm.c wasm-binary-writer.c wasm-writer.c
 WASMGEN_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(WASMGEN_SRCS))
 
-PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parse.h $(PARSER_SRC)/wasm-keywords.h
+PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parser.h $(PARSER_SRC)/wasm-common.h
 
 WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h ast_visitor.h ast_dumper.h
 WASM_CPP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_dumper.cc
@@ -67,7 +67,7 @@ $(OUT_DIR)/:
 	mkdir $@
 
 $(OUT_DIR)/%.o: %.c $(PARSER_HEADERS)
-	$(CC) $(CFLAGS) -I$(PARSER_SRC) -c -o $@ $<
+	$(CC) $(CFLAGS) -I$(PARSER_SRC) -c -Wno-unused-function -Wno-return-type -o $@ $<
 $(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
 	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(PARSER_SRC) -Wno-format $(CFLAGS) -c -o $@ $<
 

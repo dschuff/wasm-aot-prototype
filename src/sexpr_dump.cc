@@ -31,25 +31,20 @@ static llvm::cl::opt<bool> g_spec_test_script_mode(
 int main(int argc, char** argv) {
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
 
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer> > ErrorOrBuffer =
-      llvm::MemoryBuffer::getFileOrSTDIN(InputFilename);
-
-  if (ErrorOrBuffer.getError()) {
-    llvm::errs() << "unable to read " << InputFilename << "\n";
-    return 1;
-  }
-
-  auto& Buffer = ErrorOrBuffer.get();
-
   if (DumpInput) {
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer> > ErrorOrBuffer =
+        llvm::MemoryBuffer::getFileOrSTDIN(InputFilename);
+    if (ErrorOrBuffer.getError()) {
+      llvm::errs() << "unable to read " << InputFilename << "\n";
+      return 1;
+    }
+
+    auto& Buffer = ErrorOrBuffer.get();
     llvm::errs() << "INPUT:\n";
     llvm::errs() << Buffer->getBuffer();
     llvm::errs() << "OUTPUT:\n";
   }
-  wasm::Parser parser(Buffer->getBufferStart(),
-                      Buffer->getBufferEnd(),
-                      InputFilename.c_str(),
-                      false);
+  wasm::Parser parser(InputFilename.c_str(), false);
   if (parser.Parse(g_spec_test_script_mode)) {
     return 1;
   }
