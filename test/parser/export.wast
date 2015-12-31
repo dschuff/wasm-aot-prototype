@@ -5,5 +5,5 @@
 ;; Test that round-tripping is stable
 ;; RUN: sexpr_dump %t1 | diff %t1 -
 (module
-  (func (nop))
+  (func )
   (export "nop" 0))

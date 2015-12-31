@@ -152,16 +152,15 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
 
 namespace wasm {
 
-//  template<typename T, typename V> T VectorGet(V
-
 static Module* ConvertModule(const WasmModule& in_mod) {
   std::unique_ptr<Module> out_mod(new Module());
+  // Memory segment declarations and initializers
   if (in_mod.memory) {
     out_mod->initial_memory_size = in_mod.memory->initial_size;
     out_mod->max_memory_size = in_mod.memory->max_size;
     if (in_mod.memory->segments.size) {
-      for (int i = 0; i < in_mod.memory->segments.size; ++i) {
-        WasmSegment* in_seg = &in_mod.memory->segments.data[i];
+      for (size_t i = 0; i < in_mod.memory->segments.size; ++i) {
+        const WasmSegment* in_seg = &in_mod.memory->segments.data[i];
         out_mod->segments.emplace_back(new Segment(in_seg->size, in_seg->addr));
         Segment* out_seg = out_mod->segments.back().get();
         out_seg->initial_data.resize(out_seg->size);
@@ -169,11 +168,74 @@ static Module* ConvertModule(const WasmModule& in_mod) {
       }
     }
   }
+  // Functions, with locals/params
+  std::unordered_map<std::string, Function*> functions_by_name;
+  out_mod->functions.reserve(in_mod.funcs.size);
+  for (size_t i = 0; i < in_mod.funcs.size; ++i) {
+    const WasmFunc* in_func = in_mod.funcs.data[i];
+    out_mod->functions.emplace_back(
+        new Function(in_func->result_type, in_func->name, i));
+    Function* out_func = out_mod->functions.back().get();
+    if (in_func->name.length) {
+      auto result = functions_by_name.emplace(out_func->local_name, out_func);
+      assert(result.second);
+    }
+
+    assert(in_func->locals.types.size + in_func->params.types.size ==
+           in_func->params_and_locals.types.size);
+    out_func->locals.reserve(in_func->params_and_locals.types.size);
+    out_func->args.reserve(in_func->params.types.size);
+    for (size_t j = 0; j < in_func->params_and_locals.types.size; ++j) {
+      out_func->locals.emplace_back(
+          new Variable(in_func->params_and_locals.types.data[j]));
+      out_func->locals.back()->index = j;
+      if (j < in_func->params.types.size)
+        out_func->args.push_back(out_func->locals.back().get());
+    }
+    for (size_t j = 0; j < in_func->params_and_locals.bindings.size; ++j) {
+      const WasmBinding& binding = in_func->params_and_locals.bindings.data[j];
+      // TODO: location
+      assert(binding.index < out_func->locals.size());
+      out_func->locals[binding.index]->local_name.assign(binding.name.start,
+                                                         binding.name.length);
+    }
+  }
+  // Imports, with signatures
+  for (size_t i = 0; i < in_mod.imports.size; ++i) {
+    const WasmImport* in_import = in_mod.imports.data[i];
+    assert(in_import->import_type == WASM_IMPORT_HAS_FUNC_SIGNATURE);
+    out_mod->imports.emplace_back(new Import(in_import->func_sig.result_type,
+                                             in_import->name,
+                                             in_import->module_name,
+                                             in_import->func_name));
+    Import* imp = out_mod->imports.back().get();
+    for (size_t j = 0; j < in_import->func_sig.param_types.size; ++j) {
+      imp->locals.emplace_back(
+          new Variable(in_import->func_sig.param_types.data[j]));
+      imp->args.push_back(imp->locals.back().get());
+    }
+  }
+  // Exports
+  for (size_t i = 0; i < in_mod.exports.size; ++i) {
+    const WasmExport* in_export = in_mod.exports.data[i];
+    Function* func;
+    if (in_export->var.type == WASM_VAR_TYPE_INDEX) {
+      func = out_mod->functions[in_export->var.index].get();
+    } else {
+      std::string local_name(in_export->var.name.start,
+                             in_export->var.name.length);
+      auto it = functions_by_name.find(local_name);
+      assert(it != functions_by_name.end());
+      func = it->second;
+    }
+    out_mod->exports.emplace_back(
+        new Export(func, in_export->name, out_mod.get()));
+  }
   return out_mod.release();
 }
 
 int Parser::ConvertAST(const WasmScript& script) {
-  for (int i = 0; i < script.commands.size; ++i) {
+  for (size_t i = 0; i < script.commands.size; ++i) {
     WasmCommand* command = &script.commands.data[i];
     if (command->type == WASM_COMMAND_TYPE_MODULE) {
       modules.emplace_back(ConvertModule(command->module));

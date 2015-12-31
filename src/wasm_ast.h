@@ -300,7 +300,8 @@ class ConversionExpression final : public Expression {
 
 class Callable {
  public:
-  Callable(Type t) : result_type(t) {}
+  Callable(Type t, const WasmStringSlice& name)
+      : result_type(t), local_name(name.start, name.length) {}
   Type result_type = Type::kVoid;
   std::string local_name;            // Empty if none bound
   UniquePtrVector<Variable> locals;  // Includes the args at the front
@@ -309,15 +310,16 @@ class Callable {
 
 class Function : public Callable {
  public:
-  Function(Type t, int idx) : Callable(t), index_in_module(idx) {}
+  Function(Type t, const WasmStringSlice& name, int idx)
+      : Callable(t, name), index_in_module(idx) {}
   UniquePtrVector<Expression> body;
   int index_in_module = 0;
 };
 
 class Export {
  public:
-  Export(Function* f, const std::string& n, Module* m)
-      : function(f), name(n), module(m) {}
+  Export(Function* f, const WasmStringSlice& n, Module* m)
+      : function(f), name(n.start, n.length), module(m) {}
   Function* function;
   std::string name;
   Module* module;
@@ -325,8 +327,13 @@ class Export {
 
 class Import : public Callable {
  public:
-  Import(Type t, const std::string& m, const std::string& f)
-      : Callable(t), module_name(m), func_name(f) {}
+  Import(Type t,
+         const WasmStringSlice& name,
+         const WasmStringSlice& m,
+         const WasmStringSlice& f)
+      : Callable(t, name),
+        module_name(m.start, m.length),
+        func_name(f.start, f.length) {}
   std::string module_name;
   std::string func_name;
 };
