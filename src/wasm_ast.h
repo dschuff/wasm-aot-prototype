@@ -184,6 +184,16 @@ class Variable {
   std::string local_name;  // Empty if none bound
 };
 
+class Callable {
+ public:
+  Callable(Type t, const WasmStringSlice& name)
+      : result_type(t), local_name(name.start, name.length) {}
+  Type result_type = Type::kVoid;
+  std::string local_name;            // Empty if none bound
+  UniquePtrVector<Variable> locals;  // Includes the args at the front
+  std::vector<Variable*> args;       // Convenience pointers to the args
+};
+
 class Expression {
  public:
   // ExpressionKind is used instead of RTTI. Only AstVisitor::VisitExpression
@@ -204,7 +214,7 @@ class Expression {
     kConvert,
     kMemory,
   };
-  Expression(ExpressionKind k) : kind(k) {}
+  Expression(ExpressionKind k, Type ty) : kind(k), expr_type(ty) {}
   ExpressionKind kind;
   Type expr_type = Type::kUnknown;
   Type expected_type = Type::kUnknown;
@@ -214,7 +224,7 @@ class Expression {
 
 class ConstantExpression final : public Expression {
  public:
-  ConstantExpression(const Type ty) : Expression(kConst) {
+  ConstantExpression(const Type ty) : Expression(kConst, ty) {
     literal.type = ty;
   };
   Literal literal;
@@ -223,7 +233,7 @@ class ConstantExpression final : public Expression {
 class CallExpression final : public Expression {
  public:
   CallExpression(int idx, bool imp, Callable* c)
-      : Expression(kCallDirect),
+      : Expression(kCallDirect, c->result_type),
         callee_index(idx),
         is_import(imp),
         callee(c) {};
@@ -246,19 +256,20 @@ class LocalExpression final : public Expression {
 
  private:
   LocalExpression(ExpressionKind k, Variable* v)
-      : Expression(k), local_var(v) {};
+      : Expression(k, v->type), local_var(v) {};
 };
 
 class MemoryExpression final : public Expression {
  public:
   MemoryExpression(MemoryOperator op,
-                   MemType t,
+                   Type ty,
+                   MemType mem_ty,
                    uint32_t align,
                    uint64_t off,
                    bool sign)
-      : Expression(kMemory),
+      : Expression(kMemory, ty),
         memop(op),
-        mem_type(t),
+        mem_type(mem_ty),
         alignment(align),
         offset(off),
         is_signed(sign) {};
@@ -271,41 +282,33 @@ class MemoryExpression final : public Expression {
 
 class UnaryExpression final : public Expression {
  public:
-  UnaryExpression(UnaryOperator op) : Expression(kUnary), unop(op) {};
+  UnaryExpression(UnaryOperator op, Type ty)
+      : Expression(kUnary, ty), unop(op) {};
   UnaryOperator unop;
 };
 
 class BinaryExpression final : public Expression {
  public:
-  BinaryExpression(BinaryOperator op) : Expression(kBinary), binop(op) {};
+  BinaryExpression(BinaryOperator op, Type ty)
+      : Expression(kBinary, ty), binop(op) {};
   BinaryOperator binop;
 };
 
 class CompareExpression final : public Expression {
  public:
   CompareExpression(Type ct, CompareOperator op)
-      : Expression(kCompare), compare_type(ct), relop(op) {};
+      : Expression(kCompare, Type::kI32), compare_type(ct), relop(op) {};
   Type compare_type = Type::kUnknown;
   CompareOperator relop;
 };
 
 class ConversionExpression final : public Expression {
  public:
-  ConversionExpression(ConversionOperator op, Type opty)
-      : Expression(kConvert), cvt(op), operand_type(opty) {};
+  ConversionExpression(ConversionOperator op, Type op_ty, Type result_ty)
+      : Expression(kConvert, result_ty), cvt(op), operand_type(op_ty) {};
   ConversionOperator cvt;
   //   Technically redundant with cvt, but handy to have.
   Type operand_type = Type::kUnknown;
-};
-
-class Callable {
- public:
-  Callable(Type t, const WasmStringSlice& name)
-      : result_type(t), local_name(name.start, name.length) {}
-  Type result_type = Type::kVoid;
-  std::string local_name;            // Empty if none bound
-  UniquePtrVector<Variable> locals;  // Includes the args at the front
-  std::vector<Variable*> args;       // Convenience pointers to the args
 };
 
 class Function : public Callable {

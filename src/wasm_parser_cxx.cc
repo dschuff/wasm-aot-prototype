@@ -152,8 +152,36 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
 
 namespace wasm {
 
+static Expression* ConvertExpression(const WasmExpr& in_expr) {
+  Expression* out_expr = nullptr;
+  switch (in_expr.type) {
+    case WASM_EXPR_TYPE_NOP:
+      out_expr = new Expression(Expression::kNop, Type::kVoid);
+      return out_expr;
+    case WASM_EXPR_TYPE_BLOCK:
+      out_expr = new Expression(Expression::kBlock, Type::kVoid);
+      for (size_t i = 0; i < in_expr.block.exprs.size; ++i) {
+        out_expr->exprs.emplace_back(
+            ConvertExpression(*in_expr.block.exprs.data[i]));
+      }
+      if (out_expr->exprs.size())
+        out_expr->expr_type = out_expr->exprs.back()->expr_type;
+      return out_expr;
+    default:
+      assert(false && "Unhandled expression type");
+      return nullptr;
+  }
+}
+
+static void ConvertFunction(const WasmFunc& in_func, Function* out_func) {
+  for (size_t i = 0; i < in_func.exprs.size; ++i) {
+    out_func->body.emplace_back(ConvertExpression(*in_func.exprs.data[i]));
+  }
+}
+
 static Module* ConvertModule(const WasmModule& in_mod) {
   std::unique_ptr<Module> out_mod(new Module());
+  // First set up module-level constructs: segments, functions, imports, exports
   // Memory segment declarations and initializers
   if (in_mod.memory) {
     out_mod->initial_memory_size = in_mod.memory->initial_size;
@@ -230,6 +258,11 @@ static Module* ConvertModule(const WasmModule& in_mod) {
     }
     out_mod->exports.emplace_back(
         new Export(func, in_export->name, out_mod.get()));
+  }
+
+  // Convert the functions
+  for (size_t i = 0; i < in_mod.funcs.size; ++i) {
+    ConvertFunction(*in_mod.funcs.data[i], out_mod->functions[i].get());
   }
   return out_mod.release();
 }

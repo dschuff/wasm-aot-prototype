@@ -133,7 +133,10 @@ int main(int argc, char** argv) {
     }
   } else {
     // If there's an export called "_start", add it to the end of the ini list.
-    assert(parser.modules.size() == 1);
+    if (parser.modules.size() != 1) {
+      fprintf(stderr, "error: only 1 module allowed per file\n");
+      exit(1);
+    }
     for (auto& exp : parser.modules.front()->exports) {
       if (exp->name == "_start") {
         if (!converter.SetEntryExport(exp->function)) {
