@@ -3,6 +3,7 @@
 #include "ast_visitor.h"
 #include <cstdio>
 #include <cassert>
+#include <cstring>
 
 namespace {
 // Despite its name, this class does not do much checking of expected types,
@@ -89,7 +90,7 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
                    uint64_t mem_offset,
                    bool is_signed,
                    wasm::Expression* address,
-                   wasm::Expression* store_val) {
+                   wasm::Expression* store_val) override {
     address->expected_type = wasm::Type::kI32;  // TODO: wasm64
     VisitExpression(address);
     if (store_val) {
