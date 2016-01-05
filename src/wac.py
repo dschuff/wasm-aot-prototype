@@ -7,9 +7,9 @@ import sys
 RUNTIME_LIB = 'wart'
 OS = os.uname()[0]
 if OS.startswith('Linux'):
-  LINKER_SYM_FLAG = '-Wl,--section-start=.membase=0x100000000'
+  LINKER_SYM_FLAG = []#'-Wl,--section-start=.membase=0x100000000'
 elif OS.startswith('Darwin'):
-  LINKER_SYM_FLAG = ''
+  LINKER_SYM_FLAG = []
 
 
 def find_runtime_dir(start_dir):
@@ -69,8 +69,8 @@ def Main(argv):
     log_call(['llc', ll_temp, '-O0', '-filetype=obj', '-o', o_temp])
     objs.append(o_temp)
 
-  log_call(['gcc', '-o', options.output] + objs +
-           [LINKER_SYM_FLAG, '-rdynamic',
+  log_call(['gcc', '-o', options.output] + objs + LINKER_SYM_FLAG +
+           ['-rdynamic',
             '-L'+runtime_libdir, '-l'+RUNTIME_LIB, '-lm'])
 
 if __name__ == '__main__':
