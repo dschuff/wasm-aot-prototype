@@ -214,7 +214,7 @@ class AstVisitor {
       case TestScriptExpr::kAssertReturnNaN:
         return VisitAssertReturnNaN(expr, expr->invoke.get());
       case TestScriptExpr::kAssertTrap:
-        return VisitAssertTrap(expr, expr->invoke.get());
+        return VisitAssertTrap(expr, expr->invoke.get(), expr->trap_text);
       default:
         assert(false);
     }
@@ -240,7 +240,9 @@ class AstVisitor {
     Visit(arg);
     return ExprVal();
   }
-  virtual ExprVal VisitAssertTrap(TestScriptExpr* expr, TestScriptExpr* arg) {
+  virtual ExprVal VisitAssertTrap(TestScriptExpr* expr,
+                                  TestScriptExpr* arg,
+                                  const std::string& text) {
     Visit(arg);
     return ExprVal();
   }

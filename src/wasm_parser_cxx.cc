@@ -422,26 +422,30 @@ void Parser::ConvertExprArgVector(const WasmExprPtrVector& vec,
   }
 }
 
+static ConstantExpression* ConvertConstant(const WasmConst& in_const) {
+  auto* out_expr = new ConstantExpression(in_const.type);
+  switch (out_expr->expr_type) {
+    case WASM_TYPE_I32:
+      out_expr->literal.value.i32 = in_const.u32;
+      return out_expr;
+    case WASM_TYPE_I64:
+      out_expr->literal.value.i64 = in_const.u64;
+      return out_expr;
+    case WASM_TYPE_F32:
+      out_expr->literal.value.f32 = in_const.f32;
+      return out_expr;
+    case WASM_TYPE_F64:
+      out_expr->literal.value.f64 = in_const.f64;
+      return out_expr;
+    default:
+      assert(false);
+  }
+}
+
 Expression* Parser::ConvertExpression(WasmExpr* in_expr) {
   switch (in_expr->type) {
     case WASM_EXPR_TYPE_CONST: {
-      auto* out_expr = new ConstantExpression(in_expr->const_.type);
-      switch (out_expr->expr_type) {
-        case WASM_TYPE_I32:
-          out_expr->literal.value.i32 = in_expr->const_.u32;
-          return out_expr;
-        case WASM_TYPE_I64:
-          out_expr->literal.value.i64 = in_expr->const_.u64;
-          return out_expr;
-        case WASM_TYPE_F32:
-          out_expr->literal.value.f32 = in_expr->const_.f32;
-          return out_expr;
-        case WASM_TYPE_F64:
-          out_expr->literal.value.f64 = in_expr->const_.f64;
-          return out_expr;
-        default:
-          assert(false);
-      }
+      return ConvertConstant(in_expr->const_);
     }
     case WASM_EXPR_TYPE_NOP:
       return new Expression(Expression::kNop, Type::kVoid);
@@ -550,6 +554,7 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
   in_module_ = in_mod;
   std::unique_ptr<Module> out_mod(new Module());
   out_module_ = out_mod.get();
+  exports_map_.clear();
   // First set up module-level constructs: Segments, functions, imports, exports
   // Memory segment declarations and initializers
   if (in_mod->memory) {
@@ -628,6 +633,7 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
     }
     out_mod->exports.emplace_back(
         new Export(func, in_export->name, out_mod.get()));
+    exports_map_.emplace(in_export, out_mod->exports.back().get());
   }
 
   // Convert the functions
@@ -640,15 +646,80 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
     in_func_ = nullptr;
     out_func_ = nullptr;
   }
-  out_module_ = nullptr;
   return out_mod.release();
 }
 
-int Parser::ConvertAST(const WasmScript& script) {
+TestScriptExpr* Parser::ConvertInvoke(const WasmCommandInvoke& invoke) {
+  auto* expr =
+      new TestScriptExpr(out_module_, TestScriptExpr::kInvoke, invoke.loc);
+  WasmExport* ex = wasm_get_export_by_name(in_module_, &invoke.name);
+  int invoke_index = wasm_get_func_index_by_var(in_module_, &ex->var);
+  Export* callee = exports_map_[ex];
+  expr->callee = callee;
+  expr->type = callee->function->result_type;
+  assert(out_module_->functions[invoke_index].get() == callee->function);
+  for (size_t i = 0; i < invoke.args.size; ++i) {
+    auto* arg_expr = ConvertConstant(invoke.args.data[i]);
+    expr->exprs.emplace_back(arg_expr);
+  }
+  return expr;
+}
+
+TestScriptExpr* Parser::ConvertTestScriptExpr(WasmCommand* command) {
+  switch (command->type) {
+    case WASM_COMMAND_TYPE_INVOKE: {
+      return ConvertInvoke(command->invoke);
+    }
+    case WASM_COMMAND_TYPE_ASSERT_RETURN: {
+      auto* expr =
+          new TestScriptExpr(out_module_, TestScriptExpr::kAssertReturn,
+                             command->assert_return.invoke.loc);
+      expr->invoke.reset(ConvertInvoke(command->assert_return.invoke));
+      if (command->assert_return.expected.type != WASM_TYPE_VOID) {
+        expr->exprs.emplace_back(
+            ConvertConstant(command->assert_return.expected));
+        expr->type = expr->exprs.back()->expr_type;
+      } else {
+        expr->type = Type::kVoid;
+      }
+      return expr;
+    }
+    case WASM_COMMAND_TYPE_ASSERT_RETURN_NAN: {
+      auto* expr =
+          new TestScriptExpr(out_module_, TestScriptExpr::kAssertReturnNaN,
+                             command->assert_return_nan.invoke.loc);
+      expr->invoke.reset(ConvertInvoke(command->assert_return_nan.invoke));
+      expr->type = expr->invoke->type;
+      return expr;
+    }
+    case WASM_COMMAND_TYPE_ASSERT_TRAP: {
+      auto* expr = new TestScriptExpr(out_module_, TestScriptExpr::kAssertTrap,
+                                      command->assert_trap.invoke.loc);
+      expr->invoke.reset(ConvertInvoke(command->assert_trap.invoke));
+      expr->trap_text.assign(command->assert_trap.text.start,
+                             command->assert_trap.text.length);
+      expr->type = expr->invoke->type;
+      return expr;
+    }
+    default:
+      assert(false);
+  }
+  return nullptr;
+}
+
+int Parser::ConvertAST(const WasmScript& script, bool spec_script_mode) {
   for (size_t i = 0; i < script.commands.size; ++i) {
     WasmCommand* command = &script.commands.data[i];
     if (command->type == WASM_COMMAND_TYPE_MODULE) {
       modules.emplace_back(ConvertModule(&command->module));
+    } else {
+      if (!spec_script_mode) {
+        error_callback_(
+            "Spec invoke/assertion found in the script, but not in "
+            "spec script mode.\n");
+        return 1;
+      }
+      test_script.emplace_back(ConvertTestScriptExpr(command));
     }
   }
   return 0;

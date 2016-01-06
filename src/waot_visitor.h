@@ -100,7 +100,8 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
   llvm::Value* VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
                                     wasm::TestScriptExpr* arg) override;
   llvm::Value* VisitAssertTrap(wasm::TestScriptExpr* expr,
-                               wasm::TestScriptExpr* invoke) override;
+                               wasm::TestScriptExpr* invoke,
+                               const std::string& text) override;
 
  private:
   llvm::Function* GetFunction(const wasm::Callable& func,

@@ -73,7 +73,8 @@ class AstDumper : public AstVisitor<void, void> {
   void VisitAssertReturnNaN(TestScriptExpr* expr,
                             TestScriptExpr* invoke_arg) override;
   void VisitAssertTrap(TestScriptExpr* expr,
-                       TestScriptExpr* invoke_arg) override;
+                       TestScriptExpr* invoke_arg,
+                       const std::string& text) override;
 
  private:
   bool dump_types_;

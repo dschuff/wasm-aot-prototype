@@ -470,12 +470,13 @@ void AstDumper::VisitAssertReturnNaN(TestScriptExpr* expr,
 }
 
 void AstDumper::VisitAssertTrap(TestScriptExpr* expr,
-                                TestScriptExpr* invoke_arg) {
+                                TestScriptExpr* invoke_arg,
+                                const std::string& text) {
   printf(
       ";; %s:%d\n", expr->source_loc.filename.c_str(), expr->source_loc.line);
   printf("(assert_trap ");
   Visit(invoke_arg);
-  printf(" \"[string ignored by sexpr-wasm parser]\")\n");
+  printf(" \"%s\")\n", text.c_str());
 }
 
 }  // namespace wasm

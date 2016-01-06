@@ -979,7 +979,8 @@ Value* WAOTVisitor::VisitAssertReturnNaN(wasm::TestScriptExpr* expr,
 }
 
 Value* WAOTVisitor::VisitAssertTrap(wasm::TestScriptExpr* expr,
-                                    wasm::TestScriptExpr* invoke) {
+                                    wasm::TestScriptExpr* invoke,
+                                    const std::string& text) {
   auto* f =
       Function::Create(FunctionType::get(Type::getVoidTy(ctx_), {}, false),
                        Function::ExternalLinkage,

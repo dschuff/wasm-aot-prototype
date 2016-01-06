@@ -206,7 +206,8 @@ class Expression {
     kConvert,
     kMemory,
   };
-  Expression(ExpressionKind k, Type ty) : kind(k), expr_type(ty) {}
+  Expression(ExpressionKind k, Type ty)
+      : kind(k), expr_type(ty), expected_type(ty) {}
   ExpressionKind kind;
   Type expr_type = Type::kUnknown;
   Type expected_type = Type::kUnknown;
@@ -369,6 +370,7 @@ class SourceLocation {
 // the top level they have their own classes, which contain Expressions.  Each
 // script expression refers to the module that immediately preceeds it in the
 // file (the parser checks this and sets up the mapping when creating the AST).
+// TODO: make this a hierarchy like exprs.
 class TestScriptExpr {
  public:
   typedef enum {
@@ -387,6 +389,7 @@ class TestScriptExpr {
   Export* callee;                          // Invoke
   Type type;                               // AssertReturn, Invoke
   std::unique_ptr<TestScriptExpr> invoke;  // AssertReturn, AssertTrap
+  std::string trap_text;                   // AssertTrap
   UniquePtrVector<Expression> exprs;       // Invoke args, AR expectation
 };
 

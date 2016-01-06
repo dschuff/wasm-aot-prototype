@@ -33,7 +33,7 @@ class Parser {
       return result;
     }
 
-    result = result || ConvertAST(*script);
+    result = result || ConvertAST(*script, spec_script_mode);
     return result;
   }
 
@@ -43,15 +43,18 @@ class Parser {
  private:
   typedef void (*ErrorCallback)(const char*);
   static void DefaultErrorCallback(const char* message) {
+    fputs("Error: ", stderr);
     fputs(message, stderr);
   }
-  int ConvertAST(const WasmScript& script);
+  int ConvertAST(const WasmScript& script, bool spec_script_mode);
   Module* ConvertModule(WasmModule* in_mod);
   void ConvertExprArg(WasmExpr* in_expr, Expression* out_expr);
   void ConvertExprArgVector(const WasmExprPtrVector& vec, Expression* out_expr);
   Expression* ConvertExpression(WasmExpr* in_expr);
+  TestScriptExpr* ConvertInvoke(const WasmCommandInvoke& invoke);
+  TestScriptExpr* ConvertTestScriptExpr(WasmCommand* command);
 
-  // ErrorCallback error_callback_ = DefaultErrorCallback;
+  ErrorCallback error_callback_ = DefaultErrorCallback;
   WasmScanner scanner_;
   WasmParser parser_ = {};
 
@@ -61,7 +64,7 @@ class Parser {
   Function* out_func_ = nullptr;
   WasmModule* in_module_ = nullptr;
   WasmFunc* in_func_ = nullptr;
-  // TestScriptExpr* current_assert_return_ = nullptr;
+  std::unordered_map<const WasmExport*, Export*> exports_map_;
 };
 
 }  // namespace wasm
