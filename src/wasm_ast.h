@@ -52,14 +52,7 @@ class MemType {
     kUnknown,
   } Type_;
   MemType(Type_ t) : value_(t) {}
-  MemType(WasmMemSize t) : value_(static_cast<Type_>(t)) {
-    // TODO: this is now broken. fix it when we add mem ops
-    assert(t < 4 && "Bad Type initializer");
-  }
   operator Type_() const { return value_; }
-  explicit operator WasmMemSize() const {
-    return static_cast<WasmMemSize>(value_);
-  }
   // Compare against a value type.
   bool operator==(const Type& other) const {
     return (value_ == kI32 && other == Type::kI32) ||

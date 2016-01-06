@@ -361,6 +361,56 @@ static ConversionOperator CastOperator(WasmCastOpType opcode) {
   }
 }
 
+static MemType MemOperandType(WasmMemOpType opcode) {
+  switch (opcode) {
+    case WASM_MEM_OP_TYPE_I32_LOAD8_S:
+    case WASM_MEM_OP_TYPE_I32_LOAD8_U:
+    case WASM_MEM_OP_TYPE_I32_STORE8:
+    case WASM_MEM_OP_TYPE_I64_LOAD8_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD8_U:
+    case WASM_MEM_OP_TYPE_I64_STORE8:
+      return MemType::kI8;
+    case WASM_MEM_OP_TYPE_I32_LOAD16_S:
+    case WASM_MEM_OP_TYPE_I32_LOAD16_U:
+    case WASM_MEM_OP_TYPE_I32_STORE16:
+    case WASM_MEM_OP_TYPE_I64_LOAD16_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD16_U:
+    case WASM_MEM_OP_TYPE_I64_STORE16:
+      return MemType::kI16;
+    case WASM_MEM_OP_TYPE_I32_LOAD:
+    case WASM_MEM_OP_TYPE_I32_STORE:
+    case WASM_MEM_OP_TYPE_I64_LOAD32_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD32_U:
+    case WASM_MEM_OP_TYPE_I64_STORE32:
+      return MemType::kI32;
+    case WASM_MEM_OP_TYPE_I64_LOAD:
+    case WASM_MEM_OP_TYPE_I64_STORE:
+      return MemType::kI64;
+    case WASM_MEM_OP_TYPE_F32_LOAD:
+    case WASM_MEM_OP_TYPE_F32_STORE:
+      return MemType::kF32;
+    case WASM_MEM_OP_TYPE_F64_LOAD:
+    case WASM_MEM_OP_TYPE_F64_STORE:
+      return MemType::kF64;
+    default:
+      assert(false && "Unexpected opcode in MemOperandType");
+  }
+}
+
+static bool IsMemOpSigned(WasmMemOpType opcode) {
+  switch (opcode) {
+    case WASM_MEM_OP_TYPE_I32_LOAD8_S:
+    case WASM_MEM_OP_TYPE_I32_LOAD16_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD8_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD16_S:
+    case WASM_MEM_OP_TYPE_I64_LOAD32_S:
+      return true;
+    default:
+      // Signedness is only meaningful for extending loads.
+      return false;
+  }
+}
+
 void Parser::ConvertExprArg(WasmExpr* in_expr, Expression* out_expr) {
   out_expr->exprs.emplace_back(ConvertExpression(in_expr));
 }
@@ -404,7 +454,8 @@ Expression* Parser::ConvertExpression(WasmExpr* in_expr) {
     }
     case WASM_EXPR_TYPE_RETURN: {
       auto* out_expr = new Expression(Expression::kReturn, Type::kAny);
-      ConvertExprArg(in_expr->return_.expr, out_expr);
+      if (in_expr->return_.expr)
+        ConvertExprArg(in_expr->return_.expr, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CALL: {
@@ -432,6 +483,27 @@ Expression* Parser::ConvertExpression(WasmExpr* in_expr) {
       auto* out_expr =
           LocalExpression::GetSetLocal(out_func_->locals[local_index].get());
       ConvertExprArg(in_expr->set_local.expr, out_expr);
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_LOAD: {
+      auto* out_expr = new MemoryExpression(
+          kLoad, in_expr->load.op.type,
+          MemOperandType(in_expr->load.op.op_type), in_expr->load.align,
+          in_expr->load.offset, IsMemOpSigned(in_expr->load.op.op_type));
+      assert((unsigned)in_expr->load.op.size ==
+             out_expr->mem_type.GetSizeInBits());
+      ConvertExprArg(in_expr->load.addr, out_expr);
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_STORE: {
+      auto* out_expr = new MemoryExpression(
+          kStore, in_expr->store.op.type,
+          MemOperandType(in_expr->store.op.op_type), in_expr->store.align,
+          in_expr->store.offset, false);
+      assert((unsigned)in_expr->store.op.size ==
+             out_expr->mem_type.GetSizeInBits());
+      ConvertExprArg(in_expr->store.addr, out_expr);
+      ConvertExprArg(in_expr->store.value, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_UNARY: {
