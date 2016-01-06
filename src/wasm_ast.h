@@ -10,7 +10,6 @@
 
 namespace wasm {
 
-class Callable;
 class Module;
 template <typename T>
 using UniquePtrVector = std::vector<std::unique_ptr<T>>;
@@ -224,9 +223,7 @@ class Expression {
 
 class ConstantExpression final : public Expression {
  public:
-  ConstantExpression(const Type ty) : Expression(kConst, ty) {
-    literal.type = ty;
-  };
+  ConstantExpression(Type ty) : Expression(kConst, ty) { literal.type = ty; };
   Literal literal;
 };
 

@@ -153,21 +153,55 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
 
 namespace wasm {
 
-static Expression* ConvertExpression(const WasmExpr& in_expr) {
-  Expression* out_expr = nullptr;
+static Expression* ConvertExpression(const WasmExpr& in_expr,
+                                     const WasmFunc& in_func,
+                                     const Function& out_func) {
   switch (in_expr.type) {
+    case WASM_EXPR_TYPE_CONST: {
+      auto* out_expr = new ConstantExpression(in_expr.const_.type);
+      switch (out_expr->expr_type) {
+        case WASM_TYPE_I32:
+          out_expr->literal.value.i32 = in_expr.const_.u32;
+          return out_expr;
+        case WASM_TYPE_I64:
+          out_expr->literal.value.i64 = in_expr.const_.u64;
+          return out_expr;
+        case WASM_TYPE_F32:
+          out_expr->literal.value.f32 = in_expr.const_.f32;
+          return out_expr;
+        case WASM_TYPE_F64:
+          out_expr->literal.value.f64 = in_expr.const_.f64;
+          return out_expr;
+        default:
+          assert(false);
+      }
+    }
     case WASM_EXPR_TYPE_NOP:
-      out_expr = new Expression(Expression::kNop, Type::kVoid);
-      return out_expr;
-    case WASM_EXPR_TYPE_BLOCK:
-      out_expr = new Expression(Expression::kBlock, Type::kVoid);
+      return new Expression(Expression::kNop, Type::kVoid);
+    case WASM_EXPR_TYPE_BLOCK: {
+      auto* out_expr = new Expression(Expression::kBlock, Type::kVoid);
       for (size_t i = 0; i < in_expr.block.exprs.size; ++i) {
         out_expr->exprs.emplace_back(
-            ConvertExpression(*in_expr.block.exprs.data[i]));
+            ConvertExpression(*in_expr.block.exprs.data[i], in_func, out_func));
       }
       if (out_expr->exprs.size())
         out_expr->expr_type = out_expr->exprs.back()->expr_type;
       return out_expr;
+    }
+    case WASM_EXPR_TYPE_GET_LOCAL: {
+      int local_index =
+          wasm_get_local_index_by_var(&in_func, &in_expr.get_local.var);
+      return LocalExpression::GetGetLocal(out_func.locals[local_index].get());
+    }
+    case WASM_EXPR_TYPE_SET_LOCAL: {
+      int local_index =
+          wasm_get_local_index_by_var(&in_func, &in_expr.set_local.var);
+      auto* out_expr =
+          LocalExpression::GetSetLocal(out_func.locals[local_index].get());
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.set_local.expr, in_func, out_func));
+      return out_expr;
+    }
     default:
       assert(false && "Unhandled expression type");
       return nullptr;
@@ -176,7 +210,8 @@ static Expression* ConvertExpression(const WasmExpr& in_expr) {
 
 static void ConvertFunction(const WasmFunc& in_func, Function* out_func) {
   for (size_t i = 0; i < in_func.exprs.size; ++i) {
-    out_func->body.emplace_back(ConvertExpression(*in_func.exprs.data[i]));
+    out_func->body.emplace_back(
+        ConvertExpression(*in_func.exprs.data[i], in_func, *out_func));
   }
 }
 
@@ -197,6 +232,7 @@ static Module* ConvertModule(const WasmModule& in_mod) {
       }
     }
   }
+  std::unordered_map<WasmVar*, Variable*> vars;
   // Functions, with locals/params
   std::unordered_map<std::string, Function*> functions_by_name;
   out_mod->functions.reserve(in_mod.funcs.size);
@@ -217,14 +253,16 @@ static Module* ConvertModule(const WasmModule& in_mod) {
     for (size_t j = 0; j < in_func->params_and_locals.types.size; ++j) {
       out_func->locals.emplace_back(
           new Variable(in_func->params_and_locals.types.data[j]));
-      out_func->locals.back()->index = j;
+      Variable* out_var = out_func->locals.back().get();
+      out_var->index = j;
+      // vars.emplace(in_var, out_var);
       if (j < in_func->params.types.size)
-        out_func->args.push_back(out_func->locals.back().get());
+        out_func->args.push_back(out_var);
     }
     for (size_t j = 0; j < in_func->params_and_locals.bindings.size; ++j) {
       const WasmBinding& binding = in_func->params_and_locals.bindings.data[j];
       // TODO: location
-      assert(binding.index < out_func->locals.size());
+      assert(binding.index < static_cast<int>(out_func->locals.size()));
       out_func->locals[binding.index]->local_name.assign(binding.name.start,
                                                          binding.name.length);
     }
