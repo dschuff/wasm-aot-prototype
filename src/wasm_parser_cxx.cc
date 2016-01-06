@@ -153,6 +153,214 @@ class TypeChecker : public wasm::AstVisitor<void, void> {
 
 namespace wasm {
 
+static UnaryOperator UnopOperator(WasmUnaryOpType opcode) {
+  switch (opcode) {
+    case WASM_UNARY_OP_TYPE_I32_CLZ:
+    case WASM_UNARY_OP_TYPE_I64_CLZ:
+      return UnaryOperator::kClz;
+    case WASM_UNARY_OP_TYPE_I32_CTZ:
+    case WASM_UNARY_OP_TYPE_I64_CTZ:
+      return UnaryOperator::kCtz;
+    case WASM_UNARY_OP_TYPE_I32_POPCNT:
+    case WASM_UNARY_OP_TYPE_I64_POPCNT:
+      return UnaryOperator::kPopcnt;
+    case WASM_UNARY_OP_TYPE_F32_NEG:
+    case WASM_UNARY_OP_TYPE_F64_NEG:
+      return UnaryOperator::kNeg;
+    case WASM_UNARY_OP_TYPE_F32_ABS:
+    case WASM_UNARY_OP_TYPE_F64_ABS:
+      return UnaryOperator::kAbs;
+    case WASM_UNARY_OP_TYPE_F32_CEIL:
+    case WASM_UNARY_OP_TYPE_F64_CEIL:
+      return UnaryOperator::kCeil;
+    case WASM_UNARY_OP_TYPE_F32_FLOOR:
+    case WASM_UNARY_OP_TYPE_F64_FLOOR:
+      return UnaryOperator::kFloor;
+    case WASM_UNARY_OP_TYPE_F32_TRUNC:
+    case WASM_UNARY_OP_TYPE_F64_TRUNC:
+      return UnaryOperator::kTrunc;
+    case WASM_UNARY_OP_TYPE_F32_NEAREST:
+    case WASM_UNARY_OP_TYPE_F64_NEAREST:
+      return UnaryOperator::kNearest;
+    case WASM_UNARY_OP_TYPE_F32_SQRT:
+    case WASM_UNARY_OP_TYPE_F64_SQRT:
+      return UnaryOperator::kSqrt;
+    default:
+      assert(false && "Unexpected opcode in UnopOperator");
+  }
+}
+
+static BinaryOperator BinopOperator(WasmBinaryOpType opcode) {
+  switch (opcode) {
+    case WASM_BINARY_OP_TYPE_I32_ADD:
+    case WASM_BINARY_OP_TYPE_I64_ADD:
+    case WASM_BINARY_OP_TYPE_F32_ADD:
+    case WASM_BINARY_OP_TYPE_F64_ADD:
+      return kAdd;
+    case WASM_BINARY_OP_TYPE_I32_SUB:
+    case WASM_BINARY_OP_TYPE_I64_SUB:
+    case WASM_BINARY_OP_TYPE_F32_SUB:
+    case WASM_BINARY_OP_TYPE_F64_SUB:
+      return kSub;
+    case WASM_BINARY_OP_TYPE_I32_MUL:
+    case WASM_BINARY_OP_TYPE_I64_MUL:
+    case WASM_BINARY_OP_TYPE_F32_MUL:
+    case WASM_BINARY_OP_TYPE_F64_MUL:
+      return kMul;
+    case WASM_BINARY_OP_TYPE_I32_DIV_S:
+    case WASM_BINARY_OP_TYPE_I64_DIV_S:
+      return kDivS;
+    case WASM_BINARY_OP_TYPE_I32_DIV_U:
+    case WASM_BINARY_OP_TYPE_I64_DIV_U:
+      return kDivU;
+    case WASM_BINARY_OP_TYPE_I32_REM_S:
+    case WASM_BINARY_OP_TYPE_I64_REM_S:
+      return kRemS;
+    case WASM_BINARY_OP_TYPE_I32_REM_U:
+    case WASM_BINARY_OP_TYPE_I64_REM_U:
+      return kRemU;
+    case WASM_BINARY_OP_TYPE_I32_AND:
+    case WASM_BINARY_OP_TYPE_I64_AND:
+      return kAnd;
+    case WASM_BINARY_OP_TYPE_I32_OR:
+    case WASM_BINARY_OP_TYPE_I64_OR:
+      return kOr;
+    case WASM_BINARY_OP_TYPE_I32_XOR:
+    case WASM_BINARY_OP_TYPE_I64_XOR:
+      return kXor;
+    case WASM_BINARY_OP_TYPE_I32_SHL:
+    case WASM_BINARY_OP_TYPE_I64_SHL:
+      return kShl;
+    case WASM_BINARY_OP_TYPE_I32_SHR_U:
+    case WASM_BINARY_OP_TYPE_I64_SHR_U:
+      return kShrU;
+    case WASM_BINARY_OP_TYPE_I32_SHR_S:
+    case WASM_BINARY_OP_TYPE_I64_SHR_S:
+      return kShrS;
+    case WASM_BINARY_OP_TYPE_F32_DIV:
+    case WASM_BINARY_OP_TYPE_F64_DIV:
+      return kDiv;
+    case WASM_BINARY_OP_TYPE_F32_COPYSIGN:
+    case WASM_BINARY_OP_TYPE_F64_COPYSIGN:
+      return kCopySign;
+    case WASM_BINARY_OP_TYPE_F32_MIN:
+    case WASM_BINARY_OP_TYPE_F64_MIN:
+      return kMin;
+    case WASM_BINARY_OP_TYPE_F32_MAX:
+    case WASM_BINARY_OP_TYPE_F64_MAX:
+      return kMax;
+    default:
+      assert(false && "Unexpected opcode in BinopOperator");
+  }
+}
+
+static CompareOperator CmpOperator(WasmCompareOpType opcode) {
+  switch (opcode) {
+    case WASM_COMPARE_OP_TYPE_I32_EQ:
+    case WASM_COMPARE_OP_TYPE_I64_EQ:
+    case WASM_COMPARE_OP_TYPE_F32_EQ:
+    case WASM_COMPARE_OP_TYPE_F64_EQ:
+      return kEq;
+    case WASM_COMPARE_OP_TYPE_I32_NE:
+    case WASM_COMPARE_OP_TYPE_I64_NE:
+    case WASM_COMPARE_OP_TYPE_F32_NE:
+    case WASM_COMPARE_OP_TYPE_F64_NE:
+      return kNE;
+    case WASM_COMPARE_OP_TYPE_I32_LT_S:
+    case WASM_COMPARE_OP_TYPE_I64_LT_S:
+      return kLtS;
+    case WASM_COMPARE_OP_TYPE_I32_LE_S:
+    case WASM_COMPARE_OP_TYPE_I64_LE_S:
+      return kLeS;
+    case WASM_COMPARE_OP_TYPE_I32_LT_U:
+    case WASM_COMPARE_OP_TYPE_I64_LT_U:
+      return kLtU;
+    case WASM_COMPARE_OP_TYPE_I32_LE_U:
+    case WASM_COMPARE_OP_TYPE_I64_LE_U:
+      return kLeU;
+    case WASM_COMPARE_OP_TYPE_I32_GT_S:
+    case WASM_COMPARE_OP_TYPE_I64_GT_S:
+      return kGtS;
+    case WASM_COMPARE_OP_TYPE_I32_GT_U:
+    case WASM_COMPARE_OP_TYPE_I64_GT_U:
+      return kGtU;
+    case WASM_COMPARE_OP_TYPE_I32_GE_S:
+    case WASM_COMPARE_OP_TYPE_I64_GE_S:
+      return kGeS;
+    case WASM_COMPARE_OP_TYPE_I32_GE_U:
+    case WASM_COMPARE_OP_TYPE_I64_GE_U:
+      return kGeU;
+    case WASM_COMPARE_OP_TYPE_F32_LT:
+    case WASM_COMPARE_OP_TYPE_F64_LT:
+      return kLt;
+    case WASM_COMPARE_OP_TYPE_F32_LE:
+    case WASM_COMPARE_OP_TYPE_F64_LE:
+      return kLe;
+    case WASM_COMPARE_OP_TYPE_F32_GT:
+    case WASM_COMPARE_OP_TYPE_F64_GT:
+      return kGt;
+    case WASM_COMPARE_OP_TYPE_F32_GE:
+    case WASM_COMPARE_OP_TYPE_F64_GE:
+      return kGe;
+    default:
+      assert(false && "Unexpected opcode in CmpOperator");
+  }
+}
+
+static ConversionOperator ConvOperator(WasmConvertOpType opcode) {
+  switch (opcode) {
+    case WASM_CONVERT_OP_TYPE_I32_TRUNC_S_F32:
+    case WASM_CONVERT_OP_TYPE_I64_TRUNC_S_F32:
+      return kTruncSFloat32;
+    case WASM_CONVERT_OP_TYPE_I32_TRUNC_S_F64:
+    case WASM_CONVERT_OP_TYPE_I64_TRUNC_S_F64:
+      return kTruncSFloat64;
+    case WASM_CONVERT_OP_TYPE_I32_TRUNC_U_F32:
+    case WASM_CONVERT_OP_TYPE_I64_TRUNC_U_F32:
+      return kTruncUFloat32;
+    case WASM_CONVERT_OP_TYPE_I32_TRUNC_U_F64:
+    case WASM_CONVERT_OP_TYPE_I64_TRUNC_U_F64:
+      return kTruncUFloat64;
+    case WASM_CONVERT_OP_TYPE_I32_WRAP_I64:
+      return kWrapInt64;
+    case WASM_CONVERT_OP_TYPE_I64_EXTEND_S_I32:
+      return kExtendSInt32;
+    case WASM_CONVERT_OP_TYPE_I64_EXTEND_U_I32:
+      return kExtendUInt32;
+    case WASM_CONVERT_OP_TYPE_F32_CONVERT_S_I32:
+    case WASM_CONVERT_OP_TYPE_F64_CONVERT_S_I32:
+      return kConvertSInt32;
+    case WASM_CONVERT_OP_TYPE_F32_CONVERT_U_I32:
+    case WASM_CONVERT_OP_TYPE_F64_CONVERT_U_I32:
+      return kConvertUInt32;
+    case WASM_CONVERT_OP_TYPE_F32_CONVERT_S_I64:
+    case WASM_CONVERT_OP_TYPE_F64_CONVERT_S_I64:
+      return kConvertSInt64;
+    case WASM_CONVERT_OP_TYPE_F32_CONVERT_U_I64:
+    case WASM_CONVERT_OP_TYPE_F64_CONVERT_U_I64:
+      return kConvertUInt64;
+    case WASM_CONVERT_OP_TYPE_F32_DEMOTE_F64:
+      return kDemoteFloat64;
+    case WASM_CONVERT_OP_TYPE_F64_PROMOTE_F32:
+      return kPromoteFloat32;
+    default:
+      assert(false && "Unexpected opcode in ConvOperator");
+  }
+}
+
+static ConversionOperator CastOperator(WasmCastOpType opcode) {
+  switch (opcode) {
+    case WASM_CAST_OP_TYPE_F32_REINTERPRET_I32:
+    case WASM_CAST_OP_TYPE_F64_REINTERPRET_I64:
+      return kReinterpretInt;
+    case WASM_CAST_OP_TYPE_I32_REINTERPRET_F32:
+    case WASM_CAST_OP_TYPE_I64_REINTERPRET_F64:
+      return kReinterpretFloat;
+    default:
+      assert(false && "Unexpected opcode in CastOperator");
+  }
+}
+
 static Expression* ConvertExpression(const WasmExpr& in_expr,
                                      const WasmFunc& in_func,
                                      const Function& out_func) {
@@ -188,6 +396,12 @@ static Expression* ConvertExpression(const WasmExpr& in_expr,
         out_expr->expr_type = out_expr->exprs.back()->expr_type;
       return out_expr;
     }
+    case WASM_EXPR_TYPE_RETURN: {
+      auto* out_expr = new Expression(Expression::kReturn, Type::kAny);
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.return_.expr, in_func, out_func));
+      return out_expr;
+    }
     case WASM_EXPR_TYPE_GET_LOCAL: {
       int local_index =
           wasm_get_local_index_by_var(&in_func, &in_expr.get_local.var);
@@ -200,6 +414,47 @@ static Expression* ConvertExpression(const WasmExpr& in_expr,
           LocalExpression::GetSetLocal(out_func.locals[local_index].get());
       out_expr->exprs.emplace_back(
           ConvertExpression(*in_expr.set_local.expr, in_func, out_func));
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_UNARY: {
+      auto* out_expr = new UnaryExpression(
+          UnopOperator(in_expr.unary.op.op_type), in_expr.unary.op.type);
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.unary.expr, in_func, out_func));
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_BINARY: {
+      auto* out_expr = new BinaryExpression(
+          BinopOperator(in_expr.binary.op.op_type), in_expr.binary.op.type);
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.binary.left, in_func, out_func));
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.binary.right, in_func, out_func));
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_COMPARE: {
+      auto* out_expr = new CompareExpression(
+          in_expr.compare.op.type, CmpOperator(in_expr.compare.op.op_type));
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.compare.left, in_func, out_func));
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.compare.right, in_func, out_func));
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_CONVERT: {
+      auto* out_expr = new ConversionExpression(
+          ConvOperator(in_expr.convert.op.op_type), in_expr.convert.op.type2,
+          in_expr.convert.op.type);
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.convert.expr, in_func, out_func));
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_CAST: {
+      auto* out_expr =
+          new ConversionExpression(CastOperator(in_expr.cast.op.op_type),
+                                   in_expr.cast.op.type2, in_expr.cast.op.type);
+      out_expr->exprs.emplace_back(
+          ConvertExpression(*in_expr.cast.expr, in_func, out_func));
       return out_expr;
     }
     default:
@@ -232,7 +487,6 @@ static Module* ConvertModule(const WasmModule& in_mod) {
       }
     }
   }
-  std::unordered_map<WasmVar*, Variable*> vars;
   // Functions, with locals/params
   std::unordered_map<std::string, Function*> functions_by_name;
   out_mod->functions.reserve(in_mod.funcs.size);
@@ -255,7 +509,6 @@ static Module* ConvertModule(const WasmModule& in_mod) {
           new Variable(in_func->params_and_locals.types.data[j]));
       Variable* out_var = out_func->locals.back().get();
       out_var->index = j;
-      // vars.emplace(in_var, out_var);
       if (j < in_func->params.types.size)
         out_func->args.push_back(out_var);
     }
