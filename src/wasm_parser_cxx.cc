@@ -361,24 +361,33 @@ static ConversionOperator CastOperator(WasmCastOpType opcode) {
   }
 }
 
-static Expression* ConvertExpression(const WasmExpr& in_expr,
-                                     const WasmFunc& in_func,
-                                     const Function& out_func) {
-  switch (in_expr.type) {
+void Parser::ConvertExprArg(WasmExpr* in_expr, Expression* out_expr) {
+  out_expr->exprs.emplace_back(ConvertExpression(in_expr));
+}
+
+void Parser::ConvertExprArgVector(const WasmExprPtrVector& vec,
+                                  Expression* out_expr) {
+  for (size_t i = 0; i < vec.size; ++i) {
+    ConvertExprArg(vec.data[i], out_expr);
+  }
+}
+
+Expression* Parser::ConvertExpression(WasmExpr* in_expr) {
+  switch (in_expr->type) {
     case WASM_EXPR_TYPE_CONST: {
-      auto* out_expr = new ConstantExpression(in_expr.const_.type);
+      auto* out_expr = new ConstantExpression(in_expr->const_.type);
       switch (out_expr->expr_type) {
         case WASM_TYPE_I32:
-          out_expr->literal.value.i32 = in_expr.const_.u32;
+          out_expr->literal.value.i32 = in_expr->const_.u32;
           return out_expr;
         case WASM_TYPE_I64:
-          out_expr->literal.value.i64 = in_expr.const_.u64;
+          out_expr->literal.value.i64 = in_expr->const_.u64;
           return out_expr;
         case WASM_TYPE_F32:
-          out_expr->literal.value.f32 = in_expr.const_.f32;
+          out_expr->literal.value.f32 = in_expr->const_.f32;
           return out_expr;
         case WASM_TYPE_F64:
-          out_expr->literal.value.f64 = in_expr.const_.f64;
+          out_expr->literal.value.f64 = in_expr->const_.f64;
           return out_expr;
         default:
           assert(false);
@@ -388,73 +397,75 @@ static Expression* ConvertExpression(const WasmExpr& in_expr,
       return new Expression(Expression::kNop, Type::kVoid);
     case WASM_EXPR_TYPE_BLOCK: {
       auto* out_expr = new Expression(Expression::kBlock, Type::kVoid);
-      for (size_t i = 0; i < in_expr.block.exprs.size; ++i) {
-        out_expr->exprs.emplace_back(
-            ConvertExpression(*in_expr.block.exprs.data[i], in_func, out_func));
-      }
+      ConvertExprArgVector(in_expr->block.exprs, out_expr);
       if (out_expr->exprs.size())
         out_expr->expr_type = out_expr->exprs.back()->expr_type;
       return out_expr;
     }
     case WASM_EXPR_TYPE_RETURN: {
       auto* out_expr = new Expression(Expression::kReturn, Type::kAny);
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.return_.expr, in_func, out_func));
+      ConvertExprArg(in_expr->return_.expr, out_expr);
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_CALL: {
+      int index = wasm_get_func_index_by_var(in_module_, &in_expr->call.var);
+      auto* out_expr =
+          new CallExpression(index, false, out_module_->functions[index].get());
+      ConvertExprArgVector(in_expr->call.args, out_expr);
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_CALL_IMPORT: {
+      int index = wasm_get_import_index_by_var(in_module_, &in_expr->call.var);
+      auto* out_expr =
+          new CallExpression(index, true, out_module_->imports[index].get());
+      ConvertExprArgVector(in_expr->call.args, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_GET_LOCAL: {
       int local_index =
-          wasm_get_local_index_by_var(&in_func, &in_expr.get_local.var);
-      return LocalExpression::GetGetLocal(out_func.locals[local_index].get());
+          wasm_get_local_index_by_var(in_func_, &in_expr->get_local.var);
+      return LocalExpression::GetGetLocal(out_func_->locals[local_index].get());
     }
     case WASM_EXPR_TYPE_SET_LOCAL: {
       int local_index =
-          wasm_get_local_index_by_var(&in_func, &in_expr.set_local.var);
+          wasm_get_local_index_by_var(in_func_, &in_expr->set_local.var);
       auto* out_expr =
-          LocalExpression::GetSetLocal(out_func.locals[local_index].get());
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.set_local.expr, in_func, out_func));
+          LocalExpression::GetSetLocal(out_func_->locals[local_index].get());
+      ConvertExprArg(in_expr->set_local.expr, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_UNARY: {
       auto* out_expr = new UnaryExpression(
-          UnopOperator(in_expr.unary.op.op_type), in_expr.unary.op.type);
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.unary.expr, in_func, out_func));
+          UnopOperator(in_expr->unary.op.op_type), in_expr->unary.op.type);
+      ConvertExprArg(in_expr->unary.expr, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_BINARY: {
       auto* out_expr = new BinaryExpression(
-          BinopOperator(in_expr.binary.op.op_type), in_expr.binary.op.type);
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.binary.left, in_func, out_func));
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.binary.right, in_func, out_func));
+          BinopOperator(in_expr->binary.op.op_type), in_expr->binary.op.type);
+      ConvertExprArg(in_expr->binary.left, out_expr);
+      ConvertExprArg(in_expr->binary.right, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_COMPARE: {
       auto* out_expr = new CompareExpression(
-          in_expr.compare.op.type, CmpOperator(in_expr.compare.op.op_type));
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.compare.left, in_func, out_func));
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.compare.right, in_func, out_func));
+          in_expr->compare.op.type, CmpOperator(in_expr->compare.op.op_type));
+      ConvertExprArg(in_expr->compare.left, out_expr);
+      ConvertExprArg(in_expr->compare.right, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CONVERT: {
       auto* out_expr = new ConversionExpression(
-          ConvOperator(in_expr.convert.op.op_type), in_expr.convert.op.type2,
-          in_expr.convert.op.type);
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.convert.expr, in_func, out_func));
+          ConvOperator(in_expr->convert.op.op_type), in_expr->convert.op.type2,
+          in_expr->convert.op.type);
+      ConvertExprArg(in_expr->convert.expr, out_expr);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CAST: {
-      auto* out_expr =
-          new ConversionExpression(CastOperator(in_expr.cast.op.op_type),
-                                   in_expr.cast.op.type2, in_expr.cast.op.type);
-      out_expr->exprs.emplace_back(
-          ConvertExpression(*in_expr.cast.expr, in_func, out_func));
+      auto* out_expr = new ConversionExpression(
+          CastOperator(in_expr->cast.op.op_type), in_expr->cast.op.type2,
+          in_expr->cast.op.type);
+      ConvertExprArg(in_expr->cast.expr, out_expr);
       return out_expr;
     }
     default:
@@ -463,23 +474,18 @@ static Expression* ConvertExpression(const WasmExpr& in_expr,
   }
 }
 
-static void ConvertFunction(const WasmFunc& in_func, Function* out_func) {
-  for (size_t i = 0; i < in_func.exprs.size; ++i) {
-    out_func->body.emplace_back(
-        ConvertExpression(*in_func.exprs.data[i], in_func, *out_func));
-  }
-}
-
-static Module* ConvertModule(const WasmModule& in_mod) {
+Module* Parser::ConvertModule(WasmModule* in_mod) {
+  in_module_ = in_mod;
   std::unique_ptr<Module> out_mod(new Module());
-  // First set up module-level constructs: segments, functions, imports, exports
+  out_module_ = out_mod.get();
+  // First set up module-level constructs: Segments, functions, imports, exports
   // Memory segment declarations and initializers
-  if (in_mod.memory) {
-    out_mod->initial_memory_size = in_mod.memory->initial_size;
-    out_mod->max_memory_size = in_mod.memory->max_size;
-    if (in_mod.memory->segments.size) {
-      for (size_t i = 0; i < in_mod.memory->segments.size; ++i) {
-        const WasmSegment* in_seg = &in_mod.memory->segments.data[i];
+  if (in_mod->memory) {
+    out_mod->initial_memory_size = in_mod->memory->initial_size;
+    out_mod->max_memory_size = in_mod->memory->max_size;
+    if (in_mod->memory->segments.size) {
+      for (size_t i = 0; i < in_mod->memory->segments.size; ++i) {
+        const WasmSegment* in_seg = &in_mod->memory->segments.data[i];
         out_mod->segments.emplace_back(new Segment(in_seg->size, in_seg->addr));
         Segment* out_seg = out_mod->segments.back().get();
         out_seg->initial_data.resize(out_seg->size);
@@ -489,9 +495,9 @@ static Module* ConvertModule(const WasmModule& in_mod) {
   }
   // Functions, with locals/params
   std::unordered_map<std::string, Function*> functions_by_name;
-  out_mod->functions.reserve(in_mod.funcs.size);
-  for (size_t i = 0; i < in_mod.funcs.size; ++i) {
-    const WasmFunc* in_func = in_mod.funcs.data[i];
+  out_mod->functions.reserve(in_mod->funcs.size);
+  for (size_t i = 0; i < in_mod->funcs.size; ++i) {
+    const WasmFunc* in_func = in_mod->funcs.data[i];
     out_mod->functions.emplace_back(
         new Function(in_func->result_type, in_func->name, i));
     Function* out_func = out_mod->functions.back().get();
@@ -521,8 +527,8 @@ static Module* ConvertModule(const WasmModule& in_mod) {
     }
   }
   // Imports, with signatures
-  for (size_t i = 0; i < in_mod.imports.size; ++i) {
-    const WasmImport* in_import = in_mod.imports.data[i];
+  for (size_t i = 0; i < in_mod->imports.size; ++i) {
+    const WasmImport* in_import = in_mod->imports.data[i];
     assert(in_import->import_type == WASM_IMPORT_HAS_FUNC_SIGNATURE);
     out_mod->imports.emplace_back(new Import(in_import->func_sig.result_type,
                                              in_import->name,
@@ -536,8 +542,8 @@ static Module* ConvertModule(const WasmModule& in_mod) {
     }
   }
   // Exports
-  for (size_t i = 0; i < in_mod.exports.size; ++i) {
-    const WasmExport* in_export = in_mod.exports.data[i];
+  for (size_t i = 0; i < in_mod->exports.size; ++i) {
+    const WasmExport* in_export = in_mod->exports.data[i];
     Function* func;
     if (in_export->var.type == WASM_VAR_TYPE_INDEX) {
       func = out_mod->functions[in_export->var.index].get();
@@ -553,9 +559,16 @@ static Module* ConvertModule(const WasmModule& in_mod) {
   }
 
   // Convert the functions
-  for (size_t i = 0; i < in_mod.funcs.size; ++i) {
-    ConvertFunction(*in_mod.funcs.data[i], out_mod->functions[i].get());
+  for (size_t i = 0; i < in_mod->funcs.size; ++i) {
+    in_func_ = in_mod->funcs.data[i];
+    out_func_ = out_mod->functions[i].get();
+    for (size_t j = 0; j < in_func_->exprs.size; ++j) {
+      out_func_->body.emplace_back(ConvertExpression(in_func_->exprs.data[j]));
+    }
+    in_func_ = nullptr;
+    out_func_ = nullptr;
   }
+  out_module_ = nullptr;
   return out_mod.release();
 }
 
@@ -563,7 +576,7 @@ int Parser::ConvertAST(const WasmScript& script) {
   for (size_t i = 0; i < script.commands.size; ++i) {
     WasmCommand* command = &script.commands.data[i];
     if (command->type == WASM_COMMAND_TYPE_MODULE) {
-      modules.emplace_back(ConvertModule(command->module));
+      modules.emplace_back(ConvertModule(&command->module));
     }
   }
   return 0;

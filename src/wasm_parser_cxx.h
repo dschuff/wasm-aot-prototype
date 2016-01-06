@@ -46,17 +46,22 @@ class Parser {
     fputs(message, stderr);
   }
   int ConvertAST(const WasmScript& script);
+  Module* ConvertModule(WasmModule* in_mod);
+  void ConvertExprArg(WasmExpr* in_expr, Expression* out_expr);
+  void ConvertExprArgVector(const WasmExprPtrVector& vec, Expression* out_expr);
+  Expression* ConvertExpression(WasmExpr* in_expr);
 
   // ErrorCallback error_callback_ = DefaultErrorCallback;
   WasmScanner scanner_;
   WasmParser parser_ = {};
 
-  // Module* module = nullptr;
   std::string filename_;
   bool desugar_;
-  // Function* current_func_ = nullptr;
+  Module* out_module_ = nullptr;
+  Function* out_func_ = nullptr;
+  WasmModule* in_module_ = nullptr;
+  WasmFunc* in_func_ = nullptr;
   // TestScriptExpr* current_assert_return_ = nullptr;
-  // Type current_type_ = Type::kVoid;
 };
 
 }  // namespace wasm
