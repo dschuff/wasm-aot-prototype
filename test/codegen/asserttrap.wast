@@ -25,8 +25,3 @@
 ;; CHECK: call void @__wasm_assert_trap(i32 23, void ()* @Invoke_23
 ;; @Invoke should have void return and no args
 ;; CHECK: define void @Invoke_23()
-(assert_trap (invoke "voidret" (block (f64.const 1)(f64.const 2))) "voidret")
-;; CHECK: define void @AssertTrap_28()
-;; CHECK: call void @__wasm_assert_trap(i32 28, void ()* @Invoke_28
-;; @Invoke should have void return and no args
-;; CHECK: define void @Invoke_28()

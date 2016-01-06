@@ -2,7 +2,7 @@
 ;; Check that the -spec-test-script flag is required to accept this file.
 ;; RUN: not wat -S %s
 
-;; CHECK: @__wasm_init_array = appending global [8 x void ()*] [void ()* @.assertreturn_ctor, void ()* @AssertReturn_19, void ()* @AssertReturn_31, void ()* @AssertReturn_42, void ()* @AssertReturn_47, void ()* @AssertTrap_52, void ()* @AssertTrap_53, void ()* null]
+;; CHECK: @__wasm_init_array = appending global [7 x void ()*] [void ()* @.assertreturn_ctor, void ()* @AssertReturn_19, void ()* @AssertReturn_31, void ()* @AssertReturn_42, void ()* @AssertTrap_47, void ()* @AssertTrap_48, void ()* null]
 ;; CHECK: @__wasm_fini_array = appending global [2 x void ()*] [void ()* @.assertreturn_dtor, void ()* null]
 
 (module
@@ -38,15 +38,10 @@
 ;; CHECK: define float @Invoke
 ;; CHECK: call float @"$bar"(float 0.000000e+00
 
-;; ok to use more complex exprs
-(assert_return
-  (invoke "bar"
-    (block (f32.const 1) (f32.const 10)))
-  (f32.const 11))
 
 (assert_return (invoke "baz"))
-;; CHECK: define void @AssertReturn_47()
-;; CHECK: call void @Invoke_47()
+;; CHECK: define void @AssertReturn_42()
+;; CHECK: call void @Invoke_42()
 ;; CHECK: ret void
 
 (assert_trap (invoke "foo") "foo")

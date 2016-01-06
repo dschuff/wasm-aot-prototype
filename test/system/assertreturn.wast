@@ -13,12 +13,6 @@
 
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 0))
 
-;; ok to use more complex exprs
-(assert_return
-  (invoke "bar"
-    (block (f32.const 1) (f32.const 10)))
-  (f32.const 10))
-
 (assert_return_nan (invoke "ret_arg" (f64.const nan)))
 (assert_return_nan (invoke "ret_arg" (f64.const -nan)))
 (assert_return_nan (invoke "bar" (f32.const -nan)))

@@ -14,11 +14,5 @@
 
 (assert_return (invoke "bar" (f32.const 0)) (f32.const 1))
 
-;; ok to use more complex exprs
-(assert_return
-  (invoke "bar"
-    (block (f32.const 1) (f32.const 10)))
-  (f32.const 1))
-
 (assert_return_nan (invoke "ret_arg" (f64.const 0)))
-;; CHECK: Assertion failure in assert_return_nan on line 23: expected NaN, got 0
+;; CHECK: Assertion failure in assert_return_nan on line 17: expected NaN, got 0

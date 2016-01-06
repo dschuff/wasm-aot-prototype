@@ -1,7 +1,7 @@
 ;; Test that the binary encoding of the dump matches that of the original
 ;; RUN: sexpr_dump -spec-test-script %s > %t1
-;; RUN: sexpr-wasm --spec -d %t1 > %t2
-;; RUN: sexpr-wasm --spec -d %s | diff - %t2
+;; RUN: sexpr-wasm --spec %t1 > %t2
+;; RUN: sexpr-wasm --spec %s | diff - %t2
 ;; Printing src locs with assert statements means that files with different
 ;; names have different output when dumped, so we can't do the round tripping
 ;; test, but, that's OK for asserts.
@@ -22,10 +22,10 @@
 ;; ok to use more complex exprs
 (assert_return
   (invoke "bar"
-    (block (f32.const 1) (f32.const 10)))
+    (f32.const 10))
   (f32.const 11))
 
-(assert_return (invoke "foo") (block (i32.const 1)(nop)(i32.const 2)))
+(assert_return (invoke "foo") (i32.const 2))
 
 (assert_trap (invoke "foo") "foo")
 (assert_trap (invoke "bar" (f32.const 1)) "bar")
