@@ -206,8 +206,8 @@ class Expression {
     kConvert,
     kMemory,
   };
-  Expression(ExpressionKind k, Type ty)
-      : kind(k), expr_type(ty), expected_type(ty) {}
+  Expression(ExpressionKind k, Type ty, Type expected_ty)
+      : kind(k), expr_type(ty), expected_type(expected_ty) {}
   ExpressionKind kind;
   Type expr_type = Type::kUnknown;
   Type expected_type = Type::kUnknown;
@@ -217,14 +217,17 @@ class Expression {
 
 class ConstantExpression final : public Expression {
  public:
-  ConstantExpression(Type ty) : Expression(kConst, ty) { literal.type = ty; };
+  ConstantExpression(Type ty, Type expected_ty)
+      : Expression(kConst, ty, expected_ty) {
+    literal.type = ty;
+  };
   Literal literal;
 };
 
 class CallExpression final : public Expression {
  public:
-  CallExpression(int idx, bool imp, Callable* c)
-      : Expression(kCallDirect, c->result_type),
+  CallExpression(int idx, bool imp, Callable* c, Type expected_ty)
+      : Expression(kCallDirect, c->result_type, expected_ty),
         callee_index(idx),
         is_import(imp),
         callee(c) {};
@@ -237,28 +240,29 @@ class LocalExpression final : public Expression {
  public:
   // TODO: After updating to AST parser, consider standardizing on factories
   // everywhere, or constructors everywhere.
-  static LocalExpression* GetGetLocal(Variable* v) {
-    return new LocalExpression(kGetLocal, v);
+  static LocalExpression* GetGetLocal(Variable* v, Type expected_ty) {
+    return new LocalExpression(kGetLocal, v, expected_ty);
   }
-  static LocalExpression* GetSetLocal(Variable* v) {
-    return new LocalExpression(kSetLocal, v);
+  static LocalExpression* GetSetLocal(Variable* v, Type expected_ty) {
+    return new LocalExpression(kSetLocal, v, expected_ty);
   }
   Variable* local_var;
 
  private:
-  LocalExpression(ExpressionKind k, Variable* v)
-      : Expression(k, v->type), local_var(v) {};
+  LocalExpression(ExpressionKind k, Variable* v, Type expected_ty)
+      : Expression(k, v->type, expected_ty), local_var(v) {};
 };
 
 class MemoryExpression final : public Expression {
  public:
   MemoryExpression(MemoryOperator op,
                    Type ty,
+                   Type expected_ty,
                    MemType mem_ty,
                    uint32_t align,
                    uint64_t off,
                    bool sign)
-      : Expression(kMemory, ty),
+      : Expression(kMemory, ty, expected_ty),
         memop(op),
         mem_type(mem_ty),
         alignment(align),
@@ -273,30 +277,37 @@ class MemoryExpression final : public Expression {
 
 class UnaryExpression final : public Expression {
  public:
-  UnaryExpression(UnaryOperator op, Type ty)
-      : Expression(kUnary, ty), unop(op) {};
+  UnaryExpression(UnaryOperator op, Type ty, Type expected_ty)
+      : Expression(kUnary, ty, expected_ty), unop(op) {};
   UnaryOperator unop;
 };
 
 class BinaryExpression final : public Expression {
  public:
-  BinaryExpression(BinaryOperator op, Type ty)
-      : Expression(kBinary, ty), binop(op) {};
+  BinaryExpression(BinaryOperator op, Type ty, Type expected_ty)
+      : Expression(kBinary, ty, expected_ty), binop(op) {};
   BinaryOperator binop;
 };
 
 class CompareExpression final : public Expression {
  public:
-  CompareExpression(Type ct, CompareOperator op)
-      : Expression(kCompare, Type::kI32), compare_type(ct), relop(op) {};
+  CompareExpression(Type ct, CompareOperator op, Type expected_ty)
+      : Expression(kCompare, Type::kI32, expected_ty),
+        compare_type(ct),
+        relop(op) {};
   Type compare_type = Type::kUnknown;
   CompareOperator relop;
 };
 
 class ConversionExpression final : public Expression {
  public:
-  ConversionExpression(ConversionOperator op, Type op_ty, Type result_ty)
-      : Expression(kConvert, result_ty), cvt(op), operand_type(op_ty) {};
+  ConversionExpression(ConversionOperator op,
+                       Type op_ty,
+                       Type result_ty,
+                       Type expected_ty)
+      : Expression(kConvert, result_ty, expected_ty),
+        cvt(op),
+        operand_type(op_ty) {};
   ConversionOperator cvt;
   //   Technically redundant with cvt, but handy to have.
   Type operand_type = Type::kUnknown;

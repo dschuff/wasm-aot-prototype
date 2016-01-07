@@ -48,9 +48,13 @@ class Parser {
   }
   int ConvertAST(const WasmScript& script, bool spec_script_mode);
   Module* ConvertModule(WasmModule* in_mod);
-  void ConvertExprArg(WasmExpr* in_expr, Expression* out_expr);
-  void ConvertExprArgVector(const WasmExprPtrVector& vec, Expression* out_expr);
-  Expression* ConvertExpression(WasmExpr* in_expr);
+  void ConvertExprArg(WasmExpr* in_expr,
+                      Expression* out_expr,
+                      Type expected_type);
+  void ConvertBlockArgs(const WasmExprPtrVector& in_vec,
+                        UniquePtrVector<Expression>* out_vec,
+                        Type expected_type);
+  Expression* ConvertExpression(WasmExpr* in_expr, Type expected_type);
   TestScriptExpr* ConvertInvoke(const WasmCommandInvoke& invoke);
   TestScriptExpr* ConvertTestScriptExpr(WasmCommand* command);
 

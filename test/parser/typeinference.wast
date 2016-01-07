@@ -1,7 +1,7 @@
 ;; Test that the binary encoding of the dump matches that of the original
 ;; RUN: sexpr_dump -spec-test-script %s > %t1
-;; RUN: sexpr-wasm --spec -d %t1 > %t2
-;; RUN : sexpr-wasm --spec -d %s | diff - %t2 ;; TODO: investigate?
+;; RUN: sexpr-wasm --spec %t1 > %t2
+;; RUN : sexpr-wasm --spec  %s | diff - %t2 ;; TODO: investigate?
 ;; Test the type inference
 ;; RUN: sexpr_dump -spec-test-script -t %s | FileCheck %s
 (module
@@ -69,21 +69,14 @@
 
 (func (i64.extend_u/i32 (i32.const 0)))
 ;; CHECK: i64.extend_u/i32 [i32->i32](i32.const 0
+
+(func (f64.add (f64.const 4)(f64.const 5)))
+;; CHECK: [f64->f64](f64.const
 )
 ;; invoke
 (invoke "foo" (f64.const 1.0))
 ;; CHECK: [f64->f64](f64.const
 ;; CHECK: assert_return
 
-(assert_return (invoke "foo" (f64.const 5)) (block (i32.const 1)(nop)(f64.const 2)))
-;; CHECK: [f64->f64](f64.const
-;; CHECK: [f64->f64](block
-;; CHECK: [void->i32](i32.const
-;; CHECK: [void->void](nop
-;; CHECK: [f64->f64](f64.const
-
 (assert_return_nan (invoke "foo" (f64.const 5)))
-;; CHECK: [f64->f64](f64.const
-
-(assert_trap (invoke "foo" (f64.add (f64.const 4)(f64.const 5))) "ignored")
 ;; CHECK: [f64->f64](f64.const

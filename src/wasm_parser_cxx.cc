@@ -5,152 +5,6 @@
 #include <cassert>
 #include <cstring>
 
-namespace {
-// Despite its name, this class does not do much checking of expected types,
-// (the parser does type checking already) but it sets them from the top down
-// (which is not done during parsing). The expectations are neede for some code
-// generation.
-class TypeChecker : public wasm::AstVisitor<void, void> {
- public:
-  void VisitExpression(wasm::Expression* expr) override {
-    AstVisitor::VisitExpression(expr);
-  }
-
- protected:
-  void VisitFunction(const wasm::Function& f) override {
-    current_function_ = &f;
-    for (auto& expr : f.body)
-      expr->expected_type = wasm::Type::kVoid;
-    if (!f.body.empty())
-      f.body.back()->expected_type = f.result_type;
-    AstVisitor::VisitFunction(f);
-  }
-  void VisitBlock(wasm::Expression* expr,
-                  wasm::UniquePtrVector<wasm::Expression>* exprs) override {
-    auto& back = exprs->back();
-    for (auto& e : *exprs) {
-      if (e == back) {
-        e->expected_type = expr->expected_type;
-      } else {
-        e->expected_type = wasm::Type::kVoid;
-      }
-      VisitExpression(e.get());
-    }
-  }
-  void VisitIf(wasm::Expression* expr,
-               wasm::Expression* condition,
-               wasm::Expression* then,
-               wasm::Expression* els) override {
-    // TODO: explicitly convert the condition result to i32
-    condition->expected_type = wasm::Type::kI32;
-    VisitExpression(condition);
-    then->expected_type = expr->expected_type;
-    VisitExpression(then);
-    if (els) {
-      els->expected_type = expr->expected_type;
-      VisitExpression(els);
-    }
-  }
-  void VisitArgs(wasm::Callable* callee,
-                 wasm::UniquePtrVector<wasm::Expression>* args) {
-    int i = 0;
-    for (auto& arg : *args) {
-      assert(arg->expected_type == wasm::Type::kUnknown ||
-             arg->expected_type == callee->args[i]->type);
-      arg->expected_type = callee->args[i]->type;
-      CheckType(arg->expected_type, callee->args[i]->type);
-      ++i;
-      VisitExpression(arg.get());
-    }
-  }
-  void VisitCall(wasm::CallExpression* expr,
-                 bool is_import,
-                 wasm::Callable* callee,
-                 int callee_index,
-                 wasm::UniquePtrVector<wasm::Expression>* args) override {
-    VisitArgs(callee, args);
-  }
-  void VisitReturn(wasm::Expression* expr,
-                   wasm::UniquePtrVector<wasm::Expression>* value) override {
-    if (value->size()) {
-      value->back()->expected_type = current_function_->result_type;
-      VisitExpression(value->back().get());
-    }
-  }
-  void VisitSetLocal(wasm::LocalExpression* expr,
-                     wasm::Variable* var,
-                     wasm::Expression* value) override {
-    value->expected_type = var->type;
-    VisitExpression(value);
-  }
-  void VisitMemory(wasm::Expression* expr,
-                   wasm::MemoryOperator memop,
-                   wasm::MemType mem_type,
-                   uint32_t mem_alignment,
-                   uint64_t mem_offset,
-                   bool is_signed,
-                   wasm::Expression* address,
-                   wasm::Expression* store_val) override {
-    address->expected_type = wasm::Type::kI32;  // TODO: wasm64
-    VisitExpression(address);
-    if (store_val) {
-      store_val->expected_type = expr->expr_type;
-      VisitExpression(store_val);
-    }
-  }
-  void VisitUnop(wasm::Expression* expr,
-                 wasm::UnaryOperator unop,
-                 wasm::Expression* operand) override {
-    operand->expected_type = expr->expr_type;
-    VisitExpression(operand);
-  }
-  void VisitBinop(wasm::Expression* expr,
-                  wasm::BinaryOperator binop,
-                  wasm::Expression* lhs,
-                  wasm::Expression* rhs) override {
-    lhs->expected_type = expr->expr_type;
-    VisitExpression(lhs);
-    rhs->expected_type = expr->expr_type;
-    VisitExpression(lhs);
-  }
-  void VisitCompare(wasm::Expression* expr,
-                    wasm::Type compare_type,
-                    wasm::CompareOperator relop,
-                    wasm::Expression* lhs,
-                    wasm::Expression* rhs) override {
-    lhs->expected_type = compare_type;
-    VisitExpression(lhs);
-    rhs->expected_type = compare_type;
-    VisitExpression(rhs);
-  }
-  void VisitConversion(wasm::ConversionExpression* expr,
-                       wasm::ConversionOperator cvt,
-                       wasm::Expression* operand) override {
-    operand->expected_type = expr->operand_type;
-    VisitExpression(operand);
-  }
-  void VisitInvoke(wasm::TestScriptExpr* expr,
-                   wasm::Export* callee,
-                   wasm::UniquePtrVector<wasm::Expression>* args) override {
-    VisitArgs(callee->function, args);
-  }
-
- private:
-  static void CheckType(wasm::Type expected, wasm::Type actual) {
-    assert(expected != wasm::Type::kUnknown);
-    assert(actual != wasm::Type::kUnknown);
-    if (expected != wasm::Type::kVoid && actual != wasm::Type::kAny &&
-        actual != expected) {
-      fprintf(stderr,
-              "Type mismatch: expected %d, actual %d\n",
-              (WasmType)expected,
-              (WasmType)actual);
-    }
-  }
-  const wasm::Function* current_function_ = nullptr;
-};
-}
-
 namespace wasm {
 
 static UnaryOperator UnopOperator(WasmUnaryOpType opcode) {
@@ -411,19 +265,15 @@ static bool IsMemOpSigned(WasmMemOpType opcode) {
   }
 }
 
-void Parser::ConvertExprArg(WasmExpr* in_expr, Expression* out_expr) {
-  out_expr->exprs.emplace_back(ConvertExpression(in_expr));
+void Parser::ConvertExprArg(WasmExpr* in_expr,
+                            Expression* out_expr,
+                            Type expected_type) {
+  out_expr->exprs.emplace_back(ConvertExpression(in_expr, expected_type));
 }
 
-void Parser::ConvertExprArgVector(const WasmExprPtrVector& vec,
-                                  Expression* out_expr) {
-  for (size_t i = 0; i < vec.size; ++i) {
-    ConvertExprArg(vec.data[i], out_expr);
-  }
-}
-
-static ConstantExpression* ConvertConstant(const WasmConst& in_const) {
-  auto* out_expr = new ConstantExpression(in_const.type);
+static ConstantExpression* ConvertConstant(const WasmConst& in_const,
+                                           Type expected_type) {
+  auto* out_expr = new ConstantExpression(in_const.type, expected_type);
   switch (out_expr->expr_type) {
     case WASM_TYPE_I32:
       out_expr->literal.value.i32 = in_const.u32;
@@ -442,106 +292,145 @@ static ConstantExpression* ConvertConstant(const WasmConst& in_const) {
   }
 }
 
-Expression* Parser::ConvertExpression(WasmExpr* in_expr) {
+void Parser::ConvertBlockArgs(const WasmExprPtrVector& in_vec,
+                              UniquePtrVector<Expression>* out_vec,
+                              Type expected_type) {
+  for (size_t i = 0; i < in_vec.size; ++i) {
+    Type expected(i < in_vec.size - 1 ? (Type)Type::kVoid : expected_type);
+    out_vec->emplace_back(ConvertExpression(in_vec.data[i], expected));
+  }
+}
+
+Expression* Parser::ConvertExpression(WasmExpr* in_expr, Type expected_type) {
   switch (in_expr->type) {
     case WASM_EXPR_TYPE_CONST: {
-      return ConvertConstant(in_expr->const_);
+      return ConvertConstant(in_expr->const_, expected_type);
     }
     case WASM_EXPR_TYPE_NOP:
-      return new Expression(Expression::kNop, Type::kVoid);
+      return new Expression(Expression::kNop, Type::kVoid, expected_type);
     case WASM_EXPR_TYPE_BLOCK: {
-      auto* out_expr = new Expression(Expression::kBlock, Type::kVoid);
-      ConvertExprArgVector(in_expr->block.exprs, out_expr);
-      if (out_expr->exprs.size())
+      auto* out_expr =
+          new Expression(Expression::kBlock, Type::kVoid, expected_type);
+      ConvertBlockArgs(in_expr->block.exprs, &out_expr->exprs, expected_type);
+      if (out_expr->exprs.size()) {
         out_expr->expr_type = out_expr->exprs.back()->expr_type;
+      }
       return out_expr;
     }
     case WASM_EXPR_TYPE_RETURN: {
-      auto* out_expr = new Expression(Expression::kReturn, Type::kAny);
+      auto* out_expr =
+          new Expression(Expression::kReturn, Type::kAny, expected_type);
       if (in_expr->return_.expr)
-        ConvertExprArg(in_expr->return_.expr, out_expr);
+        ConvertExprArg(in_expr->return_.expr, out_expr, out_func_->result_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CALL: {
       int index = wasm_get_func_index_by_var(in_module_, &in_expr->call.var);
-      auto* out_expr =
-          new CallExpression(index, false, out_module_->functions[index].get());
-      ConvertExprArgVector(in_expr->call.args, out_expr);
+      auto* callee = out_module_->functions[index].get();
+      auto* out_expr = new CallExpression(index, false, callee, expected_type);
+      for (size_t i = 0; i < in_expr->call.args.size; ++i) {
+        ConvertExprArg(
+            in_expr->call.args.data[i], out_expr, callee->args[i]->type);
+      }
       return out_expr;
     }
     case WASM_EXPR_TYPE_CALL_IMPORT: {
       int index = wasm_get_import_index_by_var(in_module_, &in_expr->call.var);
-      auto* out_expr =
-          new CallExpression(index, true, out_module_->imports[index].get());
-      ConvertExprArgVector(in_expr->call.args, out_expr);
+      auto* callee = out_module_->imports[index].get();
+      auto* out_expr = new CallExpression(index, true, callee, expected_type);
+      for (size_t i = 0; i < in_expr->call.args.size; ++i) {
+        ConvertExprArg(
+            in_expr->call.args.data[i], out_expr, callee->args[i]->type);
+      }
       return out_expr;
     }
     case WASM_EXPR_TYPE_GET_LOCAL: {
       int local_index =
           wasm_get_local_index_by_var(in_func_, &in_expr->get_local.var);
-      return LocalExpression::GetGetLocal(out_func_->locals[local_index].get());
+      return LocalExpression::GetGetLocal(out_func_->locals[local_index].get(),
+                                          expected_type);
     }
     case WASM_EXPR_TYPE_SET_LOCAL: {
       int local_index =
           wasm_get_local_index_by_var(in_func_, &in_expr->set_local.var);
-      auto* out_expr =
-          LocalExpression::GetSetLocal(out_func_->locals[local_index].get());
-      ConvertExprArg(in_expr->set_local.expr, out_expr);
+      auto* out_expr = LocalExpression::GetSetLocal(
+          out_func_->locals[local_index].get(), expected_type);
+      ConvertExprArg(in_expr->set_local.expr,
+                     out_expr,
+                     out_func_->locals[local_index]->type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_LOAD: {
-      auto* out_expr = new MemoryExpression(
-          kLoad, in_expr->load.op.type,
-          MemOperandType(in_expr->load.op.op_type), in_expr->load.align,
-          in_expr->load.offset, IsMemOpSigned(in_expr->load.op.op_type));
+      auto* out_expr =
+          new MemoryExpression(kLoad,
+                               in_expr->load.op.type,
+                               expected_type,
+                               MemOperandType(in_expr->load.op.op_type),
+                               in_expr->load.align,
+                               in_expr->load.offset,
+                               IsMemOpSigned(in_expr->load.op.op_type));
       assert((unsigned)in_expr->load.op.size ==
              out_expr->mem_type.GetSizeInBits());
-      ConvertExprArg(in_expr->load.addr, out_expr);
+      ConvertExprArg(in_expr->load.addr, out_expr, Type::kI32);
       return out_expr;
     }
     case WASM_EXPR_TYPE_STORE: {
-      auto* out_expr = new MemoryExpression(
-          kStore, in_expr->store.op.type,
-          MemOperandType(in_expr->store.op.op_type), in_expr->store.align,
-          in_expr->store.offset, false);
+      auto* out_expr =
+          new MemoryExpression(kStore,
+                               in_expr->store.op.type,
+                               expected_type,
+                               MemOperandType(in_expr->store.op.op_type),
+                               in_expr->store.align,
+                               in_expr->store.offset,
+                               false);
       assert((unsigned)in_expr->store.op.size ==
              out_expr->mem_type.GetSizeInBits());
-      ConvertExprArg(in_expr->store.addr, out_expr);
-      ConvertExprArg(in_expr->store.value, out_expr);
+      ConvertExprArg(in_expr->store.addr, out_expr, Type::kI32);
+      ConvertExprArg(in_expr->store.value, out_expr, out_expr->expr_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_UNARY: {
-      auto* out_expr = new UnaryExpression(
-          UnopOperator(in_expr->unary.op.op_type), in_expr->unary.op.type);
-      ConvertExprArg(in_expr->unary.expr, out_expr);
+      auto* out_expr =
+          new UnaryExpression(UnopOperator(in_expr->unary.op.op_type),
+                              in_expr->unary.op.type,
+                              expected_type);
+      ConvertExprArg(in_expr->unary.expr, out_expr, out_expr->expr_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_BINARY: {
-      auto* out_expr = new BinaryExpression(
-          BinopOperator(in_expr->binary.op.op_type), in_expr->binary.op.type);
-      ConvertExprArg(in_expr->binary.left, out_expr);
-      ConvertExprArg(in_expr->binary.right, out_expr);
+      auto* out_expr =
+          new BinaryExpression(BinopOperator(in_expr->binary.op.op_type),
+                               in_expr->binary.op.type,
+                               expected_type);
+      ConvertExprArg(in_expr->binary.left, out_expr, out_expr->expr_type);
+      ConvertExprArg(in_expr->binary.right, out_expr, out_expr->expr_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_COMPARE: {
-      auto* out_expr = new CompareExpression(
-          in_expr->compare.op.type, CmpOperator(in_expr->compare.op.op_type));
-      ConvertExprArg(in_expr->compare.left, out_expr);
-      ConvertExprArg(in_expr->compare.right, out_expr);
+      auto* out_expr =
+          new CompareExpression(in_expr->compare.op.type,
+                                CmpOperator(in_expr->compare.op.op_type),
+                                expected_type);
+      ConvertExprArg(in_expr->compare.left, out_expr, out_expr->compare_type);
+      ConvertExprArg(in_expr->compare.right, out_expr, out_expr->compare_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CONVERT: {
-      auto* out_expr = new ConversionExpression(
-          ConvOperator(in_expr->convert.op.op_type), in_expr->convert.op.type2,
-          in_expr->convert.op.type);
-      ConvertExprArg(in_expr->convert.expr, out_expr);
+      auto* out_expr =
+          new ConversionExpression(ConvOperator(in_expr->convert.op.op_type),
+                                   in_expr->convert.op.type2,
+                                   in_expr->convert.op.type,
+                                   expected_type);
+      ConvertExprArg(in_expr->convert.expr, out_expr, out_expr->operand_type);
       return out_expr;
     }
     case WASM_EXPR_TYPE_CAST: {
-      auto* out_expr = new ConversionExpression(
-          CastOperator(in_expr->cast.op.op_type), in_expr->cast.op.type2,
-          in_expr->cast.op.type);
-      ConvertExprArg(in_expr->cast.expr, out_expr);
+      auto* out_expr =
+          new ConversionExpression(CastOperator(in_expr->cast.op.op_type),
+                                   in_expr->cast.op.type2,
+                                   in_expr->cast.op.type,
+                                   expected_type);
+      ConvertExprArg(in_expr->cast.expr, out_expr, out_expr->operand_type);
       return out_expr;
     }
     default:
@@ -640,9 +529,7 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
   for (size_t i = 0; i < in_mod->funcs.size; ++i) {
     in_func_ = in_mod->funcs.data[i];
     out_func_ = out_mod->functions[i].get();
-    for (size_t j = 0; j < in_func_->exprs.size; ++j) {
-      out_func_->body.emplace_back(ConvertExpression(in_func_->exprs.data[j]));
-    }
+    ConvertBlockArgs(in_func_->exprs, &out_func_->body, out_func_->result_type);
     in_func_ = nullptr;
     out_func_ = nullptr;
   }
@@ -659,7 +546,8 @@ TestScriptExpr* Parser::ConvertInvoke(const WasmCommandInvoke& invoke) {
   expr->type = callee->function->result_type;
   assert(out_module_->functions[invoke_index].get() == callee->function);
   for (size_t i = 0; i < invoke.args.size; ++i) {
-    auto* arg_expr = ConvertConstant(invoke.args.data[i]);
+    auto* arg_expr =
+        ConvertConstant(invoke.args.data[i], callee->function->args[i]->type);
     expr->exprs.emplace_back(arg_expr);
   }
   return expr;
@@ -671,13 +559,14 @@ TestScriptExpr* Parser::ConvertTestScriptExpr(WasmCommand* command) {
       return ConvertInvoke(command->invoke);
     }
     case WASM_COMMAND_TYPE_ASSERT_RETURN: {
-      auto* expr =
-          new TestScriptExpr(out_module_, TestScriptExpr::kAssertReturn,
-                             command->assert_return.invoke.loc);
+      auto* expr = new TestScriptExpr(out_module_,
+                                      TestScriptExpr::kAssertReturn,
+                                      command->assert_return.invoke.loc);
       expr->invoke.reset(ConvertInvoke(command->assert_return.invoke));
       if (command->assert_return.expected.type != WASM_TYPE_VOID) {
         expr->exprs.emplace_back(
-            ConvertConstant(command->assert_return.expected));
+            ConvertConstant(command->assert_return.expected,
+                            command->assert_return.expected.type));
         expr->type = expr->exprs.back()->expr_type;
       } else {
         expr->type = Type::kVoid;
@@ -685,15 +574,16 @@ TestScriptExpr* Parser::ConvertTestScriptExpr(WasmCommand* command) {
       return expr;
     }
     case WASM_COMMAND_TYPE_ASSERT_RETURN_NAN: {
-      auto* expr =
-          new TestScriptExpr(out_module_, TestScriptExpr::kAssertReturnNaN,
-                             command->assert_return_nan.invoke.loc);
+      auto* expr = new TestScriptExpr(out_module_,
+                                      TestScriptExpr::kAssertReturnNaN,
+                                      command->assert_return_nan.invoke.loc);
       expr->invoke.reset(ConvertInvoke(command->assert_return_nan.invoke));
       expr->type = expr->invoke->type;
       return expr;
     }
     case WASM_COMMAND_TYPE_ASSERT_TRAP: {
-      auto* expr = new TestScriptExpr(out_module_, TestScriptExpr::kAssertTrap,
+      auto* expr = new TestScriptExpr(out_module_,
+                                      TestScriptExpr::kAssertTrap,
                                       command->assert_trap.invoke.loc);
       expr->invoke.reset(ConvertInvoke(command->assert_trap.invoke));
       expr->trap_text.assign(command->assert_trap.text.start,
