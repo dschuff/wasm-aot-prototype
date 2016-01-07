@@ -32,8 +32,8 @@ WAT_SRCS = waot_visitor.cc wat.cc
 WAT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAT_SRCS))
 
 
-LLVM_PATH ?= /s/llvm-upstream/release_37/build
-LLVM_BUILD_PATH ?= $(LLVM_PATH)
+LLVM_PATH ?= /s/llvm-upstream/release_37/install
+LLVM_BUILD_PATH ?= $(LLVM_PATH)/../build
 LLVM_CONFIG = $(LLVM_PATH)/bin/llvm-config
 
 LLVM_CPPFLAGS := $(shell $(LLVM_CONFIG) --cppflags)
