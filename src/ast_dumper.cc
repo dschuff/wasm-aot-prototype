@@ -154,7 +154,7 @@ void AstDumper::VisitIf(Expression* expr,
                         Expression* condition,
                         Expression* then,
                         Expression* els) {
-  printf("(if ");
+  printf(els ? "(if_else " : "(if ");
   VisitExpression(condition);
   VisitExpression(then);
   if (els)

@@ -59,6 +59,7 @@ class AstVisitor {
       case Expression::kBlock:
         return VisitBlock(expr, &expr->exprs);
       case Expression::kIf:
+      case Expression::kIfElse:
         return VisitIf(expr,
                        expr->exprs[0].get(),
                        expr->exprs[1].get(),

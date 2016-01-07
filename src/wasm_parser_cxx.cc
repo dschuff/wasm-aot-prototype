@@ -319,9 +319,28 @@ Expression* Parser::ConvertExpression(WasmExpr* in_expr, Type expected_type) {
     }
     case WASM_EXPR_TYPE_RETURN: {
       auto* out_expr =
-          new Expression(Expression::kReturn, Type::kAny, expected_type);
-      if (in_expr->return_.expr)
+          new Expression(Expression::kReturn, Type::kUnknown, expected_type);
+      if (in_expr->return_.expr) {
         ConvertExprArg(in_expr->return_.expr, out_expr, out_func_->result_type);
+        out_expr->expr_type = out_expr->exprs.back()->expr_type;
+      }
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_IF: {
+      auto* out_expr =
+          new Expression(Expression::kIf, Type::kUnknown, expected_type);
+      ConvertExprArg(in_expr->if_.cond, out_expr, Type::kI32);
+      ConvertExprArg(in_expr->if_.true_, out_expr, expected_type);
+      out_expr->expr_type = out_expr->exprs.back()->expr_type;
+      return out_expr;
+    }
+    case WASM_EXPR_TYPE_IF_ELSE: {
+      auto* out_expr =
+          new Expression(Expression::kIfElse, Type::kUnknown, expected_type);
+      ConvertExprArg(in_expr->if_else.cond, out_expr, Type::kI32);
+      ConvertExprArg(in_expr->if_else.true_, out_expr, expected_type);
+      ConvertExprArg(in_expr->if_else.false_, out_expr, expected_type);
+      out_expr->expr_type = out_expr->exprs.back()->expr_type;
       return out_expr;
     }
     case WASM_EXPR_TYPE_CALL: {

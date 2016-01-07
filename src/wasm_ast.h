@@ -195,6 +195,7 @@ class Expression {
     kNop,
     kBlock,
     kIf,
+    kIfElse,
     kCallDirect,
     kReturn,
     kGetLocal,

@@ -47,7 +47,7 @@
 
 ;; check polymorphic return
 (func(param f32) (result f32) (return (get_local 0)))
-;; CHECK: [f32->(any)](return
+;; CHECK: [f32->f32](return
 ;; CHECK: [f32->f32](get_local
 
 ;; check set_local
