@@ -37,7 +37,9 @@ LLVM_BUILD_PATH ?= $(LLVM_PATH)/../build
 LLVM_CONFIG = $(LLVM_PATH)/bin/llvm-config
 
 LLVM_CPPFLAGS := $(shell $(LLVM_CONFIG) --cppflags)
-LLVM_LIBS := $(shell $(LLVM_CONFIG) --libs)
+LLVM_LIBS := -lLLVM
+# was $(shell $(LLVM_CONFIG) --libs) but this seems broken on mac for dylib
+# TODO: Fix for BUILD_SHARED_LIBS
 LLVM_LIBDIR := $(shell $(LLVM_CONFIG) --libdir)
 LLVM_SYSTEMLIBS := $(shell  $(LLVM_CONFIG) --system-libs)
 
@@ -78,7 +80,7 @@ $(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS)
 	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)
 
 $(OUT_DIR)/wat: $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
-	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS)
+	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)
 
 $(PARSER_SRC)/wasm-keywords.h: $(PARSER_SRC)/wasm-keywords.gperf
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@

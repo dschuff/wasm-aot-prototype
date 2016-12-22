@@ -294,11 +294,9 @@ void WAOTVisitor::VisitImport(const wasm::Import& imp) {
 }
 
 void WAOTVisitor::VisitExport(const wasm::Export& exp) {
-  llvm::GlobalAlias::create(functions_[exp.function]->getType(),
-                            Function::ExternalLinkage,
+  llvm::GlobalAlias::create(Function::ExternalLinkage,
                             Mangle(exp.module->name, exp.name),
-                            functions_[exp.function],
-                            module_);
+                            functions_[exp.function]);
 }
 
 void WAOTVisitor::VisitSegment(const wasm::Segment& seg) {
@@ -1039,7 +1037,7 @@ void WAOTVisitor::FinishLLVMModule() {
       *module_,
       llvm::ArrayType::get(initfini_fn_ty_, init_funcs_.size()),
       false,
-      llvm::GlobalVariable::LinkageTypes::AppendingLinkage,
+      llvm::GlobalVariable::LinkageTypes::ExternalLinkage,
       nullptr,
       "__wasm_init_array");
   init_array->setInitializer(llvm::ConstantArray::get(
@@ -1048,7 +1046,7 @@ void WAOTVisitor::FinishLLVMModule() {
       *module_,
       llvm::ArrayType::get(initfini_fn_ty_, fini_funcs_.size()),
       false,
-      llvm::GlobalVariable::LinkageTypes::AppendingLinkage,
+      llvm::GlobalVariable::LinkageTypes::ExternalLinkage,
       nullptr,
       "__wasm_fini_array");
   fini_array->setInitializer(llvm::ConstantArray::get(

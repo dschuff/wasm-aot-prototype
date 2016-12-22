@@ -25,6 +25,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -75,7 +76,7 @@ static llvm::cl::opt<bool> g_disable_verify(
     llvm::cl::init(false));
 
 int main(int argc, char** argv) {
-  llvm::sys::PrintStackTraceOnErrorSignal();
+  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
   llvm::PrettyStackTraceProgram X(argc, argv);
   llvm::llvm_shutdown_obj Shutdown;  // Call llvm_shutdown() on exit.
   llvm::cl::ParseCommandLineOptions(argc, argv, "wasm IR dumper\n");
@@ -112,8 +113,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  llvm::LLVMContext& context = llvm::getGlobalContext();
+  llvm::LLVMContext context;
+  // For now, only native builds are supported, and emitted modules don't
+  // specify a target triple.
+  llvm::PassBuilder PB(nullptr);
   llvm::ModulePassManager mpm{};
+  llvm::ModuleAnalysisManager mam;
+  PB.registerModuleAnalyses(mam);
   assert(g_print_asm);  // For now, only support printing assembly.
   if (!g_disable_verify)
     mpm.addPass(llvm::VerifierPass());
@@ -164,7 +170,7 @@ int main(int argc, char** argv) {
   }
   converter.FinishLLVMModule();
 
-  mpm.run(*llvm_module);
+  mpm.run(*llvm_module, mam);
   output->keep();
 
   return 0;

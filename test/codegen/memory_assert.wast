@@ -6,7 +6,7 @@
   (export "foo" $foo)
 )
 
-;; CHECK: @__wasm_fini_array = appending global [3 x void ()*] [void ()* @.memory_assert_dtor, void ()* @.module1_dtor, void ()* null]
+;; CHECK: @__wasm_fini_array = global [3 x void ()*] [void ()* @.memory_assert_dtor, void ()* @.module1_dtor, void ()* null]
 
 ;; CHECK: define internal void @.memory_assert_ctor() {
 ;; CHECK: call void @__wasm_init_memory(i8* getelementptr {{.*}} @.wasm_membase{{.*}}, i64 100)
