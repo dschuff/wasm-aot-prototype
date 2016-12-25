@@ -17,7 +17,7 @@
 #ifndef WASM_AST_H
 #define WASM_AST_H
 
-#include "wasm.h"
+#include "ast.h"
 
 #include <cassert>
 #include <memory>
@@ -30,7 +30,7 @@ class Module;
 template <typename T>
 using UniquePtrVector = std::vector<std::unique_ptr<T>>;
 
-static_assert(WASM_TYPE_ALL == 15, "wasm::Type enum needs to be adjusted");
+static_assert(WASM_TYPE_ANY == 0, "wasm::Type enum needs to be adjusted");
 // Type is basically just an enum, but implicitly convertible from WasmType.
 // It also includes an "unknown" state used during construction/type fixup.
 class Type {
@@ -41,12 +41,12 @@ class Type {
     kI64 = WASM_TYPE_I64,
     kF32 = WASM_TYPE_F32,
     kF64 = WASM_TYPE_F64,
-    kAny = WASM_TYPE_ALL,
+    kAny = WASM_TYPE_ANY,
     kUnknown,
   } Type_;
   Type(Type_ t) : value_(t) {}
   Type(WasmType t) : value_(static_cast<Type_>(t)) {
-    assert(t <= WASM_TYPE_ALL && "Bad Type initializer");
+    assert(t <= WASM_TYPE_ANY && "Bad Type initializer");
   }
   operator Type_() const { return value_; }
   explicit operator WasmType() const { return static_cast<WasmType>(value_); }
@@ -383,7 +383,7 @@ class Module {
 class SourceLocation {
  public:
   SourceLocation(const WasmLocation& loc)
-      : filename(loc.filename), line(loc.first_line), col(loc.first_column) {}
+      : filename(loc.filename), line(loc.line), col(loc.first_column) {}
   // For now there's only ever one file per run, but it's simpler to keep the
   // filename here.  If there gets to be SourceLocs for every expr, we probably
   // want to dedup the filename info.

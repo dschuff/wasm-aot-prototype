@@ -20,6 +20,9 @@ PARSER_SRCS = wasm-check.c wasm-lexer.c wasm-parser.c wasm-vector.c wasm.c
 PARSER_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(PARSER_SRCS))
 WASMGEN_SRCS = sexpr-wasm.c wasm-binary-writer.c wasm-writer.c
 WASMGEN_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(WASMGEN_SRCS))
+WABT = $(PWD)/third_party/wabt
+LIBWABT = $(OUT_DIR)/libwabt.a
+WABT_OUT = $(OUT_DIR)/wabt
 
 PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parser.h $(PARSER_SRC)/wasm-common.h
 
@@ -68,16 +71,24 @@ all: $(OUT_DIR) $(addprefix $(OUT_DIR)/,$(ALL))
 $(OUT_DIR)/:
 	mkdir $@
 
-$(OUT_DIR)/%.o: %.c $(PARSER_HEADERS)
-	$(CC) $(CFLAGS) -I$(PARSER_SRC) -c -Wno-unused-function -Wno-return-type -o $@ $<
-$(OUT_DIR)/%.o: %.cc $(PARSER_HEADERS) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
-	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(PARSER_SRC) -Wno-format $(CFLAGS) -c -o $@ $<
+$(WABT_OUT)/:
+	mkdir $@
+
+$(OUT_DIR)/%.o: %.c $(LIBWABT)
+	$(CC) $(CFLAGS) -I$(WABT)/src -I$(WABT_OUT) -c -Wno-unused-function -Wno-return-type -o $@ $<
+$(OUT_DIR)/%.o: %.cc $(LIBWABT) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
+	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(WABT)/src -I$(WABT_OUT) -Wno-format $(CFLAGS) -c -o $@ $<
 
 $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS) $(LDFLAGS)
 
-$(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) 
-	$(CXX) -o $@ out/sexpr_dump.o $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)
+$(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(LIBWABT) $(WASM_CPP_OBJS)
+	$(CXX) -o $@ out/sexpr_dump.o $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS) -lwabt
+
+$(LIBWABT): $(WABT)
+	(cd $(WABT_OUT) && cmake $(WABT) -DBUILD_TESTS=OFF)
+	make -C $(WABT_OUT)
+	cp -a $(WABT_OUT)/libwasm.a $@
 
 $(OUT_DIR)/wat: $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
 	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)

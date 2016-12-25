@@ -15,7 +15,6 @@
  */
 
 #include "ast_dumper.h"
-#include "wasm.h"
 #include "wasm_parser_cxx.h"
 
 #include "llvm/Support/CommandLine.h"

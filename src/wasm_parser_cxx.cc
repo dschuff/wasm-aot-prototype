@@ -481,7 +481,7 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
   exports_map_.clear();
   // First set up module-level constructs: Segments, functions, imports, exports
   // Memory segment declarations and initializers
-  if (in_mod->memory) {
+  /*if (in_mod->memory) {
     out_mod->initial_memory_size = in_mod->memory->initial_size;
     out_mod->max_memory_size = in_mod->memory->max_size;
     if (in_mod->memory->segments.size) {
@@ -493,7 +493,7 @@ Module* Parser::ConvertModule(WasmModule* in_mod) {
         memcpy(out_seg->initial_data.data(), in_seg->data, in_seg->size);
       }
     }
-  }
+    }*/
   // Functions, with locals/params
   std::unordered_map<std::string, Function*> functions_by_name;
   out_mod->functions.reserve(in_mod->funcs.size);

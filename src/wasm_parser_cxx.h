@@ -19,7 +19,12 @@
 
 #include <unordered_map>
 
-#include "wasm.h"
+// WABT includes
+#include "ast.h"
+#include "ast-parser.h"
+#include "validator.h"
+
+// WAOT includes
 #include "wasm_ast.h"
 
 namespace wasm {
@@ -31,52 +36,47 @@ class Parser {
     (void)(desugar_);
   }
   int Parse(bool spec_script_mode) {
-    scanner_ = wasm_new_scanner(filename_.c_str());
-    if (!scanner_)
+    int ret = 1;
+    WasmAstLexer* lexer =
+        wasm_new_ast_file_lexer(wasm_get_libc_allocator(), filename_.c_str());
+    if (!lexer_)
       return 1;
-    int result = wasm_parse(scanner_, &parser_);
-    result = result || parser_.errors;
-    wasm_free_scanner(scanner_);
-    WasmScript* script = &parser_.script;
-    if (result != WASM_OK) {
-      wasm_destroy_script(script);
-      return result;
-    }
 
-    result = wasm_check_script(script);
-    if (result != WASM_OK) {
-      wasm_destroy_script(script);
-      return result;
-    }
+    WasmSourceErrorHandler error_handler = WASM_SOURCE_ERROR_HANDLER_DEFAULT;
+    WasmScript script;
+    WasmResult result = wasm_parse_ast(lexer, &script, &error_handler);
 
-    result = result || ConvertAST(*script, spec_script_mode);
-    return result;
+    if (WASM_SUCCEEDED(result)) {
+      result = wasm_validate_script(wasm_get_libc_allocator(), lexer, &script,
+                                    &error_handler);
+    }
+    // For now, don't support assert_{invalid,malformed}
+    if (WASM_SUCCEEDED(result)) {
+      ret = ConvertAST(script, spec_script_mode);
+    }
+    wasm_destroy_ast_lexer(lexer);
+    wasm_destroy_script(&script);
+    wasm_destroy_allocator(wasm_get_libc_allocator());
+    return ret;
   }
 
   UniquePtrVector<Module> modules;
   UniquePtrVector<TestScriptExpr> test_script;
 
  private:
-  typedef void (*ErrorCallback)(const char*);
-  static void DefaultErrorCallback(const char* message) {
-    fputs("Error: ", stderr);
-    fputs(message, stderr);
-  }
   int ConvertAST(const WasmScript& script, bool spec_script_mode);
   Module* ConvertModule(WasmModule* in_mod);
   void ConvertExprArg(WasmExpr* in_expr,
                       Expression* out_expr,
                       Type expected_type);
-  void ConvertBlockArgs(const WasmExprPtrVector& in_vec,
+  void ConvertBlockArgs(const WasmExpr* in_vec,
                         UniquePtrVector<Expression>* out_vec,
                         Type expected_type);
   Expression* ConvertExpression(WasmExpr* in_expr, Type expected_type);
-  TestScriptExpr* ConvertInvoke(const WasmCommandInvoke& invoke);
+  TestScriptExpr* ConvertInvoke(const WasmCommand& invoke);
   TestScriptExpr* ConvertTestScriptExpr(WasmCommand* command);
 
-  ErrorCallback error_callback_ = DefaultErrorCallback;
-  WasmScanner scanner_;
-  WasmParser parser_ = {};
+  WasmAstLexer* lexer_;
 
   std::string filename_;
   bool desugar_;
