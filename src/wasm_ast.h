@@ -179,6 +179,7 @@ class Literal {
   union {
     uint32_t i32;
     uint64_t i64;
+    // TODO: Make these bag-of-bits instead of C++ types
     float f32;
     double f64;
   } value;
@@ -371,6 +372,7 @@ class Segment {
 
 class Module {
  public:
+  static constexpr const uint32_t kPageSize =  16 * 1024;
   UniquePtrVector<Segment> segments;
   UniquePtrVector<Function> functions;
   UniquePtrVector<Export> exports;

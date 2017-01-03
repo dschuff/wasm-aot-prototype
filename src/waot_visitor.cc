@@ -17,7 +17,8 @@
 #include "waot_visitor.h"
 #include "ast_dumper.h"
 #include "wart_trap.h"
-#include "wasm.h"
+// WABT
+#include "ast.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"

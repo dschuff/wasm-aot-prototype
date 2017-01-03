@@ -34,14 +34,14 @@ class Parser {
   Parser(const std::string& filename, bool desugar)
       : filename_(filename), desugar_(desugar) {
     (void)(desugar_);
+    allocator_ = wasm_get_libc_allocator();
   }
   int Parse(bool spec_script_mode) {
     int ret = 1;
     WasmAstLexer* lexer =
         wasm_new_ast_file_lexer(wasm_get_libc_allocator(), filename_.c_str());
-    if (!lexer_)
+    if (!lexer)
       return 1;
-
     WasmSourceErrorHandler error_handler = WASM_SOURCE_ERROR_HANDLER_DEFAULT;
     WasmScript script;
     WasmResult result = wasm_parse_ast(lexer, &script, &error_handler);
@@ -72,12 +72,11 @@ class Parser {
   void ConvertBlockArgs(const WasmExpr* in_vec,
                         UniquePtrVector<Expression>* out_vec,
                         Type expected_type);
-  Expression* ConvertExpression(WasmExpr* in_expr, Type expected_type);
-  TestScriptExpr* ConvertInvoke(const WasmCommand& invoke);
+  Expression* ConvertExpression(const WasmExpr* in_expr, Type expected_type);
+  TestScriptExpr* ConvertInvoke(const WasmAction& invoke);
   TestScriptExpr* ConvertTestScriptExpr(WasmCommand* command);
 
-  WasmAstLexer* lexer_;
-
+  WasmAllocator* allocator_;
   std::string filename_;
   bool desugar_;
   Module* out_module_ = nullptr;
@@ -85,6 +84,14 @@ class Parser {
   WasmModule* in_module_ = nullptr;
   WasmFunc* in_func_ = nullptr;
   std::unordered_map<const WasmExport*, Export*> exports_map_;
+  std::vector<Expression*> expr_stack_;
+  Expression* Push(Expression* e) { expr_stack_.push_back(e); return e; }
+  Expression* Pop() {
+    assert(expr_stack_.size());
+    Expression* e = expr_stack_.back();
+    expr_stack_.pop_back();
+    return e;
+  }
 };
 
 }  // namespace wasm

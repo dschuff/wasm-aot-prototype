@@ -16,9 +16,10 @@
 
 #include "ast_dumper.h"
 #include "waot_visitor.h"
-#include "wasm.h"
 #include "wasm_parser_cxx.h"
 
+// WABT
+#include "ast.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IRPrintingPasses.h"

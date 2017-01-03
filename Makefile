@@ -9,7 +9,8 @@ CFLAGS ?= -Wall -Werror -g -O0
 # flags by default) but we don't want ALL of LLVM's cflags (e.g. warning flags,
 # -fPIC)
 CXXFLAGS = -std=c++11 -fno-exceptions -fno-rtti
-LDFLAGS =
+LDFLAGS = -L$(OUT_DIR)
+LIBS = -lwabt
 
 PARSER_SRC = third_party/sexpr-wasm-prototype/src
 OUT_DIR = out
@@ -53,7 +54,7 @@ ifeq ($(OS), Linux)
 # Support -DBUILD_SHARED_LIBS on Linux
 OS_LDFLAGS := -Wl,-rpath=$(LLVM_LIBDIR) -Wl,--as-needed
 else
-OS_LDFLAGS :=
+OS_LDFLAGS := -Wl,-rpath $(LLVM_LIBDIR)
 endif
 
 LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags) $(OS_LDFLAGS)
@@ -66,7 +67,7 @@ endif
 
 
 .PHONY: all
-all: $(OUT_DIR) $(addprefix $(OUT_DIR)/,$(ALL))
+all: $(OUT_DIR) $(WABT_OUT) $(addprefix $(OUT_DIR)/,$(ALL))
 
 $(OUT_DIR)/:
 	mkdir $@
@@ -82,16 +83,17 @@ $(OUT_DIR)/%.o: %.cc $(LIBWABT) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
 $(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
 	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS) $(LDFLAGS)
 
-$(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(LIBWABT) $(WASM_CPP_OBJS)
-	$(CXX) -o $@ out/sexpr_dump.o $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS) -lwabt
-
 $(LIBWABT): $(WABT)
-	(cd $(WABT_OUT) && cmake $(WABT) -DBUILD_TESTS=OFF)
-	make -C $(WABT_OUT)
+	(cd $(WABT_OUT) && cmake $(WABT_OUT) $(WABT) -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug)
+	make -C $(WABT_OUT) VERBOSE=1
 	cp -a $(WABT_OUT)/libwasm.a $@
+	cp -a $(WABT_OUT)/wast2wasm $(OUT_DIR)
 
-$(OUT_DIR)/wat: $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS)
-	$(CXX) -o $@ $(WAT_OBJS) $(PARSER_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS)
+$(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(LIBWABT) $(WASM_CPP_OBJS)
+	$(CXX) -o $@ out/sexpr_dump.o $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS) $(LIBS)
+
+$(OUT_DIR)/wat: $(WAT_OBJS) $(WASM_CPP_OBJS)
+	$(CXX) -o $@ $(WAT_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS) $(LIBS)
 
 $(PARSER_SRC)/wasm-keywords.h: $(PARSER_SRC)/wasm-keywords.gperf
 	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@

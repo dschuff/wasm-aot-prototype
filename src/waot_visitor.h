@@ -15,9 +15,10 @@
  */
 
 #include "ast_visitor.h"
-#include "wasm.h"
 #include "wasm_ast.h"
 
+// WABT
+#include "ast.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
