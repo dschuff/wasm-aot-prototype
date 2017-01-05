@@ -462,6 +462,10 @@ Value* WAOTVisitor::VisitCall(wasm::CallExpression* expr,
   return irb_.CreateCall(functions_[callee], arg_values);
 }
 
+Value* WAOTVisitor::VisitDrop(wasm::Expression* expr, wasm::Expression* value) {
+  return VisitExpression(value);
+}
+
 Value* WAOTVisitor::VisitReturn(
     wasm::Expression* expr,
     wasm::UniquePtrVector<wasm::Expression>* value) {
@@ -605,16 +609,17 @@ Value* WAOTVisitor::VisitUnop(wasm::Expression* expr,
 
 static Instruction::BinaryOps GetBinopOpcode(wasm::Type type,
                                              wasm::BinaryOperator binop) {
+  assert(type.IsInt() || type.IsFloat());
   switch (binop) {
     case wasm::kAdd:
-      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Add
-                                      : Instruction::BinaryOps::FAdd;
+      return type.IsInt() ? Instruction::BinaryOps::Add
+                          : Instruction::BinaryOps::FAdd;
     case wasm::kSub:
-      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Sub
-                                      : Instruction::BinaryOps::FSub;
+      return type.IsInt() ? Instruction::BinaryOps::Sub
+                          : Instruction::BinaryOps::FSub;
     case wasm::kMul:
-      return type <= wasm::Type::kI64 ? Instruction::BinaryOps::Mul
-                                      : Instruction::BinaryOps::FMul;
+      return type.IsInt() ? Instruction::BinaryOps::Mul
+                          : Instruction::BinaryOps::FMul;
     case wasm::kDivS:
       return Instruction::BinaryOps::SDiv;
     case wasm::kDivU:

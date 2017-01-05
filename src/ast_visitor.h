@@ -85,6 +85,8 @@ class AstVisitor {
         return VisitCall(
             ce, ce->is_import, ce->callee, ce->callee_index, &ce->exprs);
       }
+      case Expression::kDrop:
+        return VisitDrop(expr, expr->exprs.front().get());
       case Expression::kReturn:
         // We don't support multiple returns anymore but it could still be void
         assert(expr->exprs.size() <= 1);
@@ -161,6 +163,10 @@ class AstVisitor {
                             UniquePtrVector<Expression>* args) {
     for (auto& e : *args)
       VisitExpression(e.get());
+    return ExprVal();
+  }
+  virtual ExprVal VisitDrop(Expression* expr, Expression* value) {
+    VisitExpression(value);
     return ExprVal();
   }
   virtual ExprVal VisitReturn(Expression* expr,

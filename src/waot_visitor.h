@@ -74,6 +74,8 @@ class WAOTVisitor : public wasm::AstVisitor<llvm::Module*, llvm::Value*> {
       wasm::Callable* callee,
       int callee_index,
       wasm::UniquePtrVector<wasm::Expression>* args) override;
+  llvm::Value* VisitDrop(wasm::Expression* expr,
+                         wasm::Expression* value) override;
   llvm::Value* VisitReturn(
       wasm::Expression* expr,
       wasm::UniquePtrVector<wasm::Expression>* value) override;

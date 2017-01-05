@@ -1,7 +1,7 @@
 ;; RUN: wat -S %s | FileCheck %s
 (module
 ;; Unnamed local
-(func (local i32) (get_local 0))
+(func (local i32) (drop (get_local 0)))
 ;; CHECK: define internal void @0()
 ;; CHECK: %local = alloca i32
 ;; %get_local = load i32, i32* %local
@@ -15,7 +15,7 @@
 ;; CHECK: ret i32 %get_local
 
 ;; Named local
-(func (local $foo i32) (get_local $foo))
+(func (local $foo i32) (drop (get_local $foo)))
 ;; CHECK: define internal void @2()
 ;; CHECK: %"$foo" = alloca i32
 ;; CHECK: %get_local = load i32, i32* %"$foo"
@@ -29,7 +29,7 @@
 ;; CHECK: ret float %get_local
 
 ;; get local with param
-(func (param i32) (local i32) (get_local 1))
+(func (param i32) (local i32) (drop (get_local 1)))
 ;; CHECK: define internal void @4(i32)
 ;; CHECK: %arg = alloca i32
 ;; CHECK: %local = alloca i32
@@ -48,17 +48,17 @@
 
 ;; CHECK: store i32 %0, i32* %arg
 ;; CHECK: store float %"$n", float* %"$n1"
-    (get_local 0)
+    (drop (get_local 0))
 ;; CHECK: load i32, i32* %arg
-    (get_local 1)
+    (drop (get_local 1))
 ;; CHECK: load float, float* %"$n1"
-    (get_local 2)
+    (drop (get_local 2))
 ;; CHECK: load i32, i32* %local
-    (get_local 3)
+    (drop (get_local 3))
 ;; CHECK: load i64, i64* %local2
-    (get_local $m) ;; 4
+    (drop (get_local $m)) ;; 4
 ;; CHECK: load double, double* %"$m"
-    (get_local 4)
+    (drop (get_local 4))
 ;; CHECK: load double, double* %"$m"
     (get_local $n) ;; 1
 ;; CHECK: %get_local8 = load float, float* %"$n1"

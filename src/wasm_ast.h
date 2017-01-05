@@ -50,6 +50,8 @@ class Type {
   }
   operator Type_() const { return value_; }
   explicit operator WasmType() const { return static_cast<WasmType>(value_); }
+  bool IsInt() { return value_ == kI32 || value_ == kI64; }
+  bool IsFloat() { return value_ == kF32 || value_ == kF64; }
 
  private:
   Type_ value_ = kUnknown;
@@ -214,6 +216,7 @@ class Expression {
     kIf,
     kIfElse,
     kCallDirect,
+    kDrop,
     kReturn,
     kGetLocal,
     kSetLocal,

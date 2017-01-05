@@ -179,6 +179,12 @@ void AstDumper::VisitCall(CallExpression* expr,
   printf(") ");
 }
 
+void AstDumper::VisitDrop(Expression* expr, Expression* value) {
+  printf("(drop ");
+  VisitExpression(value);
+  printf(")\n");
+}
+
 void AstDumper::VisitReturn(Expression* expr,
                             UniquePtrVector<Expression>* value) {
   printf("(return ");

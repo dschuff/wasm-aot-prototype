@@ -44,6 +44,7 @@ class AstDumper : public AstVisitor<void, void> {
                Expression* condition,
                Expression* then,
                Expression* els) override;
+  void VisitDrop(Expression* expr, Expression* value) override;
   void VisitCall(CallExpression* expr,
                  bool is_import,
                  Callable* callee,

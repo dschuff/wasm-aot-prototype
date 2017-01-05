@@ -315,6 +315,10 @@ void Parser::ConvertBlockArgs(const WasmExpr* first,
       out_vec->emplace_back(e);
     cur = cur->next;
   }
+  assert(expr_stack_.size() <= 1);
+  if (expr_stack_.size()) {
+    out_vec->emplace_back(Pop());
+  }
 }
 
 Expression* Parser::ConvertExpression(const WasmExpr* in_expr, Type expected_type) {
@@ -343,23 +347,23 @@ Expression* Parser::ConvertExpression(const WasmExpr* in_expr, Type expected_typ
       }
       return out_expr;
     }
-      /*case WASM_EXPR_TYPE_IF: {
-      auto* out_expr =
-          new Expression(Expression::kIf, Type::kUnknown, expected_type);
-      ConvertExprArg(in_expr->if_.cond, out_expr, Type::kI32);
-      ConvertExprArg(in_expr->if_.true_, out_expr, expected_type);
-      out_expr->expr_type = out_expr->exprs.back()->expr_type;
-      return out_expr;
-    }
-    case WASM_EXPR_TYPE_IF_ELSE: {
-      auto* out_expr =
-          new Expression(Expression::kIfElse, Type::kUnknown, expected_type);
-      ConvertExprArg(in_expr->if_else.cond, out_expr, Type::kI32);
-      ConvertExprArg(in_expr->if_else.true_, out_expr, expected_type);
-      ConvertExprArg(in_expr->if_else.false_, out_expr, expected_type);
-      out_expr->expr_type = out_expr->exprs.back()->expr_type;
-n      return out_expr;
-      }*/
+    /*case WASM_EXPR_TYPE_IF: {
+    auto* out_expr =
+        new Expression(Expression::kIf, Type::kUnknown, expected_type);
+    ConvertExprArg(in_expr->if_.cond, out_expr, Type::kI32);
+    ConvertExprArg(in_expr->if_.true_, out_expr, expected_type);
+    out_expr->expr_type = out_expr->exprs.back()->expr_type;
+    return out_expr;
+  }
+  case WASM_EXPR_TYPE_IF_ELSE: {
+    auto* out_expr =
+        new Expression(Expression::kIfElse, Type::kUnknown, expected_type);
+    ConvertExprArg(in_expr->if_else.cond, out_expr, Type::kI32);
+    ConvertExprArg(in_expr->if_else.true_, out_expr, expected_type);
+    ConvertExprArg(in_expr->if_else.false_, out_expr, expected_type);
+    out_expr->expr_type = out_expr->exprs.back()->expr_type;
+    return out_expr;
+    }*/
     case WASM_EXPR_TYPE_CALL: {
       int index = wasm_get_func_index_by_var(in_module_, &in_expr->call.var);
       auto* callee = out_module_->functions[index].get();
@@ -375,10 +379,11 @@ n      return out_expr;
       return out_expr;
     }
     case WASM_EXPR_TYPE_DROP: {
-      assert(expr_stack_.size() <= 1);
-      if (expr_stack_.size())
-	return Pop();
-      return nullptr;
+      assert(expr_stack_.size() == 1);
+      auto* drop =
+          new Expression(Expression::kDrop, Type::kVoid, expected_type);
+      drop->exprs.emplace_back(Pop());
+      return drop;
     }
     case WASM_EXPR_TYPE_GET_LOCAL: {
       int local_index =
