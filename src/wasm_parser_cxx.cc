@@ -365,7 +365,8 @@ Expression* Parser::ConvertExpression(const WasmExpr* in_expr, Type expected_typ
     return out_expr;
     }*/
     case WASM_EXPR_TYPE_CALL: {
-      int index = wasm_get_func_index_by_var(in_module_, &in_expr->call.var);
+      unsigned index =
+          wasm_get_func_index_by_var(in_module_, &in_expr->call.var);
       auto* callee = out_module_->functions[index].get();
       bool is_import = index < in_module_->num_func_imports;
       auto* out_expr = new CallExpression(index, is_import, callee, expected_type);

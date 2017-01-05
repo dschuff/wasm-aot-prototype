@@ -53,13 +53,21 @@
 // calls to memcpy() with inline object code when the size argument is a
 // compile-time constant.  On a 32-bit system, memcpy(d,s,4) compiles to one
 // load and one store, and memcpy(d,s,8) compiles to two loads and two stores.
+
+// Work around lack of std::is_trivially_copyable in g++ v4.
+#if __GNUG__ && __GNUC__ < 5 && !defined(_LIBCPP_ABI_VERSION)
+#define IS_TRIVIALLY_COPYABLE(T) __has_trivial_copy(T)
+#else
+#define IS_TRIVIALLY_COPYABLE(T) std::is_trivially_copyable<T>::value
+#endif
+
 template <class Dest, class Source>
 inline Dest bit_cast(const Source& source) {
   static_assert(sizeof(Dest) == sizeof(Source),
                 "bit_cast requires source and destination to be the same size");
-  static_assert(std::is_trivially_copyable<Dest>::value,
+  static_assert(IS_TRIVIALLY_COPYABLE(Dest),
                 "bit_cast requires the destination type to be copyable");
-  static_assert(std::is_trivially_copyable<Source>::value,
+  static_assert(IS_TRIVIALLY_COPYABLE(Source),
                 "bit_cast requires the source type to be copyable");
   Dest dest;
   memcpy(&dest, &source, sizeof(dest));

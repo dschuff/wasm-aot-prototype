@@ -29,7 +29,7 @@ WAT_SRCS = waot_visitor.cc wat.cc
 WAT_OBJS = $(patsubst %.cc, $(OUT_DIR)/%.o, $(WAT_SRCS))
 
 
-LLVM_PATH ?= /s/llvm-upstream/release_37/install
+LLVM_PATH ?= /s/wasm-waterfall/src/work/wasm-install
 LLVM_BUILD_PATH ?= $(LLVM_PATH)/../build
 LLVM_CONFIG = $(LLVM_PATH)/bin/llvm-config
 
@@ -71,7 +71,7 @@ $(WABT_OUT)/:
 $(OUT_DIR)/%.o: %.c $(LIBWABT)
 	$(CC) $(CFLAGS) -I$(WABT)/src -I$(WABT_OUT) -c -Wno-unused-function -Wno-return-type -o $@ $<
 $(OUT_DIR)/%.o: %.cc $(LIBWABT) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
-	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(WABT)/src -I$(WABT_OUT) -Wno-format $(CFLAGS) -c -o $@ $<
+	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -Isrc -I$(WABT)/src -I$(WABT_OUT) -Wno-format $(CFLAGS) -c -o $@ $<
 
 
 $(LIBWABT): $(WABT)
