@@ -12,20 +12,13 @@ CXXFLAGS = -std=c++11 -fno-exceptions -fno-rtti
 LDFLAGS = -L$(OUT_DIR)
 LIBS = -lwabt
 
-PARSER_SRC = third_party/sexpr-wasm-prototype/src
 OUT_DIR = out
 
-VPATH = $(PARSER_SRC):src:$(OUT_DIR)
+VPATH = src:$(OUT_DIR)
 
-PARSER_SRCS = wasm-check.c wasm-lexer.c wasm-parser.c wasm-vector.c wasm.c
-PARSER_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(PARSER_SRCS))
-WASMGEN_SRCS = sexpr-wasm.c wasm-binary-writer.c wasm-writer.c
-WASMGEN_OBJS = $(patsubst %.c, $(OUT_DIR)/%.o, $(WASMGEN_SRCS))
 WABT = $(PWD)/third_party/wabt
 LIBWABT = $(OUT_DIR)/libwabt.a
 WABT_OUT = $(OUT_DIR)/wabt
-
-PARSER_HEADERS = $(PARSER_SRC)/wasm.h $(PARSER_SRC)/wasm-parser.h $(PARSER_SRC)/wasm-common.h
 
 WASM_CPP_HEADERS = wasm_parser_cxx.h wasm_ast.h ast_visitor.h ast_dumper.h
 WASM_CPP_SRCS = wasm_parser_cxx.cc wasm_ast.cc ast_dumper.cc
@@ -80,8 +73,6 @@ $(OUT_DIR)/%.o: %.c $(LIBWABT)
 $(OUT_DIR)/%.o: %.cc $(LIBWABT) $(WASM_CPP_HEADERS) $(WAOT_HEADERS)
 	$(CXX) $(LLVM_CPPFLAGS) $(CXXFLAGS) -I$(WABT)/src -I$(WABT_OUT) -Wno-format $(CFLAGS) -c -o $@ $<
 
-$(OUT_DIR)/sexpr-wasm: out/sexpr-wasm.o $(PARSER_OBJS) $(WASMGEN_OBJS)
-	$(CC) -o $@ $(PARSER_OBJS) $(WASMGEN_OBJS) $(LDFLAGS)
 
 $(LIBWABT): $(WABT)
 	(cd $(WABT_OUT) && cmake $(WABT_OUT) $(WABT) -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug)
@@ -95,8 +86,6 @@ $(OUT_DIR)/sexpr_dump: out/sexpr_dump.o $(LIBWABT) $(WASM_CPP_OBJS)
 $(OUT_DIR)/wat: $(WAT_OBJS) $(WASM_CPP_OBJS)
 	$(CXX) -o $@ $(WAT_OBJS) $(WASM_CPP_OBJS) $(LDFLAGS) $(LLVM_LDFLAGS) $(LLVM_LIBS) $(LLVM_SYSTEMLIBS) $(LIBS)
 
-$(PARSER_SRC)/wasm-keywords.h: $(PARSER_SRC)/wasm-keywords.gperf
-	gperf --compare-strncmp --readonly-tables --struct-type $< --output-file $@
 
 #### RUNTIME ###
 RUNTIME_CC = $(CC)
@@ -123,7 +112,7 @@ runtime: $(OUT_DIR)/libwart.a $(TEST_CC)
 
 #### TESTS ####
 .PHONY: test
-test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/sexpr-wasm $(OUT_DIR)/wat runtime
+test: $(OUT_DIR) $(OUT_DIR)/sexpr_dump $(OUT_DIR)/wat runtime
 	PATH=$(PATH):$(LLVM_PATH)/bin $(LLVM_BUILD_PATH)/bin/llvm-lit -sv test/
 #### CLEAN ####
 .PHONY: clean
